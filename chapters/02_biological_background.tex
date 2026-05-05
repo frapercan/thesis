@@ -151,15 +151,79 @@ based on their observed frequency in alignments of related proteins.
 
 \Glspl{plm} are neural networks trained on large corpora of protein sequences
 using self-supervised objectives borrowed from natural language processing.
-Models such as ESM-2~\cite{lin2023esm2} and ProtTrans~\cite{elnaggar2022prottrans}
-learn to predict masked residues, in doing so developing internal representations
-that capture evolutionary, structural, and functional information.
+Models trained with a masked language modelling objective on hundreds of
+millions of sequences develop internal representations that capture
+evolutionary, structural, and functional information without explicit
+supervision.
 
 A protein sequence can be passed through such a model to obtain a dense vector
 (embedding) that encodes its properties in a continuous latent space. Proteins
 with similar functions tend to cluster together in this space even when their
-sequences have diverged below the homology detection threshold of alignment-based
-tools. This property makes embeddings attractive for annotation transfer.
+sequences have diverged below the homology detection threshold of
+alignment-based tools, which is what makes embeddings attractive for annotation
+transfer.
+
+\subsection{The 2020--2024 Generation: Sequence-Only Encoders}
+\label{subsec:plm-seq}
+
+The first generation of practical \glspl{plm} for function prediction was based
+on Transformer encoders trained with a masked language modelling objective on
+sequence-only corpora.
+
+\textbf{ESM-1b}~\cite{rives2021esm1b} and the \textbf{ESM-2}
+family~\cite{lin2023esm2} (Meta AI) span eight model sizes from 8M to 15B
+parameters, all trained on UniRef50 / UniRef90. Each scale increment is
+accompanied by a measurable gain on structure prediction and remote-homology
+detection benchmarks. PROTEA evaluates ESM-2 at three operating points (650M,
+3B, 15B) to characterise the accuracy/throughput trade-off.
+
+\textbf{ProtTrans}~\cite{elnaggar2022prottrans} provides a suite of encoder
+models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on \gls{bfd} and
+UniRef100 using distributed HPC resources. ProtT5-XL achieves the best
+per-residue and per-protein accuracy among the ProtTrans variants.
+
+\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder--decoder model trained on
+UniRef50 with a focused objective and aggressive vocabulary tuning. It reports
+state-of-the-art accuracy on several downstream tasks at a fraction of the
+parameter count of the largest ESM-2 variants.
+
+\subsection{The 2024--2025 Generation: Structure-Aware and Distilled Models}
+\label{subsec:plm-modern}
+
+Three trends shape the most recent generation: integration of structural
+signal during training, further parameter efficiency, and sequence/structure
+multi-modal representations.
+
+\textbf{ProstT5}~\cite{heinzinger2023prostt5} extends ProtT5 with a bilingual
+sequence-to-3Di mapping (3Di is the Foldseek structural alphabet derived from
+predicted three-dimensional structures), letting the model encode structural
+information without an explicit 3D input. The same encoder serves both
+sequence-only and structure-aware downstream tasks.
+
+\textbf{ESM-3}~\cite{hayes2024esm3} is a multi-modal generative model over
+sequence, structure and function tokens, reaching parameter scales up to 98B.
+For embedding-based downstream applications PROTEA uses the lighter component
+encoder (ESM-3c), which provides per-residue and per-protein embeddings
+comparable in interface to the ESM-2 family.
+
+\textbf{ESM-C}~\cite{esm2024esmc} (released in late 2024 by EvolutionaryScale)
+is a family of efficient sequence-only encoders distilled from larger ESM-3
+variants. ESM-C 300M and 600M deliver embeddings competitive with ESM-2 3B at
+a fraction of the inference cost, making it the smallest backend at which
+PROTEA achieves strong CAFA-style performance.
+
+\subsection{Inference Cost and the Operating-Point Question}
+\label{subsec:plm-cost}
+
+Each PLM occupies a distinct operating point on the accuracy/throughput
+trade-off. ESM-2 15B produces the strongest embeddings but requires several
+days on a single A100 to embed 500,000 sequences; ESM-C 300M produces
+embeddings of comparable downstream quality on the same hardware in under a
+day. Choosing a backend is therefore a deployment decision more than a
+modelling one, and a platform that operationalises PLM-based annotation at
+scale must abstract the choice cleanly. \Cref{chap:design} describes how
+PROTEA implements that abstraction through the \texttt{EmbeddingBackend}
+plugin contract.
 
 % ────────────────────────────────────────────────────────────
 \section{Taxonomic Classification}

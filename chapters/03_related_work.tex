@@ -101,16 +101,35 @@ of sequences develop internal representations — embeddings — that capture
 evolutionary relationships, secondary and tertiary structure propensities, and
 functional sites, without any explicit structural or functional supervision.
 
-\textbf{ESM-1b} and \textbf{ESM-2}~\cite{lin2023esm2} (Meta AI) are transformer
-models trained on UniRef50/90. ESM-2 scales from 8M to 15B parameters; the
-larger variants generate embeddings that outperform BLAST-based transfer at
-low-identity regimes. ESM-2 embeddings serve as the primary representation in
-PROTEA.
+\textbf{ESM-1b}~\cite{rives2021esm1b} and the \textbf{ESM-2}
+family~\cite{lin2023esm2} (Meta AI) are transformer encoders trained on
+UniRef50/90, scaling from 8M to 15B parameters. The larger variants generate
+embeddings that outperform BLAST-based transfer at low-identity regimes. ESM-2
+embeddings have served as the de-facto baseline representation in the function
+prediction literature since 2023.
 
 \textbf{ProtTrans}~\cite{elnaggar2022prottrans} provides a suite of encoder
-models (ProtBERT, ProtXLNet, ProtT5) trained on BFD and UniRef100 using
-distributed HPC resources. ProtT5-XL achieves the best per-residue and per-protein
-accuracy among the ProtTrans variants.
+models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on BFD and UniRef100
+using distributed HPC resources. ProtT5-XL achieves the best per-residue and
+per-protein accuracy among the ProtTrans variants.
+
+\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder--decoder model that
+matches or exceeds the ESM-2 3B baseline on multiple downstream tasks while
+using a fraction of the parameters, achieved through aggressive vocabulary
+tuning and a re-thought training recipe.
+
+The 2024--2025 generation moves in three complementary directions. First,
+\textbf{ProstT5}~\cite{heinzinger2023prostt5} introduces structural awareness
+without requiring explicit 3D input by training a sequence-to-3Di translation
+on top of ProtT5, where 3Di is the structural alphabet introduced by
+Foldseek~\cite{vankempen2024foldseek}. Second, \textbf{ESM-3}~\cite{hayes2024esm3}
+unifies sequence, structure and function as multi-modal tokens within a single
+generative model up to 98B parameters; for embedding-based downstream
+applications, the lighter component encoder (ESM-3c) is the practical choice.
+Third, \textbf{ESM-C}~\cite{esm2024esmc} delivers efficient sequence-only
+encoders distilled from ESM-3, with the 300M and 600M variants reaching
+ESM-2 3B performance at a fraction of the inference cost. PROTEA evaluates all
+of these as plug-in backends within a single benchmarking framework.
 
 \textbf{Annotation transfer via nearest neighbours} is the inference strategy
 most naturally paired with embeddings. Given a set of reference proteins with
@@ -128,8 +147,39 @@ as FAISS~\cite{johnson2021faiss} reduce this to $O(Q \sqrt{N})$ with minimal
 accuracy loss for IVFFlat indices.
 
 % ────────────────────────────────────────────────────────────
-\section{CAFA Benchmark and Evaluation Standards}
+\section{Ontology-Aware Representations}
+\label{sec:related-go-embeddings}
+
+The Gene Ontology is a structured \gls{dag}, and several recent methods exploit
+that structure to inject ontology-aware signal into the prediction pipeline,
+rather than treating each \gls{go} term as an independent label.
+
+\textbf{anc2vec}~\cite{edera2022anc2vec} learns a distributed representation of
+each GO term from its ancestor multiset under the \textit{is-a} and
+\textit{part-of} relations. Two terms with overlapping lineage have similar
+anc2vec vectors, providing a feature with which a downstream classifier can
+penalise predictions that contradict the true-path rule. PROTEA uses anc2vec
+features as an input to its re-ranker.
+
+\textbf{GeOKG}~\cite{geokg2025} (Bioinformatics, 2025) extends this idea by
+embedding the GO graph in a multi-curvature space combining hyperbolic and
+Euclidean geometry, motivated by the observation that the GO DAG has both
+tree-like and grid-like substructure that no single-geometry embedding captures
+well. GeOKG-style embeddings are evaluated as a possible replacement for
+anc2vec in \cref{chap:evaluation}.
+
+\textbf{Graph neural networks over the GO DAG} have been investigated for
+end-to-end prediction~\cite{kulmanov2022deepgozero}. They are an attractive
+direction for future work but lie outside the scope of the canonical PROTEA
+pipeline; \cref{chap:conclusion} discusses them in the context of the
+PROTEA-DL pilot.
+
+% ────────────────────────────────────────────────────────────
+\section{Benchmarks and Evaluation Standards}
 \label{sec:related-cafa}
+
+\subsection{CAFA}
+\label{subsec:related-cafa}
 
 The Critical Assessment of Functional Annotation (CAFA)~\cite{zhou2019cafa3}
 challenge provides the community standard for evaluating function prediction
@@ -137,10 +187,25 @@ methods. Participants submit predictions for a set of target proteins; ground
 truth is established retrospectively from experimental annotations deposited
 after the submission deadline.
 
-The primary metric is $F_{\max}$: the maximum $F_1$ score across all prediction
-confidence thresholds, computed separately for each GO aspect. AUPR (area under
-the precision--recall curve) and Smin (semantic distance) are complementary
-measures. PROTEA's evaluation in \cref{chap:evaluation} follows CAFA conventions.
+The primary metric is $F_{\max}$: the maximum $F_1$ score across all
+prediction confidence thresholds, computed separately for each \gls{go}
+aspect. AUPR (area under the precision--recall curve) and Smin (semantic
+distance) are complementary measures. PROTEA's evaluation in
+\cref{chap:evaluation} follows CAFA conventions.
+
+\subsection{Live Continuous Benchmarks: LAFA}
+\label{subsec:related-lafa}
+
+The CAFA cycle releases a frozen evaluation snapshot every two to three years.
+A complementary movement towards always-on, container-based benchmarks has
+emerged with \textbf{LAFA}~\cite{lafa2024} (Live Assessment of Functional
+Annotation, \texttt{functionbench.net}). Participants submit a Docker
+container that consumes a FASTA file and emits predictions in a standardised
+format; the benchmark host runs the container against a periodically updated
+held-out set and publishes results. LAFA lowers the barrier to public
+evaluation: any laboratory with a working method can submit without joining a
+formal challenge cycle. Three pre-built PROTEA configurations are submitted to
+LAFA in \cref{chap:conclusion}.
 
 % ────────────────────────────────────────────────────────────
 \section{Annotation Platforms and Pipelines}

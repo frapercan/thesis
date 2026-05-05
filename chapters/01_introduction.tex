@@ -5,25 +5,34 @@
 \label{sec:motivation}
 
 The pace at which biological sequence data accumulates has long outstripped our
-capacity to characterise proteins experimentally. As of early 2026, UniProt
+capacity to characterise proteins experimentally. As of early 2026, \gls{uniprot}
 contains more than 250 million sequences, yet fewer than 0.02\,\% carry
-experimentally validated functional annotations~\cite{uniprot2023}. The gap is
-not merely quantitative: the proteins that remain unannotated are disproportionately
-found in under-studied organisms, precisely where novel biology — and potential
-therapeutic targets — are most likely to reside.
+experimentally validated functional annotations~\cite{uniprot2023}. The gap is not
+merely quantitative: the proteins that remain unannotated are disproportionately
+found in under-studied organisms, precisely where novel biology, and potential
+therapeutic targets, are most likely to reside.
 
 Computational function prediction attempts to bridge this gap by transferring
-knowledge from characterised proteins to unknown ones. Classical approaches based
-on sequence similarity (BLAST, profile \glspl{hmm}) remain widely used, but their
-accuracy degrades for distantly related sequences. More recently, \glspl{plm}
-trained on hundreds of millions of sequences have produced dense vector
-representations that capture structural and functional signals well beyond what
-classical alignment can detect.
+knowledge from characterised proteins to unknown ones. Classical approaches based on
+sequence similarity (BLAST, profile \glspl{hmm}) remain widely used, but their
+accuracy degrades for distantly related sequences. Over the last five years, however,
+\glspl{plm} trained on hundreds of millions of sequences have produced dense vector
+representations that capture structural and functional signal well beyond what
+classical alignment can detect, and a generation of structure-conditioned models
+(ESM-3, ProstT5) has begun to integrate sequence and structure into a single
+representation. Each new PLM unlocks a new operating point in the accuracy/throughput
+trade-off, but also introduces a new dependency, a new tokeniser, a new GPU memory
+footprint, and a new failure mode. Comparing PLMs at scale, on a fair benchmark, with
+reproducible numbers, is itself a research engineering problem.
 
-PROTEA was designed to operationalise these advances: to take a set of protein
-sequences as input and produce, at scale, ranked \gls{go} term predictions with
-supporting evidence, while remaining accessible to domain experts who are not
-machine-learning engineers.
+PROTEA was designed to address both faces of the problem at once: as a method, it
+operationalises embedding-based annotation transfer with selective learning-to-rank
+re-finement; as a platform, it provides the extensible foundation that lets new
+backends, annotation sources, and ranking methods be plugged in without ad-hoc
+glue. The platform is deliberately built around the assumption that the canonical
+pipeline of today will be obsolete tomorrow. What must remain stable is the contract
+between layers, the trace of every run, and the pathway from a FASTA file to a
+ranked, interpretable Gene Ontology prediction.
 
 \section{Research Questions}
 \label{sec:research-questions}
@@ -32,12 +41,20 @@ This thesis addresses the following questions:
 
 \begin{enumerate}[label=\textbf{RQ\arabic*.}]
   \item Can embedding-based \gls{knn} annotation transfer match or exceed
-        alignment-based methods for \gls{go} term prediction, particularly at
-        low sequence identity?
-  \item Do pairwise alignment statistics and taxonomic distance provide
-        complementary signals that improve the ranking of candidate annotations?
-  \item How can a reproducible, scalable annotation pipeline be designed so
-        that researchers can re-run analyses as ontologies and databases are updated?
+        alignment-based methods for \gls{go} term prediction, particularly at low
+        sequence identity, and how does the answer change as new PLMs replace
+        older ones?
+  \item Do pairwise alignment statistics, taxonomic distance, ontology-graph
+        ancestry features, and per-PLM PCA projections provide complementary signal
+        that improves the ranking of candidate annotations once the embedding
+        baseline is already strong?
+  \item How can a reproducible, scalable annotation pipeline be designed so that
+        researchers can re-run analyses as ontologies and databases are updated, and
+        so that the pipeline itself can be deployed in development, cloud, on-premise
+        HPC, and airgapped environments without code branching?
+  \item How can the journey of a research platform, with its dead ends and pivots,
+        be captured operationally so that the canonical pipeline is justified by an
+        auditable trace rather than by post-hoc rationalisation?
 \end{enumerate}
 
 \section{Contributions}
@@ -48,24 +65,52 @@ The main contributions of this work are:
 \begin{itemize}
   \item \textbf{PROTEA}: an open-source distributed platform implementing the full
         annotation pipeline, from FASTA upload to structured \gls{go} predictions
-        with optional feature engineering.
-  \item A \textbf{versioned data model} for ontology snapshots and annotation sets
-        that enables reproducible retrospective analyses.
-  \item A \textbf{feature-engineering module} that augments embedding similarity
-        with Needleman--Wunsch / Smith--Waterman alignment scores and
-        NCBI-taxonomy-based distances.
+        with optional feature engineering and selective learning-to-rank re-ranking.
+  \item A \textbf{plugin architecture} based on Python \texttt{entry\_points},
+        organised across seven code repositories, that lets new annotation sources,
+        runners and PLM backends be added without modifying the core platform.
+  \item A \textbf{versioned data model} for ontology snapshots, annotation sets,
+        embedding configurations, datasets, re-ranker models and experiment runs,
+        with provenance complete enough to exactly replay any past prediction.
+  \item A \textbf{benchmark of eight PLM backends} (ESM-2 in three sizes, ESM-C,
+        ProstT5, ProtT5, Ankh, ESM-3 component encoder) on a common evaluation
+        surface, with per-aspect, per-category and per-backend numbers.
+  \item A \textbf{feature engineering layer} that augments embedding similarity with
+        Needleman--Wunsch / Smith--Waterman alignment scores,
+        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings, and
+        per-PLM PCA projections, organised as a registry of approximately 52
+        features.
+  \item A \textbf{selective learning-to-rank re-ranker} trained per category and per
+        aspect, that falls back to the embedding-only baseline whenever re-ranking
+        would degrade performance for the current cell.
+  \item A \textbf{multi-target deployment story} (development \texttt{docker
+        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering the
+        same canonical pipeline without code branching.
+  \item An \textbf{operational narrative model} (\texttt{Job.findings},
+        \texttt{ExperimentRun}, comments) that captures the why of every run and
+        provides the audit trace from which the evaluation chapter is distilled.
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
-        baseline methods on a held-out Swiss-Prot subset.
+        baseline methods on held-out \gls{goa} splits following the CAFA temporal
+        protocol, complemented by three submissions to the LAFA public benchmark.
 \end{itemize}
 
 \section{Thesis Structure}
 \label{sec:structure}
 
 The remainder of this document is organised as follows.
-\Cref{chap:background} introduces the biological concepts underpinning the work.
+\Cref{chap:background} introduces the biological concepts underpinning the work,
+including the modern landscape of protein language models and their structural
+extensions.
 \Cref{chap:related} surveys existing computational approaches to protein function
-prediction.
-\Cref{chap:design} presents the architecture of PROTEA.
-\Cref{chap:implementation} describes key implementation decisions.
-\Cref{chap:evaluation} reports the experimental results.
-\Cref{chap:conclusion} summarises the findings and outlines future directions.
+prediction up to 2025, with attention to the most recent embedding-based and
+graph-based methods.
+\Cref{chap:design} presents the architecture of PROTEA, its plugin-based
+extensibility model, and the operational narrative layer.
+\Cref{chap:implementation} describes key implementation decisions across the seven
+repositories, including the configuration system, the artifact-store boundary, the
+queue topology, and the deployment containers.
+\Cref{chap:evaluation} reports the experimental results on the eight-PLM benchmark,
+the impact of feature families through ablation, and the journey that shaped the
+canonical configuration.
+\Cref{chap:conclusion} summarises the findings, discusses limitations, and outlines
+future directions including the LAFA submissions and the post-defense agenda.
