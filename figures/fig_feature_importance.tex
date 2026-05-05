@@ -1,0 +1,68 @@
+% ============================================================
+%  Figure: LightGBM feature importance for v3 re-ranker
+%  Data source: Table 6.5 (chapters/06_evaluation.tex)
+%  Gain values are in thousands.
+%  Symbolic ids are ASCII; pretty labels are injected via yticklabels.
+% ============================================================
+\begin{tikzpicture}
+  \begin{groupplot}[
+    group style={
+      group size=3 by 1,
+      horizontal sep=22mm,
+    },
+    protea plot,
+    width=5.5cm, height=6.0cm,
+    enlarge y limits=0.06,
+    xmin=0,
+    xlabel={LightGBM gain (thousands)},
+    label style={font=\scriptsize},
+    yticklabel style={font=\scriptsize\ttfamily},
+    nodes near coords,
+    nodes near coords style={font=\tiny, /pgf/number format/fixed, /pgf/number format/precision=0},
+    every axis plot/.append style={fill opacity=0.85},
+    grid=both,
+  ]
+
+    % ── NK panel ────────────────────────────────────────────
+    \nextgroupplot[
+      title={NK},
+      xbar, bar width=3.6pt,
+      symbolic y coords={dist,simnw,kpos,nbstd,alnsc,votes,idnw,evcode,gofreq,refdens},
+      yticklabels={distance,similarity\_nw,k\_position,nb\_dist\_std,align\_score\_nw,vote\_count,identity\_nw,evidence\_code,go\_term\_freq,ref\_ann\_density},
+      ytick=data,
+      xmax=1100,
+    ]
+      \addplot+[fill=proteagreen, draw=proteagreen!60!black] coordinates {
+        (971,refdens) (280,gofreq) (163,evcode) (157,idnw) (137,votes)
+        (122,alnsc)   (108,nbstd)  (73,kpos)    (70,simnw) (68,dist)
+      };
+
+    % ── LK panel ────────────────────────────────────────────
+    \nextgroupplot[
+      title={LK},
+      xbar, bar width=3.6pt,
+      symbolic y coords={qual,dist,alnsc,simnw,idnw,nbstd,votes,evcode,gofreq,refdens},
+      yticklabels={qualifier,distance,align\_score\_nw,similarity\_nw,identity\_nw,nb\_dist\_std,vote\_count,evidence\_code,go\_term\_freq,ref\_ann\_density},
+      ytick=data,
+      xmax=350,
+    ]
+      \addplot+[fill=linkblue, draw=linkblue!60!black] coordinates {
+        (309,refdens) (256,gofreq) (169,evcode) (122,votes)  (71,nbstd)
+        (64,idnw)     (50,simnw)   (46,dist)    (45,alnsc)   (42,qual)
+      };
+
+    % ── PK panel ────────────────────────────────────────────
+    \nextgroupplot[
+      title={PK},
+      xbar, bar width=3.6pt,
+      symbolic y coords={taxd,nbstd,votes,kpos,qual,refdens,idnw,simnw,evcode,gofreq},
+      yticklabels={tax\_distance,nb\_dist\_std,vote\_count,k\_position,qualifier,ref\_ann\_density,identity\_nw,similarity\_nw,evidence\_code,go\_term\_freq},
+      ytick=data,
+      xmax=780,
+    ]
+      \addplot+[fill=BurntOrange, draw=BurntOrange!60!black] coordinates {
+        (680,gofreq)  (531,evcode) (307,simnw) (267,idnw)  (262,refdens)
+        (185,qual)    (126,kpos)   (117,votes) (88,nbstd)  (75,taxd)
+      };
+  \end{groupplot}
+\end{tikzpicture}

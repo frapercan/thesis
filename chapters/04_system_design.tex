@@ -1,0 +1,409 @@
+\chapter{System Design}
+\label{chap:design}
+
+This chapter describes the architecture of PROTEA at the level of design
+decisions. Implementation details — specific libraries, migration tooling,
+frontend components — are deferred to \cref{chap:implementation}.
+
+% ────────────────────────────────────────────────────────────
+\section{Requirements and Design Goals}
+\label{sec:design-goals}
+
+The design of PROTEA is governed by five requirements derived from the
+limitations identified in \cref{chap:related}:
+
+\begin{description}
+  \item[R1 — Reproducibility.] A prediction produced today must be exactly
+    reproducible in the future. This requires recording the ontology version,
+    reference annotation set, and embedding model configuration used for every
+    prediction run.
+  \item[R2 — Scalability.] The system must handle reference sets of hundreds of
+    thousands of proteins and query sets of thousands without holding all data
+    in memory simultaneously.
+  \item[R3 — Separation of concerns.] Domain logic (what to compute), execution
+    flow (how jobs are dispatched and tracked), and infrastructure (database,
+    message queue) must be independently replaceable.
+  \item[R4 — Observability.] Every job must produce a structured audit trail so
+    that failures can be diagnosed without replaying the computation.
+  \item[R5 — Accessibility.] Researchers without machine-learning infrastructure
+    expertise must be able to submit sequences and retrieve predictions through a
+    web interface or a REST API.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{High-Level Architecture}
+\label{sec:architecture}
+
+PROTEA decomposes into four horizontal layers, illustrated in
+\cref{fig:architecture}:
+
+\begin{description}
+  \item[Presentation layer.] A Next.js single-page application exposes the
+    user-facing workflow: uploading FASTA files, triggering pipeline jobs,
+    monitoring progress, and downloading results.
+  \item[API layer.] A FastAPI application provides a REST interface. All state
+    mutations flow through this layer; it writes job requests to PostgreSQL and
+    publishes messages to RabbitMQ.
+  \item[Worker layer.] A set of Python worker processes consume messages from
+    RabbitMQ queues. Workers are stateless with respect to domain logic — they
+    resolve and execute registered operations and update job state in the database.
+  \item[Data layer.] PostgreSQL (extended with the pgvector extension for vector
+    storage) is the single source of truth. RabbitMQ is used exclusively for
+    task dispatch; it carries no persistent state.
+\end{description}
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/fig_architecture}}
+  \caption[High-level architecture of PROTEA]{%
+    High-level architecture of PROTEA. The four horizontal layers
+    (presentation, API, workers, data) communicate exclusively through well-defined
+    interfaces: HTTPS/JSON between the browser and the API, RabbitMQ for task
+    dispatch, and PostgreSQL as the single source of truth. GPU inference is
+    isolated in dedicated workers so that compute capacity can be scaled
+    independently of API throughput.%
+  }
+  \label{fig:architecture}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{The Operation Abstraction}
+\label{sec:operation-abstraction}
+
+The central design principle of PROTEA is the \textit{Operation protocol}: every
+unit of domain logic is a class that implements exactly two members:
+
+\begin{itemize}
+  \item \texttt{name: str} — a unique string identifier used to route messages.
+  \item \texttt{execute(session, payload, *, emit) -> OperationResult} — the
+    computation itself.
+\end{itemize}
+
+Operations receive a SQLAlchemy session and a validated Pydantic payload; they
+report progress through an \texttt{emit} callback that writes \texttt{JobEvent}
+rows to the database. Operations do not manage their own sessions, do not
+publish messages, and do not know about the queue infrastructure. This strict
+interface makes them independently testable and trivially substitutable.
+
+The \texttt{OperationRegistry} maps string names to instances at startup. Workers
+resolve the correct operation by name when they receive a message, enabling
+new operations to be added without modifying any worker code.
+
+% ────────────────────────────────────────────────────────────
+\section{Job Lifecycle and Worker Patterns}
+\label{sec:job-lifecycle}
+
+PROTEA distinguishes two worker patterns that correspond to different
+observability requirements:
+
+\subsection{QueueConsumer (tracked jobs)}
+\label{subsec:queue-consumer}
+
+Long-running, user-visible jobs — inserting proteins, loading ontologies,
+computing embeddings, predicting GO terms — are submitted through the API as
+\texttt{Job} rows with a JSONB payload. The workflow is:
+
+\begin{enumerate}
+  \item The API creates a \texttt{Job} row in state \texttt{QUEUED} and publishes
+    the job UUID to the appropriate RabbitMQ queue.
+  \item A \texttt{QueueConsumer} worker receives the UUID, opens a
+    \textit{claim session}, transitions the job to \texttt{RUNNING}, and flushes
+    the \texttt{started\_at} timestamp. The claim session is committed and closed
+    before execution begins.
+  \item A separate \textit{execute session} resolves the operation and calls
+    \texttt{execute()}. On success the job transitions to \texttt{SUCCEEDED}; on
+    exception to \texttt{FAILED}, with the error code and message stored on the
+    row.
+\end{enumerate}
+
+The two-session design ensures that the claim is durable even if the execute
+session rolls back. \texttt{JobEvent} rows, written via \texttt{emit()}, form an
+append-only audit log that records progress milestones, error context, and
+structured diagnostic fields.
+
+\subsection{OperationConsumer (fire-and-forget sub-tasks)}
+\label{subsec:operation-consumer}
+
+GPU-intensive batch tasks — running the embedding model on a group of sequences,
+or computing kNN predictions for a batch — do not create child \texttt{Job} rows.
+Instead, the coordinator operation publishes \textit{operation messages}
+(containing the payload directly, not a UUID) to dedicated queues.
+\texttt{OperationConsumer} workers execute these messages and report progress
+via an atomic increment on the parent job's counter, avoiding write contention
+from hundreds of concurrent batches.
+
+\Cref{fig:job-lifecycle} illustrates the two patterns and the queue topology.
+
+\subsection{Parent-Child Job Hierarchy}
+\label{subsec:parent-child}
+
+Coordinator operations (\texttt{compute\_embeddings}, \texttt{predict\_go\_terms})
+split work across many parallel workers using a parent-child pattern. The
+coordinator returns \texttt{OperationResult(deferred=True)}, which signals
+\texttt{BaseWorker} to \emph{not} transition the parent job to
+\texttt{SUCCEEDED} immediately. Instead, the parent remains in state
+\texttt{RUNNING} while batch workers process their messages independently.
+
+The \texttt{Job} model carries two progress fields for this purpose:
+\texttt{progress\_total} (set by the coordinator to the number of batches
+dispatched) and \texttt{progress\_current} (incremented atomically by each
+write worker). When the last write worker detects
+$\texttt{progress\_current} = \texttt{progress\_total}$, it closes the parent
+job as \texttt{SUCCEEDED}. This atomic counter design avoids write contention
+from hundreds of concurrent batches updating the same row.
+
+\subsection{RetryLaterError}
+\label{subsec:retry-later}
+
+When a shared resource is unavailable — for instance, the GPU is already
+occupied by a running embedding job — an operation raises
+\texttt{RetryLaterError} instead of failing permanently. \texttt{BaseWorker}
+catches this exception and:
+
+\begin{enumerate}
+  \item Resets the job status back to \texttt{QUEUED}.
+  \item Writes a \texttt{job.retry\_later} event recording the reason and
+    the requested delay.
+  \item Re-publishes the job UUID to its queue after the specified delay
+    (typically 60 seconds).
+\end{enumerate}
+
+The embedding coordinator queue (\texttt{protea.embeddings}) is serialised
+precisely because of this mechanism: at most one embedding coordinator runs at
+a time, with subsequent requests queued and retried automatically.
+
+\subsection{Cancellation}
+\label{subsec:cancellation}
+
+\texttt{POST /jobs/\{id\}/cancel} transitions a \texttt{QUEUED} or
+\texttt{RUNNING} job to \texttt{CANCELLED}. If the job is already in a
+terminal state (\texttt{SUCCEEDED}, \texttt{FAILED}, or \texttt{CANCELLED})
+the request is a no-op. Any queued child jobs are also cancelled atomically
+in the same transaction.
+
+Cancellation of a \texttt{RUNNING} job is a \textit{soft cancel}: the database
+row is marked \texttt{CANCELLED} immediately, but the worker process is not
+interrupted. The worker will still complete its operation and attempt a final
+status write; however, because \texttt{CANCELLED} is already committed, the
+frontend reflects the cancelled state regardless of how the worker exits.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/fig_job_lifecycle}}
+  \caption[Job lifecycle and queue routing in PROTEA]{%
+    Job lifecycle and queue routing in PROTEA. The state machine on the left
+    is enforced by \texttt{BaseWorker} through two independent SQLAlchemy
+    sessions: a short \emph{claim session} that commits the
+    \texttt{QUEUED}~$\to$~\texttt{RUNNING} transition, and a longer
+    \emph{execute session} that runs the operation and commits the terminal
+    state. \texttt{RetryLaterError} resets the job to \texttt{QUEUED} and
+    re-publishes it after a delay (typically 60\,s) so that GPU contention
+    never produces hard failures. The right column shows the seven RabbitMQ
+    queues; coordinator operations fan out work into the
+    \texttt{*.batch}~$\to$~\texttt{*.write} chains, where every write worker
+    atomically increments \texttt{progress\_current} on the parent job. The
+    last write closes the parent as \texttt{SUCCEEDED}, avoiding write
+    contention from hundreds of concurrent batches.%
+  }
+  \label{fig:job-lifecycle}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Queue Topology}
+\label{sec:queue-topology}
+
+PROTEA routes messages across seven RabbitMQ queues, each with a distinct
+semantic purpose:
+
+\begin{description}
+  \item[\texttt{protea.ping}] Smoke-test queue. Used to verify end-to-end
+    connectivity.
+  \item[\texttt{protea.jobs}] General-purpose job queue. Handles protein
+    insertion, metadata fetch, ontology loading, annotation loading, and the
+    coordinator phase of embeddings and predictions.
+  \item[\texttt{protea.embeddings}] Serialised embedding coordinator queue. At
+    most one coordinator runs at a time; if the GPU is busy the coordinator
+    raises \texttt{RetryLaterError} and is re-queued with a 60-second delay.
+  \item[\texttt{protea.embeddings.batch}] GPU inference queue. Each message
+    carries a batch of sequences; \texttt{OperationConsumer} workers run the
+    forward pass of the protein language model and publish results to the
+    write queue.
+  \item[\texttt{protea.embeddings.write}] Bulk insert queue. Workers receive
+    computed embedding vectors and write them to the \texttt{SequenceEmbedding}
+    table via pgvector.
+  \item[\texttt{protea.predictions.batch}] kNN prediction queue. Each message
+    carries a batch of query embeddings; workers search the reference index and
+    transfer GO annotations.
+  \item[\texttt{protea.predictions.write}] Bulk prediction insert queue. Workers
+    write \texttt{GOPrediction} rows for a batch of query--reference pairs.
+\end{description}
+
+This topology separates GPU-bound inference, I/O-bound database writes, and
+CPU-bound coordination into independent queues that can be scaled independently
+(e.g.\ \texttt{manage.sh scale protea.predictions.batch 4}).
+
+% ────────────────────────────────────────────────────────────
+\section{Data Model}
+\label{sec:data-model}
+
+The relational schema is organised into five logical groups:
+
+\subsection{Sequence and Protein}
+\label{subsec:dm-sequence}
+
+\texttt{Sequence} stores deduplicated amino acid strings, keyed by MD5 hash.
+\texttt{Protein} stores one row per UniProt accession; multiple accessions
+(canonical and isoforms) may reference the same \texttt{Sequence}. This
+deduplication prevents redundant embedding computation.
+
+\subsection{Ontology and Annotations}
+\label{subsec:dm-ontology}
+
+\texttt{OntologySnapshot} records one complete GO release (OBO format), versioned
+by the \texttt{obo\_version} string found in the OBO file header. \texttt{GOTerm}
+and \texttt{GOTermRelationship} store the DAG within a snapshot.
+
+\texttt{AnnotationSet} groups a batch of \texttt{ProteinGOAnnotation} rows by
+source (\texttt{goa} or \texttt{quickgo}) and links them to an
+\texttt{OntologySnapshot}. This design enables side-by-side comparison of
+annotation sets from different sources or dates.
+
+\subsection{Embeddings}
+\label{subsec:dm-embeddings}
+
+\texttt{EmbeddingConfig} is an immutable recipe: it records the model identifier,
+chunking strategy, pooling method, and any other parameters that affect the
+embedding geometry. Its UUID primary key is stable; changing any parameter
+creates a new configuration.
+
+\texttt{SequenceEmbedding} stores one pgvector \texttt{VECTOR} per
+(\texttt{sequence}, \texttt{config}, \texttt{chunk}) triple. Chunking support
+allows sequences that exceed the model's context window to be split into
+overlapping segments.
+
+\subsection{Predictions}
+\label{subsec:dm-predictions}
+
+\texttt{PredictionSet} is the result container, linking a query set, an embedding
+configuration, an annotation set, and an ontology snapshot.
+\texttt{GOPrediction} stores one row per (query protein, GO term) pair, including
+the cosine distance from the nearest reference neighbour and the optional
+feature-engineering columns described in \cref{sec:feature-engineering}.
+
+\subsection{Reranker Models}
+\label{subsec:dm-reranker}
+
+\texttt{RerankerModel} records a trained LightGBM booster promoted from the
+research sandbox described in \cref{sec:reranker-promotion}. The row carries
+the artefact URI resolved by PROTEA's storage abstraction
+(\texttt{file:///\ldots} for local filesystem or \texttt{s3://\ldots} for
+MinIO), the \texttt{feature\_schema\_sha} fingerprint used to validate
+feature-set alignment at inference time, the originating embedding
+configuration and ontology snapshot, and the full experiment specification
+YAML used to reproduce the run. The inline \texttt{model\_data} column is
+retained only as a nullable compatibility slot for rows produced by the
+pre-abstraction pipeline; new registrations never populate it.
+
+\subsection{Query Sets}
+\label{subsec:dm-querysets}
+
+\texttt{QuerySet} represents a user-uploaded FASTA dataset submitted for custom
+prediction queries. Each \texttt{QuerySetEntry} row preserves the original
+accession header from the FASTA file and links to the deduplicated
+\texttt{Sequence} row, reusing existing sequences when the amino-acid string is
+already present in the database. Query sets are created via
+\texttt{POST /query-sets} and can be referenced in subsequent embedding
+computation and prediction jobs.
+
+\subsection{Jobs}
+\label{subsec:dm-jobs}
+
+\texttt{Job} implements a state machine with states \texttt{QUEUED},
+\texttt{RUNNING}, \texttt{SUCCEEDED}, \texttt{FAILED}, and \texttt{CANCELLED}.
+\texttt{JobEvent} is an append-only log of timestamped, structured events
+emitted during execution. Both tables use JSONB columns for extensible payloads
+and metadata.
+
+% ────────────────────────────────────────────────────────────
+\section{Embedding Pipeline}
+\label{sec:embedding-pipeline}
+
+The embedding pipeline runs in three phases coordinated through the queue
+topology described above:
+
+\begin{enumerate}
+  \item \textbf{Coordinator} (\texttt{compute\_embeddings}): queries the database
+    for all sequences in the target set that do not yet have an embedding for the
+    requested \texttt{EmbeddingConfig}; partitions them into fixed-size batches;
+    publishes one operation message per batch to \texttt{protea.embeddings.batch}.
+  \item \textbf{Batch inference} (\texttt{compute\_embeddings\_batch}): loads the
+    protein language model on the configured device; tokenises the sequence
+    batch; runs a forward pass; mean-pools the per-residue representations into
+    a single vector per chunk; publishes the computed vectors to
+    \texttt{protea.embeddings.write}.
+  \item \textbf{Store} (\texttt{store\_embeddings}): receives the computed vectors
+    and performs a bulk upsert into \texttt{SequenceEmbedding}.
+\end{enumerate}
+
+The coordinator is serialised (one at a time per the \texttt{protea.embeddings}
+queue) to prevent concurrent model loads from exhausting GPU memory.
+Batch and write workers can be scaled horizontally.
+
+% ────────────────────────────────────────────────────────────
+\section{Prediction Pipeline}
+\label{sec:prediction-pipeline}
+
+The prediction pipeline mirrors the structure of the embedding pipeline:
+
+\begin{enumerate}
+  \item \textbf{Coordinator} (\texttt{predict\_go\_terms}): loads the reference
+    embeddings (all proteins in the annotation set that have embeddings) into
+    a process-level cache compressed to float16; partitions the query set into
+    batches; publishes one operation message per batch to
+    \texttt{protea.predictions.batch}.
+  \item \textbf{Batch prediction} (\texttt{predict\_go\_terms\_batch}): for each
+    query, retrieves the $k$ nearest reference proteins using the configured
+    search backend (NumPy exact cosine search or FAISS approximate search);
+    transfers GO annotations from each neighbour; optionally computes pairwise
+    alignment statistics (\gls{nw} and \gls{sw} via the parasail library) and
+    taxonomic distance (via ete3 and the NCBI taxonomy); publishes the results
+    to \texttt{protea.predictions.write}.
+  \item \textbf{Store} (\texttt{store\_predictions}): bulk-inserts
+    \texttt{GOPrediction} rows.
+\end{enumerate}
+
+The reference cache is held at the process level and is keyed by
+(embedding config, annotation set). It holds at most one entry to bound memory
+usage; a restart reloads from the database automatically.
+
+When a job payload includes a \texttt{reranker\_model\_id}, the batch worker
+performs one additional pass after the kNN stage: the booster referenced by
+the registered \texttt{RerankerModel} is loaded through a sha-keyed on-disk
+cache, the candidate rows are scored, and the resulting \texttt{reranker\_score}
+values replace the kNN distance as the ranking key. The pass is skipped and a
+\texttt{reranker.schema\_mismatch} event is emitted if the feature fingerprint
+computed from the live pipeline does not match the one registered with the
+booster; the job otherwise proceeds to the store stage unchanged. The
+promotion mechanics are described in \cref{sec:reranker-promotion}.
+
+% ────────────────────────────────────────────────────────────
+\section{REST API Design}
+\label{sec:api-design}
+
+The API follows REST conventions. Resources are grouped into six routers:
+
+\begin{description}
+  \item[\texttt{/proteins}] Insert proteins from UniProt accession lists or FASTA.
+  \item[\texttt{/annotations}] Load ontology snapshots and annotation sets.
+  \item[\texttt{/embeddings}] Manage embedding configurations, trigger computation,
+    submit prediction jobs, and export results.
+  \item[\texttt{/query-sets}] Upload FASTA files and manage user query datasets.
+  \item[\texttt{/jobs}] Track job state and stream structured events.
+  \item[\texttt{/admin}] Administrative maintenance tasks.
+\end{description}
+
+\begin{sloppypar}
+Session injection follows FastAPI's dependency system:
+\texttt{app.state.session\_factory} is set at startup and injected into each
+request handler, keeping router code free of infrastructure imports.
+\end{sloppypar}

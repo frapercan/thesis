@@ -1,0 +1,29 @@
+# LaTeX build artifacts
+*.aux
+*.bcf
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.toc
+*.synctex.gz
+_minted-*/
+
+# Glossary build artifacts
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+
+# Editor
+.vscode/
+.idea/
+*.swp

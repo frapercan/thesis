@@ -1,0 +1,63 @@
+% ============================================================
+%  Figure: Job lifecycle and queue topology
+% ============================================================
+\begin{tikzpicture}[
+  node distance=6mm and 8mm,
+  every node/.style={font=\small},
+]
+
+  % ── State machine (left column) ─────────────────────────────
+  \node[proteastate]                       (queued)    {QUEUED};
+  \node[proteastate, below=8mm of queued]  (running)   {RUNNING};
+  \node[proteastate, below=8mm of running] (succeeded) {SUCCEEDED};
+  \node[proteastate, right=10mm of succeeded] (failed)  {FAILED};
+  \node[proteastate, left=10mm of succeeded]  (cancel) {CANCELLED};
+
+  \draw[proteaarrow] (queued)  -- node[right, font=\footnotesize]{claim session} (running);
+  \draw[proteaarrow] (running) -- node[right, font=\footnotesize]{execute session} (succeeded);
+  \draw[proteaarrow] (running.east) -- ++(8mm,0) |- (failed.north);
+  \draw[proteaarrow] (running.west) -- ++(-8mm,0) |- (cancel.north);
+
+  % RetryLater self-loop
+  \draw[proteadashed] (running.west) to[out=160, in=200, looseness=2.4]
+    node[left, font=\footnotesize, align=right]{RetryLaterError\\(re-queue +60s)} (queued.west);
+
+  \node[draw=black!20, dashed, rounded corners=3pt,
+        fit=(queued)(running)(succeeded)(failed)(cancel),
+        inner sep=4mm,
+        label={[font=\footnotesize\itshape]above:Job state machine}] (sm) {};
+
+  % ── Queue topology (right column) ───────────────────────────
+  \node[proteablock, minimum width=30mm, right=24mm of queued.north east, anchor=north west] (coord) {Coordinator op\\\footnotesize \texttt{compute\_embeddings}\\\texttt{predict\_go\_terms}};
+
+  \node[proteaqueue, below=8mm of coord]                      (qjobs)    {protea.jobs};
+  \node[proteaqueue, below=2mm of qjobs]                      (qemb)     {protea.embeddings};
+  \node[proteaqueue, below=2mm of qemb]                       (qebatch)  {protea.embeddings.batch};
+  \node[proteaqueue, below=2mm of qebatch]                    (qewrite)  {protea.embeddings.write};
+  \node[proteaqueue, below=2mm of qewrite]                    (qpbatch)  {protea.predictions.batch};
+  \node[proteaqueue, below=2mm of qpbatch]                    (qpwrite)  {protea.predictions.write};
+  \node[proteaqueue, below=2mm of qpwrite]                    (qping)    {protea.ping};
+
+  \node[draw=BurntOrange!40, dashed, rounded corners=3pt,
+        fit=(coord)(qjobs)(qping),
+        inner sep=4mm,
+        label={[font=\footnotesize\itshape, text=BurntOrange!70!black]above:RabbitMQ topology (7 queues)}] (qg) {};
+
+  % Coordinator → fan-out
+  \draw[proteaarrow] (coord.south) -- ++(0,-1mm) -| (qebatch.north);
+  \draw[proteaarrow] (coord.south) -- ++(0,-1mm) -| (qpbatch.north);
+
+  % Batch → write chain
+  \draw[proteaarrow] (qebatch.east) to[bend left=18] node[right, font=\footnotesize]{vectors} (qewrite.east);
+  \draw[proteaarrow] (qpbatch.east) to[bend left=18] node[right, font=\footnotesize]{rows}    (qpwrite.east);
+
+  % Atomic counter on parent job
+  \node[draw=proteagreen!50, very thick, fill=proteagreen!8, rounded corners=3pt,
+        right=12mm of qewrite, font=\footnotesize, align=center]
+        (counter) {atomic\\progress\_current\\++};
+  \draw[proteaarrow] (qewrite.east) -- (counter.west);
+  \draw[proteaarrow] (qpwrite.east) to[bend right=18] (counter.south);
+  \draw[proteadashed] (counter.north) to[bend left=12]
+        node[right, font=\footnotesize]{closes parent} (running.east);
+
+\end{tikzpicture}

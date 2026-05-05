@@ -1,0 +1,86 @@
+\chapter{REST API Reference}
+\label{app:api}
+
+This appendix documents the public endpoints of the PROTEA REST API.
+All endpoints are prefixed with the base URL of the FastAPI server
+(default: \texttt{http://127.0.0.1:8000}).
+
+\sloppy
+
+% ────────────────────────────────────────────────────────────
+\section{Jobs}
+\label{app:api-jobs}
+
+\begin{description}
+  \item[\texttt{POST /jobs}] Submit a new job. The request body must contain
+    \texttt{operation} (string) and \texttt{payload} (JSON object). Returns the
+    created \texttt{Job} row.
+  \item[\texttt{GET /jobs}] List jobs, optionally filtered by \texttt{status}
+    and \texttt{operation} query parameters.
+  \item[\texttt{GET /jobs/\{id\}}] Retrieve a single job by UUID.
+  \item[\texttt{GET /jobs/\{id\}/events}] Stream the structured event log for
+    a job as newline-delimited JSON.
+  \item[\texttt{POST /jobs/\{id\}/cancel}] Request cancellation of a queued or
+    running job.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Proteins and Sequences}
+\label{app:api-proteins}
+
+\begin{description}
+  \item[\texttt{POST /proteins/insert}] Enqueue an \texttt{insert\_proteins} job
+    for a list of UniProt accessions or a taxonomy query.
+  \item[\texttt{POST /proteins/metadata}] Enqueue a \texttt{fetch\_uniprot\_metadata}
+    job to refresh functional annotation data.
+  \item[\texttt{GET /proteins}] List proteins stored in the database with optional
+    accession filter.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Query Sets}
+\label{app:api-querysets}
+
+\begin{description}
+  \item[\texttt{POST /query-sets}] Upload a FASTA file. Creates a \texttt{QuerySet}
+    and its \texttt{QuerySetEntry} rows; upserts novel sequences and proteins.
+    Returns the created \texttt{QuerySet} UUID.
+  \item[\texttt{GET /query-sets}] List all query sets.
+  \item[\texttt{GET /query-sets/\{id\}}] Retrieve a query set with its entries.
+  \item[\texttt{DELETE /query-sets/\{id\}}] Delete a query set and its entries.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Annotations}
+\label{app:api-annotations}
+
+\begin{description}
+  \item[\texttt{POST /annotations/ontology-snapshot}] Enqueue a
+    \texttt{load\_ontology\_snapshot} job for a given OBO URL.
+  \item[\texttt{POST /annotations/annotation-set/goa}] Enqueue a
+    \texttt{load\_goa\_annotations} job for a local GAF file path.
+  \item[\texttt{POST /annotations/annotation-set/quickgo}] Enqueue a
+    \texttt{load\_quickgo\_annotations} job with optional evidence code filter.
+  \item[\texttt{GET /annotations/ontology-snapshots}] List loaded ontology snapshots.
+  \item[\texttt{GET /annotations/annotation-sets}] List loaded annotation sets.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Embeddings and Predictions}
+\label{app:api-embeddings}
+
+\begin{description}
+  \item[\texttt{POST /embeddings/configs}] Create a new \texttt{EmbeddingConfig}.
+  \item[\texttt{GET /embeddings/configs}] List embedding configurations.
+  \item[\texttt{POST /embeddings/compute}] Enqueue a \texttt{compute\_embeddings}
+    coordinator job.
+  \item[\texttt{POST /embeddings/predict}] Enqueue a \texttt{predict\_go\_terms}
+    coordinator job.
+  \item[\texttt{GET /embeddings/prediction-sets}] List prediction sets.
+  \item[\texttt{GET /embeddings/prediction-sets/\{id\}}] Retrieve a prediction
+    set with summary statistics.
+  \item[\texttt{GET /embeddings/prediction-sets/\{id\}/predictions.tsv}] Stream
+    predictions as a 27-column TSV file. Optional query parameters:
+    \texttt{accession}, \texttt{aspect} (\texttt{F}/\texttt{P}/\texttt{C}),
+    \texttt{max\_distance}.
+\end{description}

@@ -1,0 +1,49 @@
+% ============================================================
+%  Figure: Fmax as a function of k (Experiment 1)
+%  Data source: Table 6.1 (chapters/06_evaluation.tex)
+% ============================================================
+\begin{tikzpicture}
+  \begin{groupplot}[
+    group style={
+      group size=3 by 1,
+      horizontal sep=10mm,
+      ylabels at=edge left,
+    },
+    protea plot,
+    xmode=log,
+    log basis x=2,
+    xtick={5,10,20,50},
+    xticklabels={5,10,20,50},
+    xlabel={$k$ (neighbours)},
+    ylabel={$F_{\max}$},
+    ymin=0.15, ymax=0.72,
+    grid=both,
+    legend columns=3,
+    legend to name=fmaxk-legend,
+  ]
+    % ── NK panel ────────────────────────────────────────────
+    \nextgroupplot[title={NK (No-Knowledge)}]
+      \addplot coordinates {(5,0.412) (10,0.400) (20,0.396) (50,0.396)};
+      \addlegendentry{BPO}
+      \addplot coordinates {(5,0.590) (10,0.574) (20,0.564) (50,0.555)};
+      \addlegendentry{MFO}
+      \addplot coordinates {(5,0.668) (10,0.656) (20,0.649) (50,0.646)};
+      \addlegendentry{CCO}
+
+    % ── LK panel ────────────────────────────────────────────
+    \nextgroupplot[title={LK (Limited-Knowledge)}]
+      \addplot coordinates {(5,0.467) (10,0.458) (20,0.454) (50,0.452)};
+      \addplot coordinates {(5,0.558) (10,0.537) (20,0.528) (50,0.523)};
+      \addplot coordinates {(5,0.676) (10,0.663) (20,0.654) (50,0.651)};
+
+    % ── PK panel ────────────────────────────────────────────
+    \nextgroupplot[title={PK (Partial-Knowledge)}]
+      \addplot coordinates {(5,0.187) (10,0.177) (20,0.173) (50,0.173)};
+      \addplot coordinates {(5,0.278) (10,0.272) (20,0.269) (50,0.269)};
+      \addplot coordinates {(5,0.325) (10,0.317) (20,0.313) (50,0.312)};
+  \end{groupplot}
+
+  % Centered legend below the group
+  \node[anchor=north] at ($(group c2r1.south) + (0,-7mm)$)
+    {\pgfplotslegendfromname{fmaxk-legend}};
+\end{tikzpicture}

@@ -1,0 +1,176 @@
+\chapter{Biological Background}
+\label{chap:background}
+
+This chapter provides the biological foundation required to understand the
+problem that PROTEA addresses. Readers with a background in molecular biology
+may skip directly to \cref{chap:related}.
+
+% ────────────────────────────────────────────────────────────
+\section{Proteins: Structure and Function}
+\label{sec:proteins}
+
+Proteins are macromolecules composed of chains of amino acids linked by peptide
+bonds. The linear sequence of amino acids — encoded by the genome — is referred
+to as the \textit{primary structure}. This sequence folds, driven by
+thermodynamic forces, into a specific three-dimensional conformation that
+determines the protein's biological activity.
+
+Protein functions are extraordinarily diverse: enzymes catalyse chemical
+reactions, structural proteins provide mechanical support, signalling proteins
+relay information between cells, and transport proteins shuttle molecules across
+membranes. Understanding \textit{what} a protein does — its molecular function,
+the biological process it participates in, and the cellular compartment where it
+operates — is fundamental to biology and medicine.
+
+\subsection{Amino Acids and the Sequence Space}
+\label{subsec:amino-acids}
+
+Twenty standard amino acids, differing in their side-chain chemistry, constitute
+the alphabet of protein sequences. A protein of $n$ residues can in principle
+take $20^n$ distinct sequences, an astronomically large space. Yet the sequences
+that fold into stable, functional structures represent a tiny, structured subset
+of this space, one in which similar sequences tend to adopt similar folds and
+perform similar functions.
+
+\subsection{Sequence Identity and Homology}
+\label{subsec:homology}
+
+Two proteins are said to be \textit{homologous} if they share a common
+evolutionary ancestor. Homology is typically inferred from sequence similarity:
+proteins with high pairwise sequence identity are almost always homologous and
+usually perform the same function. As sequence identity drops below roughly
+30\,\%, however, the relationship between similarity and function becomes
+ambiguous — proteins may be structurally similar yet functionally diverged, or
+functionally convergent with unrelated folds.
+
+% ────────────────────────────────────────────────────────────
+\section{Protein Databases}
+\label{sec:databases}
+
+\subsection{UniProt}
+\label{subsec:uniprot}
+
+\gls{uniprot} is the central repository for protein sequence and functional
+information~\cite{uniprot2023}. It is divided into two sections:
+
+\begin{description}
+  \item[\gls{swissprot}] A manually curated, high-quality database. Each entry
+    has been reviewed by expert annotators and contains experimental or
+    computationally inferred functional annotations, with explicit evidence codes.
+  \item[\gls{trembl}] An automatically annotated, computationally analysed
+    database derived from genome translations. It is several orders of magnitude
+    larger than Swiss-Prot but of lower average annotation quality.
+\end{description}
+
+Each protein in UniProt is identified by a stable accession number. Canonical
+isoforms are represented by a bare accession (e.g.\ \texttt{P12345}); alternative
+splicing variants are denoted \texttt{P12345-2}, \texttt{P12345-3}, and so on.
+
+\subsection{Protein Data Bank}
+\label{subsec:pdb}
+
+The \gls{pdb} archives three-dimensional structures of biological macromolecules
+determined experimentally by X-ray crystallography, cryo-electron microscopy, or
+NMR~\cite{berman2000pdb}. Although PROTEA operates primarily on sequences, PDB
+structures are an important source of ground-truth functional information and are
+used indirectly through UniProt cross-references.
+
+% ────────────────────────────────────────────────────────────
+\section{The Gene Ontology}
+\label{sec:gene-ontology}
+
+\subsection{Overview}
+\label{subsec:go-overview}
+
+The \gls{go} is a standardised, species-independent controlled vocabulary for
+describing gene product attributes~\cite{ashburner2000go,goconsortium2023}.
+It is structured as three independent \glspl{dag}, one for each of the three
+top-level \textit{aspects}:
+
+\begin{description}
+  \item[\gls{mf} (GO:0003674)] The biochemical activity of the gene product,
+    independent of where or when it occurs (e.g.\ \textit{ATP binding},
+    \textit{serine-type endopeptidase activity}).
+  \item[\gls{bp} (GO:0008150)] The larger biological programme to which the
+    activity contributes (e.g.\ \textit{apoptotic process},
+    \textit{DNA repair}).
+  \item[\gls{cc} (GO:0005575)] The place in the cell where the gene product
+    is active (e.g.\ \textit{nucleus}, \textit{plasma membrane}).
+\end{description}
+
+Terms within each aspect are connected by \textit{is-a} and \textit{part-of}
+relationships, forming a hierarchy from broad root terms to highly specific
+leaves. A protein annotated with a term is implicitly annotated with all of its
+ancestors up to the root — the \textit{true path rule}.
+
+\subsection{Evidence Codes}
+\label{subsec:evidence-codes}
+
+Every GO annotation carries an evidence code that indicates the type of support
+for the association. Codes range from experimental (e.g.\ \texttt{EXP},
+\texttt{IDA}, \texttt{IMP}) to computationally inferred (\texttt{ISS}, \texttt{IEA})
+and author-stated (\texttt{TAS}, \texttt{NAS}). Experimental evidence codes are
+the gold standard; \texttt{IEA} (Inferred from Electronic Annotation) is the most
+common but least reliable.
+
+\subsection{Ontology Versioning}
+\label{subsec:go-versioning}
+
+The GO is actively maintained and released regularly in \gls{obo} format.
+New terms are added, obsolete terms are deprecated, and relationships are
+refined with each release. Reproducible research therefore requires that
+analyses record which ontology version was used. PROTEA stores each imported
+release as an \texttt{OntologySnapshot} and associates all annotation sets
+and predictions with a specific snapshot.
+
+% ────────────────────────────────────────────────────────────
+\section{Sequence Alignment}
+\label{sec:alignment}
+
+Pairwise sequence alignment is the classical approach to measuring sequence
+similarity. Two algorithms are central to this thesis:
+
+\begin{description}
+  \item[Needleman--Wunsch (\gls{nw})] A global alignment algorithm that aligns
+    two sequences end-to-end, maximising a cumulative substitution score minus
+    gap penalties~\cite{needleman1970general}. It is suitable for comparing
+    proteins of similar length.
+  \item[Smith--Waterman (\gls{sw})] A local alignment algorithm that finds the
+    highest-scoring contiguous aligned region, ignoring the tails of each
+    sequence~\cite{smith1981identification}. It is more appropriate when one
+    sequence is a domain or fragment of the other.
+\end{description}
+
+Both algorithms use a \textit{substitution matrix} — typically BLOSUM62 for
+protein sequences~\cite{henikoff1992amino} — to score residue substitutions
+based on their observed frequency in alignments of related proteins.
+
+% ────────────────────────────────────────────────────────────
+\section{Protein Language Models and Embeddings}
+\label{sec:plm}
+
+\Glspl{plm} are neural networks trained on large corpora of protein sequences
+using self-supervised objectives borrowed from natural language processing.
+Models such as ESM-2~\cite{lin2023esm2} and ProtTrans~\cite{elnaggar2022prottrans}
+learn to predict masked residues, in doing so developing internal representations
+that capture evolutionary, structural, and functional information.
+
+A protein sequence can be passed through such a model to obtain a dense vector
+(embedding) that encodes its properties in a continuous latent space. Proteins
+with similar functions tend to cluster together in this space even when their
+sequences have diverged below the homology detection threshold of alignment-based
+tools. This property makes embeddings attractive for annotation transfer.
+
+% ────────────────────────────────────────────────────────────
+\section{Taxonomic Classification}
+\label{sec:taxonomy}
+
+Biological organisms are classified into a hierarchy — the NCBI taxonomy — that
+reflects their evolutionary relationships~\cite{schoch2020ncbi}. Each node is
+assigned a numeric \textit{taxon ID}. The distance between two organisms can be
+defined operationally as the number of edges between them through their
+\gls{lca} in the taxonomy tree.
+
+Taxonomic distance is a useful co-variate for function prediction: a protein from
+a closely related organism is more likely to perform the same function than one
+from a distant lineage, even when embedding similarity is comparable.

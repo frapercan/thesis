@@ -1,0 +1,105 @@
+{
+  "label": "baseline",
+  "artifact": "3d2fd83c-2927-464e-8172-a52398c324bd",
+  "B": 1000,
+  "seed": 42,
+  "tau_step": 0.01,
+  "categories": {
+    "NK": {
+      "category": "NK",
+      "namespaces": {
+        "biological_process": {
+          "fmax": 0.4125,
+          "ci_lo": 0.3992,
+          "ci_hi": 0.4265,
+          "mean": 0.4124,
+          "std": 0.007,
+          "n_proteins": 1717,
+          "B": 1000
+        },
+        "molecular_function": {
+          "fmax": 0.5926,
+          "ci_lo": 0.5779,
+          "ci_hi": 0.6074,
+          "mean": 0.5927,
+          "std": 0.0076,
+          "n_proteins": 1370,
+          "B": 1000
+        },
+        "cellular_component": {
+          "fmax": 0.6662,
+          "ci_lo": 0.6538,
+          "ci_hi": 0.6783,
+          "mean": 0.6662,
+          "std": 0.0061,
+          "n_proteins": 1269,
+          "B": 1000
+        }
+      }
+    },
+    "LK": {
+      "category": "LK",
+      "namespaces": {
+        "biological_process": {
+          "fmax": 0.4654,
+          "ci_lo": 0.4503,
+          "ci_hi": 0.4809,
+          "mean": 0.4654,
+          "std": 0.0078,
+          "n_proteins": 1519,
+          "B": 1000
+        },
+        "molecular_function": {
+          "fmax": 0.5605,
+          "ci_lo": 0.5461,
+          "ci_hi": 0.5742,
+          "mean": 0.5602,
+          "std": 0.0074,
+          "n_proteins": 1312,
+          "B": 1000
+        },
+        "cellular_component": {
+          "fmax": 0.6762,
+          "ci_lo": 0.6621,
+          "ci_hi": 0.6892,
+          "mean": 0.676,
+          "std": 0.007,
+          "n_proteins": 1006,
+          "B": 1000
+        }
+      }
+    },
+    "PK": {
+      "category": "PK",
+      "namespaces": {
+        "biological_process": {
+          "fmax": 0.1725,
+          "ci_lo": 0.1659,
+          "ci_hi": 0.1787,
+          "mean": 0.1724,
+          "std": 0.0032,
+          "n_proteins": 8712,
+          "B": 1000
+        },
+        "molecular_function": {
+          "fmax": 0.2636,
+          "ci_lo": 0.2547,
+          "ci_hi": 0.2729,
+          "mean": 0.2637,
+          "std": 0.0049,
+          "n_proteins": 4992,
+          "B": 1000
+        },
+        "cellular_component": {
+          "fmax": 0.3042,
+          "ci_lo": 0.2943,
+          "ci_hi": 0.3136,
+          "mean": 0.304,
+          "std": 0.005,
+          "n_proteins": 5125,
+          "B": 1000
+        }
+      }
+    }
+  }
+}

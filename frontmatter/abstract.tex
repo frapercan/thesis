@@ -1,0 +1,40 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Predicting the biological function of proteins at scale remains one of the central
+challenges in computational biology. Experimental characterisation cannot keep pace
+with the rate at which new sequences are deposited in public databases, leaving the
+vast majority of known proteins with no experimentally validated functional annotation.
+
+This thesis presents \textbf{PROTEA} (\textit{PROtein funcTional annotation framEwork
+and plAtform}), an open-source distributed platform that automates the full pipeline
+from raw protein sequence to structured Gene Ontology predictions. PROTEA combines
+protein language model embeddings (ESMC~300M), approximate $k$-nearest-neighbour
+search over 527\,000+ reviewed UniProt sequences, and evidence transfer from
+versioned annotation sets to produce ranked, interpretable functional predictions.
+A versioned relational data model links every prediction to the exact ontology
+release, annotation set, and embedding configuration used to produce it, ensuring
+full reproducibility.
+
+To improve prediction quality beyond embedding cosine similarity, PROTEA incorporates
+a feature-engineering module that computes Needleman--Wunsch and Smith--Waterman
+pairwise alignment statistics together with NCBI-taxonomy-based distance metrics,
+yielding 22 features per candidate annotation. A LightGBM re-ranker is trained on
+these features using a temporal holdout protocol spanning 12 consecutive GOA releases,
+with Information Accretion weighting and per-category (No-Knowledge, Limited-Knowledge,
+Prior-Knowledge) models.
+
+Evaluation on a held-out GOA split (versions 220$\to$229) following the CAFA
+protocol shows that the re-ranker achieves $F_{\max}$ values of 0.431 (NK-BPO),
+0.620 (NK-MFO), and 0.692 (NK-CCO) with IA weighting, surpassing both the
+embedding-only baseline and a heuristic scoring rule in 7 of 9 category--aspect
+cells. A comparison with eggNOG-mapper~v2.1.13 confirms that PROTEA outperforms
+DIAMOND-based orthology transfer in all 9 cells, with absolute improvements of up
+to +0.306~$F_{\max}$. Feature importance analysis confirms that alignment
+statistics and taxonomic distance provide complementary signals to embedding
+distance.
+
+\bigskip
+\noindent\textbf{Keywords:} protein function prediction, gene ontology, protein
+language models, sequence embeddings, nearest-neighbour search, LightGBM,
+bioinformatics, distributed systems.

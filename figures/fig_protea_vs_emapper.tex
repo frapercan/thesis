@@ -1,0 +1,60 @@
+% ============================================================
+%  Figure: PROTEA (baseline + v3) vs eggNOG-mapper 2.1.13
+%  Data source: Table 6.6 (chapters/06_evaluation.tex, Experiment 7)
+% ============================================================
+\begin{tikzpicture}
+  \begin{groupplot}[
+    group style={
+      group size=3 by 1,
+      horizontal sep=10mm,
+      ylabels at=edge left,
+    },
+    protea plot,
+    width=6.0cm, height=5.0cm,
+    enlarge x limits=0.25,
+    symbolic x coords={BPO, MFO, CCO},
+    xtick=data,
+    ymin=0, ymax=0.78,
+    ylabel={$F_{\max}$},
+    grid=both,
+    legend columns=3,
+    legend to name=emapper-legend,
+    every axis plot/.append style={fill opacity=0.85},
+    nodes near coords,
+    nodes near coords style={font=\tiny, /pgf/number format/fixed, /pgf/number format/precision=2, /pgf/number format/zerofill},
+  ]
+
+    % ── NK panel ────────────────────────────────────────────
+    \nextgroupplot[title={NK}, ybar, bar width=4.5pt]
+      \addplot+[fill=black!35, draw=black!60]
+        coordinates {(BPO,0.247) (MFO,0.359) (CCO,0.386)};
+      \addlegendentry{eggNOG-mapper 2.1.13}
+      \addplot+[fill=linkblue, draw=linkblue!60!black]
+        coordinates {(BPO,0.412) (MFO,0.590) (CCO,0.668)};
+      \addlegendentry{PROTEA baseline}
+      \addplot+[fill=proteagreen, draw=proteagreen!60!black]
+        coordinates {(BPO,0.431) (MFO,0.620) (CCO,0.692)};
+      \addlegendentry{PROTEA re-ranker v3}
+
+    % ── LK panel ────────────────────────────────────────────
+    \nextgroupplot[title={LK}, ybar, bar width=4.5pt]
+      \addplot+[fill=black!35, draw=black!60]
+        coordinates {(BPO,0.382) (MFO,0.334) (CCO,0.450)};
+      \addplot+[fill=linkblue, draw=linkblue!60!black]
+        coordinates {(BPO,0.467) (MFO,0.558) (CCO,0.675)};
+      \addplot+[fill=proteagreen, draw=proteagreen!60!black]
+        coordinates {(BPO,0.478) (MFO,0.607) (CCO,0.697)};
+
+    % ── PK panel ────────────────────────────────────────────
+    \nextgroupplot[title={PK}, ymax=0.42, ybar, bar width=4.5pt]
+      \addplot+[fill=black!35, draw=black!60]
+        coordinates {(BPO,0.190) (MFO,0.199) (CCO,0.325)};
+      \addplot+[fill=linkblue, draw=linkblue!60!black]
+        coordinates {(BPO,0.187) (MFO,0.278) (CCO,0.325)};
+      \addplot+[fill=proteagreen, draw=proteagreen!60!black]
+        coordinates {(BPO,0.201) (MFO,0.297) (CCO,0.339)};
+  \end{groupplot}
+
+  \node[anchor=north] at ($(group c2r1.south) + (0,-7mm)$)
+    {\pgfplotslegendfromname{emapper-legend}};
+\end{tikzpicture}

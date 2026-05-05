@@ -1,0 +1,141 @@
+\chapter{Conclusion}
+\label{chap:conclusion}
+
+% ────────────────────────────────────────────────────────────
+\section{Summary}
+\label{sec:summary}
+
+This thesis presented PROTEA, a distributed platform for scalable, reproducible
+protein functional annotation using Gene Ontology terms. The work was motivated
+by the widening gap between the rate of protein sequence discovery and the
+capacity of experimental characterisation, and by the lack of existing platforms
+that combine modern protein language model embeddings with reproducible versioned
+pipelines.
+
+The main contributions are:
+
+\begin{description}
+  \item[An open-source platform] implementing the full annotation workflow from
+    FASTA upload to structured GO predictions, backed by a REST API and a web
+    interface. The system handles reference sets of over 527,000 proteins and is
+    horizontally scalable through queue-based worker pools.
+
+  \item[A versioned relational data model] in which every prediction is
+    permanently linked to the exact ontology release, annotation set, and
+    embedding configuration used to produce it. This enables retrospective
+    re-evaluation as databases and ontologies are updated, addressing a gap
+    identified in \cref{chap:related}.
+
+  \item[A feature-engineering module] that augments embedding cosine similarity
+    with Needleman--Wunsch and Smith--Waterman alignment statistics and
+    NCBI-taxonomy-based distance metrics. The evaluation in
+    \cref{chap:evaluation} demonstrates that these features provide
+    complementary signals to embedding distance.
+
+  \item[A temporal holdout re-ranker] using LightGBM with 22 features trained
+    across 12 consecutive GOA splits. The final model achieves
+    $F_{\max}$~values of 0.431 (NK-BPO), 0.620 (NK-MFO), and 0.692 (NK-CCO)
+    on the GOA~220$\to$229 evaluation set with IA weighting, surpassing both
+    the embedding-only baseline and a heuristic scoring rule in 7 of 9
+    category--aspect cells.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Answers to the Research Questions}
+\label{sec:rq-answers}
+
+\textbf{RQ1} --- \emph{Can embedding-based KNN annotation transfer match or
+exceed alignment-based methods?}
+
+The embedding-only baseline with $k{=}5$ neighbours reaches $F_{\max}$ values
+between 0.187 (PK-BPO) and 0.668 (NK-CCO) without any sequence alignment.
+Adding alignment features via the re-ranker improves performance by up to
++0.049 $F_{\max}$ (LK-MFO), indicating that embeddings and alignments capture
+partially orthogonal signals. A direct comparison with eggNOG-mapper~v2.1.13
+confirms that PROTEA's embedding-based approach outperforms DIAMOND-based
+orthology transfer in all nine category--aspect cells, with absolute
+improvements of up to +0.306~$F_{\max}$ (NK-CCO).
+
+\textbf{RQ2} --- \emph{Do pairwise alignment statistics and taxonomic distance
+provide complementary signals?}
+
+Yes. The progression from the re-ranker v2 (trained without alignment/taxonomy
+features) to v3 (trained with the full 22-feature set) provides direct evidence:
+$F_{\max}$ improved in 8 of 9 cells, with the largest gain in LK-MFO (+0.032).
+Feature importance analysis confirms that \texttt{identity\_nw},
+\texttt{similarity\_nw}, and \texttt{taxonomic\_distance} rank among the top-10
+features in all three per-category models. The v2 model, lacking these features,
+failed to surpass a simple heuristic that combined them linearly.
+
+\textbf{RQ3} --- \emph{How can a reproducible, scalable annotation pipeline be
+designed?}
+
+\begin{sloppypar}
+PROTEA's versioned data model links every prediction to an immutable
+\texttt{EmbeddingConfig} UUID, a versioned \texttt{AnnotationSet}, and a dated
+\texttt{OntologySnapshot}. The temporal holdout training pipeline is fully
+parameterised: re-running the same payload against the same database state
+reproduces identical models and results. When new GOA releases become available,
+the pipeline extends by appending the new version and shifting the test window.
+\end{sloppypar}
+
+% ────────────────────────────────────────────────────────────
+\section{Limitations}
+\label{sec:limitations}
+
+\begin{description}
+  \item[Limited external tool comparison.] The evaluation includes a comparison
+    with eggNOG-mapper but does not yet cover BLAST or InterProScan under the
+    same protocol. Extending the comparison would further strengthen the
+    positioning of PROTEA's approach.
+
+  \item[Single embedding model.] PROTEA currently uses ESMC~300M; ensembling
+    with larger models (ESM-2 15B, ProtT5-XL) could improve embedding quality
+    at higher computational cost.
+
+  \item[No structural information.] Protein tertiary structure is a powerful
+    predictor of function. Incorporating structure-based embeddings (e.g.\
+    from ESM-IF or Foldseek) is a natural extension.
+
+  \item[Single-node deployment.] The current architecture runs on a single
+    server managed by \texttt{manage.sh}. A Kubernetes-based deployment would
+    enable auto-scaling and cloud portability.
+
+  \item[Benchmark coverage.] The temporal holdout covers proteins that received
+    experimental annotations in a fixed window. This may over-represent proteins
+    that are easy to annotate and under-represent orphan proteins.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Future Work}
+\label{sec:future-work}
+
+\paragraph{Extended external tool comparison.}
+The current comparison with eggNOG-mapper could be extended to include BLAST
+and InterProScan on the same evaluation set, providing a more comprehensive
+picture for the bioinformatics community.
+
+\paragraph{Structure-aware embeddings.}
+Integrating structural representations alongside sequence embeddings would
+extend PROTEA's utility to the $>$200 million AlphaFold Database entries.
+
+\paragraph{Ontology-aware scoring.}
+Replacing flat majority vote with a GO-aware scheme --- weighting by information
+content within the DAG or using a hierarchical classifier --- could reduce
+semantic distance ($S_{\min}$) without sacrificing recall.
+
+\paragraph{Active learning integration.}
+Proteins with high embedding distance to all references (high uncertainty) could
+be prioritised for experimental characterisation, closing the annotation loop.
+
+\paragraph{Cloud-native deployment.}
+Containerising each worker role on a managed Kubernetes cluster would enable
+multi-tenant operation with auto-scaling GPU workers.
+
+\paragraph{CAFA participation.}
+Submitting PROTEA predictions to the CAFA6 challenge would provide an
+independent, community-validated benchmark of the system's performance.
+
+\bigskip
+\noindent PROTEA is released as open-source software at
+\url{https://github.com/frapercan/protea}.

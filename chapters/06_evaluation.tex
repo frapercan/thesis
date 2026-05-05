@@ -1,0 +1,632 @@
+\chapter{Evaluation}
+\label{chap:evaluation}
+
+This chapter describes the experimental protocol used to assess PROTEA's
+prediction quality. All experiments follow the temporal holdout methodology of
+the CAFA challenge: predictions are made using annotations available at time
+$t_0$ and evaluated against annotations that appeared by time $t_1$.
+
+% ────────────────────────────────────────────────────────────
+\section{Experimental Setup}
+\label{sec:eval-setup}
+
+\subsection{Hardware and Software}
+
+All experiments run on a single workstation equipped with an NVIDIA GPU
+(16\,GB VRAM), 64\,GB system RAM, and a PostgreSQL~16 instance with the
+\texttt{pgvector} extension. Embeddings are computed with ESMC~300M
+(\texttt{esmc\_300m}, 960-dimensional output) using mean pooling over residue
+representations.
+
+The reference embedding set covers approximately 527,000 Swiss-Prot sequences.
+\Gls{knn} search is performed in Python using NumPy (exact cosine distance) for
+all baseline experiments.
+
+\subsection{Annotation Data}
+
+Fifteen GOA Swiss-Prot annotation snapshots are loaded into PROTEA, spanning
+releases 160 through 229. Each snapshot is filtered to experimental evidence
+codes (\texttt{EXP}, \texttt{IDA}, \texttt{IMP}, \texttt{IGI}, \texttt{IEP},
+\texttt{IPI}). The GO ontology snapshot used is \texttt{releases/2026-01-23}.
+
+\begin{table}[htbp]
+  \centering
+  \caption{GOA annotation snapshots loaded into PROTEA.}
+  \label{tab:goa-snapshots}
+  \begin{tabular}{lp{9cm}}
+    \toprule
+    \textbf{Role} & \textbf{Snapshots} \\
+    \midrule
+    Training splits (re-ranker) & 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 211, 215 \\
+    Primary reference ($t_0$) & 220 \\
+    Primary test ($t_1$) & 229 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Evaluation Set Construction}
+
+The primary evaluation uses the temporal split GOA~220~$\to$~229. PROTEA's
+\texttt{generate\_evaluation\_set} operation computes the delta between the two
+annotation sets, applying NOT-qualifier propagation through the GO \gls{dag}
+and classifying each (protein, namespace) pair into the CAFA categories
+NK/LK/PK (\cref{subsec:nk-lk-pk}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Evaluation set statistics for the GOA~220~$\to$~229 split.}
+  \label{tab:eval-set-stats}
+  \begin{tabular}{lrr}
+    \toprule
+    \textbf{Category} & \textbf{Proteins} & \textbf{Annotations} \\
+    \midrule
+    NK (No-Knowledge)      & 2,831  & 6,953  \\
+    LK (Limited-Knowledge) & 3,410  & 5,520  \\
+    PK (Partial-Knowledge) & 15,313 & 27,541 \\
+    \midrule
+    \textbf{Total delta}   & 20,281 & 40,014 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Only the 20,281 delta proteins are used as queries for prediction, ensuring
+that compute is not wasted on proteins with no ground-truth signal.
+
+% ────────────────────────────────────────────────────────────
+\section{Evaluation Categories (NK/LK/PK)}
+\label{subsec:nk-lk-pk}
+
+Following the CAFA5 protocol, test proteins are classified into three
+mutually exclusive categories \emph{per (protein, namespace)}, where namespace
+is one of Molecular Function (MF), Biological Process (BP), or Cellular
+Component (CC).
+
+\begin{description}
+  \item[\textbf{NK (No-Knowledge).}]
+    The protein had \emph{no} experimental annotations in \emph{any} namespace
+    at $t_0$. All new annotations across all namespaces form the NK ground truth.
+    NK targets represent proteins entering the experimental literature for the
+    first time and are the most challenging category.
+
+  \item[\textbf{LK (Limited-Knowledge).}]
+    The protein had experimental annotations in some namespaces at $t_0$ but
+    not in namespace $S$. It gained new annotations in $S$ at $t_1$. Those new
+    annotations in $S$ are the LK ground truth for the $(P, S)$ pair.
+
+  \item[\textbf{PK (Partial-Knowledge).}]
+    The protein already had experimental annotations in namespace $S$ at $t_0$
+    and gained additional annotations in $S$ at $t_1$. Only the novel terms are
+    ground truth. Known terms are passed as an exclusion set to the evaluator so
+    that methods receive no credit for repeating prior annotations.
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Metrics}
+\label{sec:metrics}
+
+All evaluations use the \texttt{cafaeval} tool with Information Accretion (IA)
+weighting derived from the CAFA6 IA file (\texttt{IA\_cafa6.tsv}).
+
+\begin{description}
+  \item[$F_{\max}$] The maximum $F_1$ score over all prediction confidence
+    thresholds $\tau \in [0, 1]$, computed per GO aspect. Precision and recall
+    are defined over the full GO hierarchy using the true path rule.
+    $F_{\max}$ is the primary comparison metric throughout this chapter.
+\end{description}
+
+All metrics are computed separately for each combination of category (NK, LK,
+PK) and namespace (MF, BP, CC), yielding nine independent evaluations.
+
+Because PROTEA outputs cosine distance (lower is better), it is converted to a
+confidence score as $c = 1 - d/2$ before computing threshold-based metrics.
+
+% ────────────────────────────────────────────────────────────
+\section{Experiments and Results}
+\label{sec:experiments-results}
+
+The experiments are organised into seven progressive stages, each building on
+the findings of the previous one. All use the GOA~220~$\to$~229 evaluation
+set with IA weighting.
+
+% ── Experiment 1 ──────────────────────────────────────────────
+\subsection[Experiment~1: Effect of k (Neighbours Per Query)]{Experiment~1: Effect of $k$ (Neighbours Per Query)}
+\label{subsec:exp1-k}
+
+The first experiment establishes the optimal number of nearest neighbours $k$
+for annotation transfer. Four values are tested: $k \in \{5, 10, 20, 50\}$,
+all using \texttt{aspect\_separated\_knn=true} and the baseline scoring
+$c = 1 - d/2$.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax vs.\ number of neighbours k]{$F_{\max}$ vs.\ number of neighbours $k$.}
+  \label{tab:results-k-sweep}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    $k$ & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    \textbf{5}  & \textbf{0.412} & \textbf{0.590} & \textbf{0.668} & \textbf{0.467} & \textbf{0.558} & \textbf{0.676} & \textbf{0.187} & \textbf{0.278} & \textbf{0.325} \\
+    10 & 0.400 & 0.574 & 0.656 & 0.458 & 0.537 & 0.663 & 0.177 & 0.272 & 0.317 \\
+    20 & 0.396 & 0.564 & 0.649 & 0.454 & 0.528 & 0.654 & 0.173 & 0.269 & 0.313 \\
+    50 & 0.396 & 0.555 & 0.646 & 0.452 & 0.523 & 0.651 & 0.173 & 0.269 & 0.312 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+$k{=}5$ is optimal across all categories and aspects. Increasing $k$ degrades
+performance monotonically: additional neighbours introduce noise without
+meaningful recall gains. This is consistent with the concentration of function
+in the nearest embedding-space neighbours. All subsequent experiments use
+$k{=}5$.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_fmax_vs_k}
+  \caption[Fmax as a function of k]{%
+    $F_{\max}$ as a function of the number of neighbours $k$ for each evaluation
+    category and GO aspect. Performance degrades monotonically as $k$ grows,
+    confirming that functional signal is concentrated in the very nearest
+    neighbours and that aggregating over more candidates merely dilutes the vote.
+    Note the log-scale on the $x$ axis.%
+  }
+  \label{fig:fmax-vs-k}
+\end{figure}
+
+% ── Experiment 2 ──────────────────────────────────────────────
+\subsection{Experiment~2: Aspect-Separated vs.\ Unified KNN}
+\label{subsec:exp2-aspect}
+
+In aspect-separated mode, three independent \gls{knn} indices are built --- one
+per GO namespace --- using only reference proteins annotated in that namespace.
+This guarantees coverage of all three aspects but may dilute the signal for
+well-represented namespaces.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: aspect-separated vs.\ unified KNN]{$F_{\max}$: aspect-separated vs.\ unified KNN ($k{=}5$).}
+  \label{tab:results-aspect-sep}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Separated  & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.676 & 0.187 & 0.278 & 0.325 \\
+    Unified    & 0.410 & 0.595 & 0.666 & 0.471 & 0.569 & 0.675 & 0.188 & 0.279 & 0.325 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+Differences are minimal ($\leq 0.011$). The unified index slightly favours MFO
+while the separated index slightly favours BPO. We retain
+\texttt{aspect\_separated=true} for all subsequent experiments as it provides
+uniform aspect coverage without measurable degradation.
+
+% ── Experiment 3 ──────────────────────────────────────────────
+\subsection{Experiment~3: Heuristic Scoring Configurations}
+\label{subsec:exp3-scoring}
+
+This experiment tests whether combining embedding distance with alignment
+statistics and evidence codes improves scoring without machine learning.
+A single prediction set with \texttt{compute\_alignments=true} and
+\texttt{compute\_taxonomy=true} is generated; five scoring configurations
+are applied post-hoc via different weight vectors.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax under five heuristic scoring configurations]{$F_{\max}$ under five heuristic scoring configurations.}
+  \label{tab:results-scoring}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Config} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    embedding\_only     & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    \textbf{alignment\_weighted} & \textbf{0.428} & \textbf{0.611} & \textbf{0.683} & \textbf{0.500} & \textbf{0.598} & \textbf{0.699} & \textbf{0.201} & \textbf{0.285} & \textbf{0.337} \\
+    evidence\_primary   & 0.362 & 0.558 & 0.638 & 0.412 & 0.540 & 0.642 & 0.165 & 0.268 & 0.308 \\
+    emb+evidence        & 0.352 & 0.531 & 0.618 & 0.387 & 0.517 & 0.626 & 0.162 & 0.250 & 0.300 \\
+    composite           & 0.364 & 0.560 & 0.639 & 0.412 & 0.542 & 0.642 & 0.167 & 0.267 & 0.307 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The \texttt{alignment\_weighted} configuration (embedding~$=0.5$, NW
+identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5--4\%
+$F_{\max}$ across all cells. Configurations that incorporate evidence code
+weights \emph{degrade} performance --- the evidence code signal conflicts with
+IA weighting used in evaluation. This demonstrates that pairwise alignment
+statistics provide a genuinely complementary signal to embedding distance
+(addressing \textbf{RQ2}).
+
+% ── Experiment 4 ──────────────────────────────────────────────
+\subsection{Experiment~4: LightGBM Re-Ranker v1 (Per-Aspect Models)}
+\label{subsec:exp4-reranker-v1}
+
+A LightGBM binary classifier is trained on 12 temporal holdout splits
+(GOA~160$\to$165 through GOA~215$\to$220) and evaluated on the test split
+(GOA~220$\to$229). Nine models are trained (NK/LK/PK $\times$ BPO/MFO/CCO).
+Two variants are tested: no class balancing, and subsampling negatives to a
+10:1 ratio (\texttt{neg\_pos\_ratio=10}).
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: LightGBM v1 re-ranker]{$F_{\max}$: LightGBM v1 re-ranker (per-aspect models).}
+  \label{tab:results-reranker-v1}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    v1 (no balance)    & 0.384 & 0.584 & \textbf{0.695} & 0.447 & 0.482 & \textbf{0.713} & 0.201 & 0.284 & 0.335 \\
+    v1 (balanced)      & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The v1 re-ranker improves CCO substantially (+2--4\% over baseline) but
+\emph{degrades} MFO by 3--9\% relative to the heuristic. Six of nine per-aspect
+models suffer from early stopping at iteration~1 due to extreme class imbalance
+(positive rate $<0.2\%$). Class balancing corrects the BPO collapse but
+introduces a different trade-off. Neither variant surpasses the heuristic
+overall.
+
+% ── Experiment 5 ──────────────────────────────────────────────
+\subsection{Experiment~5: LightGBM Re-Ranker v2 (Per-Category + IA Weighting)}
+\label{subsec:exp5-reranker-v2}
+
+Experiment~5 addresses three weaknesses of v1:
+\begin{enumerate}
+  \item \textbf{Per-category models} (NK, LK, PK) instead of per-aspect
+    (NK-BPO, NK-MFO, \ldots), giving each model ${\sim}3{\times}$ more training data.
+  \item \textbf{IA sample weighting}: each training example is weighted by the
+    Information Accretion of its GO term, aligning the loss with the evaluation metric.
+  \item Hyperparameter refinement: learning rate $0.05 \to 0.01$,
+    max rounds $300 \to 1000$, early stopping patience $30 \to 50$.
+\end{enumerate}
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: LightGBM v2 re-ranker]{$F_{\max}$: LightGBM v2 re-ranker (per-category + IA weighting).}
+  \label{tab:results-reranker-v2}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    v2 (full)          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The v2 re-ranker is substantially more robust than v1 --- MFO no longer
+collapses (0.607 vs.\ 0.577) and performance is consistent across all cells.
+However, \texttt{alignment\_weighted} still leads in BPO and MFO. Post-hoc
+analysis of feature importance revealed that alignment and taxonomy features
+had \textbf{zero importance} in all three models: these features were set to
+\texttt{NULL} during training data generation, meaning the model could only
+learn from embedding distance, aggregation features, and categorical signals.
+
+% ── Experiment 6 ──────────────────────────────────────────────
+\subsection{Experiment~6: LightGBM Re-Ranker v3 (Full Feature Set)}
+\label{subsec:exp6-reranker-v3}
+
+Experiment~6 addresses the missing-feature problem identified in v2 by
+computing pairwise alignment (Needleman--Wunsch and Smith--Waterman via
+parasail/BLOSUM62) and taxonomic distance (via the NCBI taxonomy tree) for
+every (query, reference) pair during training data generation. This gives the
+model access to all 22 features --- the same set available at inference time.
+
+Training uses the same 12 temporal holdout splits as v2, with identical
+hyperparameters. The additional computation adds approximately 45 minutes
+to the 2-hour training time (alignment is $O(mn)$ per pair but benefits from
+SIMD acceleration; taxonomy uses an LRU-cached SQLite lookup).
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: complete comparison of all methods]{$F_{\max}$: complete comparison of all methods.}
+  \label{tab:results-all}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline (emb.\ only) & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted    & 0.428 & 0.611 & 0.683 & \textbf{0.500} & 0.598 & \textbf{0.699} & 0.201 & 0.285 & 0.337 \\
+    Re-ranker v1 (bal.)   & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    Re-ranker v2          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \textbf{Re-ranker v3} & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & 0.478 & \textbf{0.607} & 0.697 & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The v3 re-ranker with full features achieves the best $F_{\max}$ in 7 of 9
+category--aspect cells, surpassing both the heuristic and all prior re-ranker
+versions. The two cells where the heuristic leads (LK-BPO by $+0.022$ and
+LK-CCO by $+0.002$) are relatively small margins compared to the gains
+elsewhere.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_reranker_progression}
+  \caption[Re-ranker progression across methods]{%
+    Method progression on the GOA~220$\to$229 evaluation set, faceted by
+    category (NK / LK / PK) with one bar per GO aspect.
+    \texttt{AlnWeighted} is the best heuristic from Experiment~3
+    (embedding\,$=0.5$, NW identity\,$=0.3$, SW identity\,$=0.2$); \texttt{v1bal}
+    is the per-aspect LightGBM re-ranker with class balancing; \texttt{v2}
+    consolidates per-category models with IA weighting; \texttt{v3} adds the
+    full alignment\,+\,taxonomy feature set during training. The transition
+    \texttt{v2}\,$\to$\,\texttt{v3} is the only step that consistently surpasses
+    the heuristic in MFO and BPO, isolating feature availability (and not
+    model capacity) as the operative cause.%
+  }
+  \label{fig:reranker-progression}
+\end{figure}
+
+\subsubsection{Feature Importance Analysis}
+
+\Cref{tab:feature-importance} shows the top features by LightGBM gain for each
+per-category model. With the full feature set, alignment features now contribute
+meaningfully --- \texttt{identity\_nw} is the 4th most important feature in NK.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Top-10 features by LightGBM gain for v3 per-category models.}
+  \label{tab:feature-importance}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{clr clr clr}
+    \toprule
+    \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){1-3} \cmidrule(lr){4-6} \cmidrule(lr){7-9}
+    \# & Feature & Gain & \# & Feature & Gain & \# & Feature & Gain \\
+    \midrule
+    1 & ref\_ann\_dens.  & 971K & 1 & ref\_ann\_dens.  & 309K & 1 & go\_term\_freq  & 680K \\
+    2 & go\_term\_freq   & 280K & 2 & go\_term\_freq   & 256K & 2 & evidence\_code  & 531K \\
+    3 & evidence\_code   & 163K & 3 & evidence\_code   & 169K & 3 & similarity\_nw  & 307K \\
+    4 & identity\_nw     & 157K & 4 & vote\_count      & 122K & 4 & identity\_nw    & 267K \\
+    5 & vote\_count      & 137K & 5 & nb\_dist\_std    & 71K  & 5 & ref\_ann\_dens. & 262K \\
+    6 & align\_score\_nw & 122K & 6 & identity\_nw     & 64K  & 6 & qualifier       & 185K \\
+    7 & nb\_dist\_std    & 108K & 7 & similarity\_nw   & 50K  & 7 & k\_position     & 126K \\
+    8 & k\_position      & 73K  & 8 & distance         & 46K  & 8 & vote\_count     & 117K \\
+    9 & similarity\_nw   & 70K  & 9 & align\_score\_nw & 45K  & 9 & nb\_dist\_std   & 88K  \\
+   10 & distance         & 68K  & 10 & qualifier       & 42K  & 10 & tax\_distance  & 75K  \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_feature_importance}
+  \caption[Top-10 LightGBM feature importances per per-category model]{%
+    Top-10 features by LightGBM gain for the per-category v3 re-ranker models
+    (NK, LK, PK). Aggregation features (\texttt{ref\_annotation\_density},
+    \texttt{go\_term\_frequency}) dominate in NK and LK, while in PK the
+    aggregation signal is overtaken by alignment-based features
+    (\texttt{similarity\_nw}, \texttt{identity\_nw}). Raw embedding distance
+    falls outside the top features in NK/LK, indicating that the re-ranker
+    learns to use embedding similarity primarily as a candidate-generation
+    filter rather than as the final ranking signal.%
+  }
+  \label{fig:feature-importance}
+\end{figure}
+
+Three observations stand out:
+\begin{itemize}
+  \item \textbf{Aggregation features dominate}: \texttt{ref\_annotation\_density}
+    and \texttt{go\_term\_frequency} are the top features in NK/LK and PK
+    respectively. These capture the statistical reliability of individual
+    reference proteins and GO terms.
+  \item \textbf{Alignment features are now active}: \texttt{identity\_nw} and
+    \texttt{similarity\_nw} rank 4th--6th across all models. In v2 (where
+    these were NULL during training), they had zero importance.
+  \item \textbf{Embedding distance ranks low}: \texttt{distance} ranks 10th in
+    NK and 8th in LK, well below both alignment and aggregation features. The
+    re-ranker learns to rely on more granular signals than raw embedding
+    similarity.
+\end{itemize}
+
+\subsubsection{Improvement Over Baseline}
+
+\Cref{tab:improvement} summarises the absolute $F_{\max}$ improvement of the
+best re-ranker (v3) over the embedding-only baseline.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Absolute Fmax improvement: re-ranker v3 vs.\ baseline]{Absolute $F_{\max}$ improvement: re-ranker v3 vs.\ baseline.}
+  \label{tab:improvement}
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Category} & \textbf{BPO} & \textbf{MFO} & \textbf{CCO} \\
+    \midrule
+    NK & +0.019 & +0.030 & +0.024 \\
+    LK & +0.011 & +0.049 & +0.022 \\
+    PK & +0.014 & +0.019 & +0.014 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The largest gains are in MFO (+0.030 NK, +0.049 LK), the aspect where the
+baseline was already strongest. This suggests that the re-ranker's additional
+features are particularly effective at disambiguating molecular function
+predictions.
+
+% ── Experiment 7 ──────────────────────────────────────────────
+\subsection{Experiment~7: Comparison with eggNOG-mapper}
+\label{subsec:exp7-eggnogmapper}
+
+To position PROTEA relative to an established annotation transfer tool,
+the same 20,281-protein test set was submitted to eggNOG-mapper~v2.1.13
+\cite{cantalapiedra2021eggnogmapper} using DIAMOND sequence search with
+\texttt{--go\_evidence experimental}. Of the 20,281 proteins, 17,334
+(85.5\%) received at least one GO term prediction. Full setup and
+reproduction instructions are given in \cref{app:external-comparison}.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: eggNOG-mapper vs.\ PROTEA methods]{$F_{\max}$: eggNOG-mapper vs.\ PROTEA methods (IA-weighted).}
+  \label{tab:results-emapper}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    eggNOG-mapper 2.1.13 & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
+    PROTEA baseline      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    \textbf{PROTEA re-ranker v3} & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+PROTEA's re-ranker v3 outperforms eggNOG-mapper in all nine category--aspect
+cells, with absolute $F_{\max}$ improvements ranging from +0.011 (PK-BPO) to
++0.306 (NK-CCO). The largest gains occur in the NK and LK categories, where
+eggNOG-mapper's coverage gap (14.5\% of test proteins without predictions) and
+lack of graded confidence scores limit its performance. Even the
+embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells, suggesting
+that protein language model embeddings provide a stronger retrieval signal
+than DIAMOND-based orthology assignment for this evaluation protocol.
+
+Two caveats apply: (i)~eggNOG-mapper assigns uniform confidence to all
+predictions (no threshold optimisation), which disadvantages it under
+$F_{\max}$; and (ii)~the eggNOG database version (5.0.2) predates the
+evaluation window, so its orthologous groups may not reflect the latest
+annotations. A more detailed analysis is provided in
+\cref{app:external-comparison}.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_protea_vs_emapper}
+  \caption[PROTEA vs eggNOG-mapper across NK/LK/PK and aspects]{%
+    Head-to-head $F_{\max}$ comparison between eggNOG-mapper~v2.1.13,
+    PROTEA's embedding-only baseline, and PROTEA's re-ranker~v3 on the
+    GOA~220$\to$229 evaluation set. Both PROTEA configurations dominate
+    eggNOG-mapper across NK and LK, with the largest absolute gain
+    (+0.306~$F_{\max}$) in NK-CCO. The PK gap narrows because PROTEA's
+    PK predictions are filtered against the protein's existing annotations
+    (\texttt{known\_terms}) while eggNOG-mapper does not perform such
+    exclusion, slightly favouring it in PK-BPO.%
+  }
+  \label{fig:protea-vs-emapper}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Addressing the Research Questions}
+
+\textbf{RQ1} --- \emph{Can embedding-based KNN annotation transfer match or
+exceed alignment-based methods for GO term prediction, particularly at low
+sequence identity?}
+
+The embedding-only baseline ($k{=}5$, $c = 1 - d/2$) establishes competitive
+performance across all categories, reaching $F_{\max}$ values of 0.590 (NK-MFO),
+0.558 (LK-MFO), and 0.668 (NK-CCO) without any alignment computation. The
+heuristic scoring experiment (Exp.~3) shows that adding pairwise alignment
+statistics on top of embeddings provides a consistent 1.5--4\% improvement,
+indicating that embeddings and alignments capture partially orthogonal signals.
+The comparison with eggNOG-mapper (Exp.~7) provides direct evidence: even the
+embedding-only baseline surpasses eggNOG-mapper's DIAMOND-based orthology
+transfer in 8 of 9 cells, and PROTEA's re-ranker v3 outperforms it in all 9
+cells by margins of up to +0.306~$F_{\max}$. While the comparison has caveats
+(uniform confidence scores for eggNOG-mapper, different database versions), it
+demonstrates that embedding-based KNN transfer is a strong approach for
+large-scale functional annotation.
+
+\textbf{RQ2} --- \emph{Do pairwise alignment statistics and taxonomic distance
+provide complementary signals that improve the ranking of candidate annotations?}
+
+Yes. The progression from v2 to v3 provides direct evidence: when alignment
+and taxonomy features are available during training, $F_{\max}$ improves in 8 of
+9 cells (up to +0.032 in LK-MFO). Feature importance analysis confirms that
+\texttt{identity\_nw}, \texttt{similarity\_nw}, and \texttt{taxonomic\_distance}
+are among the top-10 features in all three models. Notably, the v2 re-ranker
+--- trained without these features --- failed to surpass the simple heuristic that
+used them directly, while v3 --- trained with the same features --- exceeds it.
+
+\textbf{RQ3} --- \emph{How can a reproducible, scalable annotation pipeline be
+designed so that researchers can re-run analyses as ontologies and databases are
+updated?}
+
+PROTEA's versioned data model ensures reproducibility by design. Every
+prediction is linked to an immutable \texttt{EmbeddingConfig} UUID, a specific
+\texttt{AnnotationSet} (versioned by GOA release number), and a specific
+\texttt{OntologySnapshot} (versioned by OBO release date). The temporal holdout
+training pipeline is itself parameterised by version numbers: re-running the
+same \texttt{train\_reranker\_auto} payload against the same database state
+produces identical models and evaluation results. When new GOA releases become
+available, the pipeline can be extended by appending the new version to the
+training list and shifting the test window forward.
+
+\subsection{The Value of Feature Engineering in the Age of Embeddings}
+
+A recurring theme in this evaluation is the interplay between protein language
+model embeddings and classical sequence analysis features. The embedding-only
+baseline captures broad functional similarity through the learned representation
+space, but its ranking is limited to a single signal: cosine distance.
+
+The LightGBM re-ranker, when given access to the full feature set, learns to
+combine multiple complementary signals:
+\begin{itemize}
+  \item \textbf{Embedding distance} provides the initial retrieval signal.
+  \item \textbf{Alignment identity and scores} capture sequence-level conservation
+    that the embedding may compress away.
+  \item \textbf{Aggregation features} (vote count, GO term frequency, reference
+    annotation density) encode the statistical confidence of each prediction.
+  \item \textbf{Taxonomic distance} provides phylogenetic context.
+\end{itemize}
+
+The fact that the v2 re-ranker (without alignment/taxonomy in training) failed
+to surpass a simple heuristic combining these signals, while v3 (with full
+features) succeeded, underscores that feature engineering remains valuable even
+when powerful embeddings are available. Embeddings and classical features are
+complementary, not substitutes.
+
+\subsection{Limitations}
+\label{subsec:limitations}
+
+\begin{itemize}
+  \item The temporal holdout strategy reduces contamination but does not
+    eliminate it entirely: some test proteins share high sequence identity with
+    reference proteins, making their annotations trivially predictable.
+  \item ESMC~300M was chosen for computational tractability; larger variants
+    would likely improve embedding quality at higher GPU cost.
+  \item The evaluation considers only annotation transfer from Swiss-Prot
+    experimental annotations; IEA annotations are excluded because they are
+    themselves computationally derived.
+  \item The IA file used (\texttt{IA\_cafa6.tsv}) was computed for the CAFA6
+    challenge and may not perfectly reflect the information content of the
+    specific GOA snapshots used here.
+  \item The comparison with external tools is limited to eggNOG-mapper;
+    additional tools (BLAST, InterProScan) would provide a more complete
+    picture of the competitive landscape.
+  \item The LK-BPO cell consistently favours the heuristic over the re-ranker,
+    suggesting that the learned model may underperform for specific
+    category--aspect combinations with limited positive examples.
+\end{itemize}

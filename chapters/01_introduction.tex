@@ -1,0 +1,71 @@
+\chapter{Introduction}
+\label{chap:introduction}
+
+\section{Motivation}
+\label{sec:motivation}
+
+The pace at which biological sequence data accumulates has long outstripped our
+capacity to characterise proteins experimentally. As of early 2026, UniProt
+contains more than 250 million sequences, yet fewer than 0.02\,\% carry
+experimentally validated functional annotations~\cite{uniprot2023}. The gap is
+not merely quantitative: the proteins that remain unannotated are disproportionately
+found in under-studied organisms, precisely where novel biology — and potential
+therapeutic targets — are most likely to reside.
+
+Computational function prediction attempts to bridge this gap by transferring
+knowledge from characterised proteins to unknown ones. Classical approaches based
+on sequence similarity (BLAST, profile \glspl{hmm}) remain widely used, but their
+accuracy degrades for distantly related sequences. More recently, \glspl{plm}
+trained on hundreds of millions of sequences have produced dense vector
+representations that capture structural and functional signals well beyond what
+classical alignment can detect.
+
+PROTEA was designed to operationalise these advances: to take a set of protein
+sequences as input and produce, at scale, ranked \gls{go} term predictions with
+supporting evidence, while remaining accessible to domain experts who are not
+machine-learning engineers.
+
+\section{Research Questions}
+\label{sec:research-questions}
+
+This thesis addresses the following questions:
+
+\begin{enumerate}[label=\textbf{RQ\arabic*.}]
+  \item Can embedding-based \gls{knn} annotation transfer match or exceed
+        alignment-based methods for \gls{go} term prediction, particularly at
+        low sequence identity?
+  \item Do pairwise alignment statistics and taxonomic distance provide
+        complementary signals that improve the ranking of candidate annotations?
+  \item How can a reproducible, scalable annotation pipeline be designed so
+        that researchers can re-run analyses as ontologies and databases are updated?
+\end{enumerate}
+
+\section{Contributions}
+\label{sec:contributions}
+
+The main contributions of this work are:
+
+\begin{itemize}
+  \item \textbf{PROTEA}: an open-source distributed platform implementing the full
+        annotation pipeline, from FASTA upload to structured \gls{go} predictions
+        with optional feature engineering.
+  \item A \textbf{versioned data model} for ontology snapshots and annotation sets
+        that enables reproducible retrospective analyses.
+  \item A \textbf{feature-engineering module} that augments embedding similarity
+        with Needleman--Wunsch / Smith--Waterman alignment scores and
+        NCBI-taxonomy-based distances.
+  \item An \textbf{empirical evaluation} comparing PROTEA predictions against
+        baseline methods on a held-out Swiss-Prot subset.
+\end{itemize}
+
+\section{Thesis Structure}
+\label{sec:structure}
+
+The remainder of this document is organised as follows.
+\Cref{chap:background} introduces the biological concepts underpinning the work.
+\Cref{chap:related} surveys existing computational approaches to protein function
+prediction.
+\Cref{chap:design} presents the architecture of PROTEA.
+\Cref{chap:implementation} describes key implementation decisions.
+\Cref{chap:evaluation} reports the experimental results.
+\Cref{chap:conclusion} summarises the findings and outlines future directions.

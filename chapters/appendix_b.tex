@@ -1,0 +1,246 @@
+\chapter{External Tool Comparison: Reproducibility Protocol}
+\label{app:external-comparison}
+
+This appendix documents the exact procedure used to evaluate eggNOG-mapper
+on the same test set and evaluation protocol as PROTEA (\cref{subsec:exp7-eggnogmapper}).
+It is intended to allow full reproduction of the comparison results and to
+serve as a template for evaluating additional external tools.
+
+% ────────────────────────────────────────────────────────────
+\section{Test Set Extraction}
+\label{app:ext-test-set}
+
+The test set consists of the 20{,}281 proteins that gained at least one new
+experimental GO annotation between GOA version~220 and version~229 (the same
+temporal holdout used for all PROTEA experiments in \cref{chap:evaluation}).
+The FASTA file was extracted from PROTEA's database using the built-in API
+endpoint:
+
+\begin{verbatim}
+curl -o test_proteins.fasta \
+  "http://localhost:8000/annotations/evaluation-sets/\
+42b34e79-6fe9-4fa0-b718-02f43a1e3192/delta-proteins.fasta"
+\end{verbatim}
+
+Each FASTA header contains the UniProt accession, entry name, organism,
+taxonomy ID, and CAFA category (NK/LK/PK):
+
+\begin{verbatim}
+>A0A024RBG1 NUD4B_HUMAN OS=Homo sapiens OX=9606 (LK)
+MMKFKPNQTRTYDREGFKKRAACLCFRSEQEDEVLLVSSS...
+\end{verbatim}
+
+The resulting file contains 20{,}281 sequences spanning all three CAFA categories
+(NK: 2{,}831, LK: 3{,}410, PK: 15{,}313).
+
+% ────────────────────────────────────────────────────────────
+\section{eggNOG-mapper Setup}
+\label{app:ext-emapper-setup}
+
+eggNOG-mapper v2.1.13 was run via its official Biocontainers Docker image
+to ensure a reproducible environment. The following steps were performed:
+
+\paragraph{1.\ Pull the Docker image.}
+\begin{verbatim}
+docker pull quay.io/biocontainers/\
+  eggnog-mapper:2.1.13--pyhdfd78af_2
+\end{verbatim}
+
+\paragraph{2.\ Download the eggNOG databases (v5.0.2).}
+At the time of this experiment (March 2026), the official download script
+pointed to a deprecated URL. The databases were downloaded manually from
+\texttt{eggnog5.embl.de}:
+
+\begin{verbatim}
+# eggnog.db (6.3 GB compressed, ~39 GB uncompressed)
+wget -O eggnog.db.gz \
+  http://eggnog5.embl.de/download/emapperdb-5.0.2/\
+eggnog.db.gz
+gunzip eggnog.db.gz
+
+# Diamond protein database (4.8 GB compressed, ~8.7 GB)
+wget -O eggnog_proteins.dmnd.gz \
+  http://eggnog5.embl.de/download/emapperdb-5.0.2/\
+eggnog_proteins.dmnd.gz
+gunzip eggnog_proteins.dmnd.gz
+
+# Taxonomy database (~71 MB compressed)
+wget -O eggnog.taxa.tar.gz \
+  http://eggnog5.embl.de/download/emapperdb-5.0.2/\
+eggnog.taxa.tar.gz
+tar xzf eggnog.taxa.tar.gz
+\end{verbatim}
+
+Total disk usage: approximately 48~GB.
+
+\paragraph{3.\ Verify installation.}
+\begin{verbatim}
+docker run --rm \
+  -v /path/to/eggnog-data:/data \
+  quay.io/biocontainers/\
+    eggnog-mapper:2.1.13--pyhdfd78af_2 \
+  emapper.py --version --data_dir /data
+
+# Output:
+# emapper-2.1.13 / eggNOG DB version: 5.0.2
+# Diamond version: 2.0.15 / MMseqs2: 16.747c6
+\end{verbatim}
+
+% ────────────────────────────────────────────────────────────
+\section{Running eggNOG-mapper}
+\label{app:ext-emapper-run}
+
+\begin{verbatim}
+docker run --rm \
+  -v /path/to/eggnog-data:/data \
+  -v /path/to/input:/input \
+  -v /path/to/output:/output \
+  quay.io/biocontainers/\
+    eggnog-mapper:2.1.13--pyhdfd78af_2 \
+  emapper.py \
+    -i /input/test_proteins.fasta \
+    --data_dir /data \
+    -o test_proteins \
+    --output_dir /output \
+    --cpu 8 \
+    -m diamond \
+    --go_evidence experimental \
+    --tax_scope auto \
+    --target_orthologs all
+\end{verbatim}
+
+\paragraph{Key parameters.}
+\begin{description}
+  \item[\texttt{-m diamond}] Use DIAMOND for sequence search (default mode).
+  \item[\texttt{--go\_evidence experimental}] Transfer only GO terms supported
+    by experimental evidence codes, matching the evidence code filter used in
+    PROTEA's evaluation protocol.
+  \item[\texttt{--tax\_scope auto}] Automatically determine the taxonomic scope
+    for ortholog assignment.
+  \item[\texttt{--target\_orthologs all}] Consider all orthologs (one-to-one,
+    one-to-many, many-to-many).
+  \item[\texttt{--cpu 8}] Use 8 CPU threads for the DIAMOND search phase.
+\end{description}
+
+\paragraph{Runtime.} The full run completed in approximately 21 minutes
+on the same workstation used for all PROTEA experiments (64~GB RAM, no GPU
+required for eggNOG-mapper).
+
+\paragraph{Output.} eggNOG-mapper produced annotations for 19{,}958 of the
+20{,}281 input proteins (98.4\% hit rate). Of those, 17{,}334 (85.5\% of the
+test set) received at least one GO term prediction. The remaining 2{,}947
+proteins either had no DIAMOND hit or no GO terms were transferred from the
+matched orthologous group.
+
+% ────────────────────────────────────────────────────────────
+\section{CAFA Evaluation Protocol}
+\label{app:ext-cafa-eval}
+
+To ensure a fair comparison, eggNOG-mapper predictions were evaluated using
+exactly the same protocol as all PROTEA experiments:
+
+\begin{enumerate}
+  \item \textbf{Ground truth computation.} The NK/LK/PK classification and
+    ground-truth annotations were computed from the same EvaluationSet
+    (GOA~220$\to$229) using PROTEA's \texttt{compute\_evaluation\_data()}
+    function, which implements NOT-qualifier propagation through the GO DAG
+    following the CAFA5 protocol.
+  \item \textbf{Prediction format.} eggNOG-mapper does not produce per-term
+    confidence scores; each predicted GO term is assigned a uniform score of
+    1.0 (binary: predicted or not predicted).
+  \item \textbf{Evaluation.} The \texttt{cafaeval} tool was run with the same
+    parameters as all other experiments: GO propagation mode \texttt{max},
+    normalisation mode \texttt{cafa}, and IA weighting from
+    \texttt{IA\_cafa6.tsv}.
+\end{enumerate}
+
+The evaluation script \texttt{scripts/evaluate\_external\_tool.py} automates
+this entire pipeline. It accepts the external tool's output file, connects
+to PROTEA's database to retrieve the ground truth, and runs \texttt{cafaeval}
+for all three CAFA settings (NK, LK, PK):
+
+\begin{verbatim}
+poetry run python scripts/evaluate_external_tool.py \
+  --evaluation-set-id \
+    42b34e79-6fe9-4fa0-b718-02f43a1e3192 \
+  --tool emapper \
+  --input output/test_proteins.emapper.annotations
+\end{verbatim}
+
+% ────────────────────────────────────────────────────────────
+\section{Raw Results}
+\label{app:ext-raw-results}
+
+\Cref{tab:emapper-raw} presents the complete per-cell results for
+eggNOG-mapper alongside the PROTEA methods.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Complete Fmax comparison]{Complete $F_{\max}$ comparison: eggNOG-mapper vs.\ PROTEA methods (IA-weighted).}
+  \label{tab:emapper-raw}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    eggNOG-mapper 2.1.13 & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
+    PROTEA baseline      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    PROTEA re-ranker v3  & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+\Cref{tab:emapper-delta} shows the absolute $F_{\max}$ difference between
+PROTEA's re-ranker v3 and eggNOG-mapper.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Absolute Fmax improvement vs.\ eggNOG-mapper]{Absolute $F_{\max}$ improvement: PROTEA re-ranker v3 vs.\ eggNOG-mapper.}
+  \label{tab:emapper-delta}
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Category} & \textbf{BPO} & \textbf{MFO} & \textbf{CCO} \\
+    \midrule
+    NK & +0.184 & +0.261 & +0.306 \\
+    LK & +0.096 & +0.273 & +0.247 \\
+    PK & +0.011 & +0.098 & +0.014 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Coverage analysis.} eggNOG-mapper found DIAMOND hits for 19{,}958
+proteins but only transferred GO terms to 17{,}334 (85.5\% of the test set).
+PROTEA, by contrast, produces predictions for all 20{,}281 proteins (100\%
+coverage) because every protein has an embedding and therefore has $k$
+nearest neighbours. This coverage gap accounts for part of the $F_{\max}$
+difference, particularly in NK where 14.5\% of proteins receive no
+eggNOG-mapper prediction.
+
+% ────────────────────────────────────────────────────────────
+\section{Methodological Notes}
+\label{app:ext-notes}
+
+\paragraph{Score assignment.}
+eggNOG-mapper produces a binary set of GO terms per protein without
+per-term confidence scores. For the CAFA evaluation, all predicted terms are
+assigned a confidence of 1.0. This means the precision--recall curve is a
+single point (one threshold), and $F_{\max}$ equals the $F_1$ score at that
+point. Methods that produce graded confidence scores (such as PROTEA) can
+optimise the precision--recall trade-off by varying the threshold, which may
+contribute to higher $F_{\max}$ values.
+
+\paragraph{GO propagation.}
+eggNOG-mapper transfers GO terms from orthologous groups but does not
+explicitly propagate them up the GO DAG. The \texttt{cafaeval} evaluator
+applies \texttt{prop=max} propagation during evaluation, so ancestor terms
+are included in the comparison for all methods.
+
+\paragraph{Evidence code filter.}
+The \texttt{--go\_evidence experimental} flag restricts eggNOG-mapper to
+transferring GO terms supported by experimental evidence codes in the eggNOG
+database. This is conceptually aligned with PROTEA's use of experimental-only
+annotations from GOA, though the exact set of supporting evidence and the
+database versions differ.

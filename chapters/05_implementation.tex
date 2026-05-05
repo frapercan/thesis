@@ -1,0 +1,360 @@
+\chapter{Implementation}
+\label{chap:implementation}
+
+This chapter describes the concrete technology choices and key implementation
+details behind the design presented in \cref{chap:design}.
+
+% ────────────────────────────────────────────────────────────
+\section{Project Structure}
+\label{sec:project-structure}
+
+The PROTEA codebase is organised into three top-level packages that mirror the
+architectural layers described in \cref{chap:design}:
+
+\begin{description}
+  \item[\texttt{protea/api/}] FastAPI application and routers
+    (\texttt{jobs}, \texttt{proteins}, \texttt{annotations},
+    \texttt{embeddings}, \texttt{query\_sets}, \texttt{admin}).
+  \item[\texttt{protea/core/}] Pure domain logic: the \texttt{Operation}
+    protocol and \texttt{OperationRegistry} contracts, all nine registered
+    operations, the kNN search backends, feature engineering utilities, and
+    shared HTTP helpers.
+  \item[\texttt{protea/infrastructure/}] SQLAlchemy ORM models,
+    RabbitMQ consumer and publisher, the session context manager, and the
+    configuration loader.
+\end{description}
+
+Two additional directories complete the repository:
+
+\begin{description}
+  \item[\texttt{apps/web/}] The Next.js frontend application.
+  \item[\texttt{scripts/}] Operational tooling: \texttt{manage.sh} (process
+    manager), \texttt{worker.py} (worker entry point that registers all
+    operations), \texttt{init\_db.py} (schema initialisation), and
+    \texttt{run\_one\_job.py} (manual job runner for debugging).
+\end{description}
+
+This layout enforces the dependency direction: \texttt{api} and \texttt{workers}
+depend on \texttt{core} and \texttt{infrastructure}; \texttt{core} has no
+dependency on either of the other two.
+
+% ────────────────────────────────────────────────────────────
+\section{Technology Stack}
+\label{sec:stack}
+
+\Cref{tab:stack} summarises the main components of the PROTEA stack.
+
+\begin{table}[htbp]
+  \centering
+  \caption{PROTEA technology stack.}
+  \label{tab:stack}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Component}   & \textbf{Technology}         & \textbf{Version} \\
+    \midrule
+    API framework        & FastAPI                     & 0.115+           \\
+    ORM / migrations     & SQLAlchemy 2.0 + Alembic    & 2.0 / 1.13       \\
+    Database             & PostgreSQL 16 + pgvector    & 16 / 0.7         \\
+    Message broker       & RabbitMQ + aio-pika         & 3.x / 9.x        \\
+    Data validation      & Pydantic v2                 & 2.x              \\
+    Protein LM inference & Hugging Face Transformers   & 4.x              \\
+    Alignment            & parasail-python (BLOSUM62)  & 1.x              \\
+    Taxonomy             & ete3 + NCBITaxa             & 3.x              \\
+    ANN search           & NumPy / FAISS               & ---              \\
+    Frontend             & Next.js 19 + Tailwind v4    & 19 / 4           \\
+    Dependency mgmt.     & Poetry                      & 1.x              \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+All Python dependencies are declared in \texttt{pyproject.toml} with pinned
+version ranges; \texttt{poetry.lock} guarantees reproducible installs across
+environments. The \texttt{dev} dependency group adds pytest, pytest-cov, and
+related tooling without polluting the production image.
+
+% ────────────────────────────────────────────────────────────
+\section{Database Schema and Migrations}
+\label{sec:database}
+
+The database schema is managed with Alembic. Migration scripts are generated
+from SQLAlchemy ORM metadata via \texttt{alembic revision --autogenerate} and
+stored under \texttt{alembic/versions/}. The Alembic \texttt{env.py} reads the
+database URL from \texttt{protea/config/system.yaml} (or the \texttt{PROTEA\_DB\_URL}
+environment variable), ensuring consistency with the application configuration.
+
+The pgvector extension is enabled at database initialisation time:
+
+\begin{lstlisting}[language=SQL, caption={Enabling pgvector.}]
+CREATE EXTENSION IF NOT EXISTS vector;
+\end{lstlisting}
+
+\texttt{SequenceEmbedding} columns are declared as \texttt{VECTOR(n)} where $n$
+is determined by the embedding model (e.g.\ 1280 for ESM-2 650M, 2560 for
+ESM-2 3B). Although pgvector supports index types for nearest-neighbour queries
+(HNSW, IVFFlat), PROTEA intentionally does not use them for kNN search —
+querying through pgvector at the scale of hundreds of thousands of vectors
+introduces unacceptable latency. Instead, reference embeddings are loaded into
+Python (NumPy or FAISS) at prediction time.
+
+\subsection{Session Management}
+\label{subsec:sessions}
+
+All database access goes through \texttt{session\_scope()}, a context manager
+that commits on normal exit and rolls back on exception:
+
+\begin{lstlisting}[language=Python, caption={Session context manager.}]
+@contextmanager
+def session_scope(factory):
+    session = factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+\end{lstlisting}
+
+The two-session pattern in \texttt{BaseWorker} (claim session, execute session)
+relies on this primitive: the claim commits independently of the execute, so a
+crash during execution never rolls back the \texttt{RUNNING} state transition.
+
+% ────────────────────────────────────────────────────────────
+\section{Operations}
+\label{sec:operations}
+
+PROTEA ships nine operations registered at worker startup:
+
+\begingroup\sloppy
+\begin{description}
+  \item[\texttt{ping}] Smoke test. Returns immediately with a success result.
+  \item[\texttt{insert\_proteins}] Paginates the UniProt REST API using
+    cursor-based FASTA streaming. Sequences are deduplicated by MD5 hash before
+    upsert; proteins are upserted by accession. Exponential backoff with jitter
+    and \texttt{Retry-After} header handling are implemented in the shared
+    \texttt{UniProtHttpMixin}.
+  \item[\texttt{fetch\_uniprot\_metadata}] Downloads TSV functional annotation
+    data from UniProt and upserts \texttt{ProteinUniProtMetadata} rows keyed by
+    canonical accession.
+  \item[\texttt{load\_ontology\_snapshot}] Downloads a GO OBO file and populates
+    \texttt{OntologySnapshot}, \texttt{GOTerm}, and \texttt{GOTermRelationship}
+    rows. The \texttt{obo\_version} field carries a unique constraint so that
+    re-importing the same release is idempotent.
+  \item[\texttt{load\_goa\_annotations}] Bulk-loads a \gls{gaf} file.
+    Annotations are filtered against canonical accessions present in the
+    database, avoiding orphaned foreign keys.
+  \item[\texttt{load\_quickgo\_annotations}] Streams GO annotations from the
+    QuickGO bulk download API (paginated TSV). Supports optional ECO→GO evidence
+    code mapping and per-page commits to bound transaction size.
+  \item[\texttt{compute\_embeddings}] Coordinator operation described in
+    \cref{sec:embedding-pipeline}.
+  \item[\texttt{predict\_go\_terms}] Coordinator operation described in
+    \cref{sec:prediction-pipeline}.
+  \item[\texttt{export\_research\_dataset}] Writes the frozen train/eval
+    parquet dataset and its \texttt{manifest.json} used by the external
+    research sandbox described in \cref{sec:reranker-promotion}. The operation
+    delegates the data-generation path to the same code used by
+    \texttt{train\_reranker}, but publishes the resulting artefacts through
+    the storage abstraction (\cref{subsec:dm-reranker}) instead of the local
+    filesystem.
+\end{description}
+\endgroup
+
+% ────────────────────────────────────────────────────────────
+\section{Feature Engineering}
+\label{sec:feature-engineering}
+
+When a prediction job is submitted with \texttt{compute\_alignments=true} or
+\texttt{compute\_taxonomy=true}, the batch prediction operation augments each
+query--reference pair with additional numerical features.
+
+\subsection{Pairwise Alignment}
+\label{subsec:fe-alignment}
+
+For each (query, reference) pair, PROTEA computes global (\gls{nw}) and local
+(\gls{sw}) alignments using the \texttt{parasail} library with BLOSUM62
+substitution scores and gap-open/gap-extend penalties of $-11$/$-1$.
+The following derived statistics are stored as columns on \texttt{GOPrediction}:
+
+\begin{itemize}
+  \item \texttt{identity\_nw/sw} — fraction of aligned positions with identical
+    residues.
+  \item \texttt{similarity\_nw/sw} — fraction of aligned positions with positive
+    BLOSUM62 score.
+  \item \texttt{alignment\_score\_nw/sw} — raw alignment score.
+  \item \texttt{gaps\_pct\_nw/sw} — fraction of the alignment that is gap.
+  \item \texttt{alignment\_length\_nw/sw} — number of aligned columns.
+  \item \texttt{length\_query / length\_ref} — sequence lengths.
+\end{itemize}
+
+\subsection{Taxonomic Distance}
+\label{subsec:fe-taxonomy}
+
+For each (query, reference) pair where taxonomy IDs are available from UniProt
+metadata, the NCBI taxonomy tree is consulted via ete3 to compute:
+
+\begin{itemize}
+  \item \texttt{taxonomic\_lca} — the taxon ID of the \gls{lca}.
+  \item \texttt{taxonomic\_distance} — the total edge count between the two taxa
+    through their \gls{lca}.
+  \item \texttt{taxonomic\_common\_ancestors} — the number of shared ancestors.
+  \item \texttt{taxonomic\_relation} — a categorical label:
+    \textit{same\_species}, \textit{same\_genus}, \textit{same\_family},
+    \textit{same\_order}, \textit{same\_class}, \textit{same\_phylum},
+    \textit{same\_kingdom}, or \textit{distant}.
+\end{itemize}
+
+Taxonomy lookups are memoised with an LRU cache keyed by taxon ID pair to avoid
+redundant tree traversals across a batch.
+
+% ────────────────────────────────────────────────────────────
+\section{Approximate Nearest-Neighbour Search}
+\label{sec:ann-search}
+
+The kNN search backend is configurable per prediction job via the
+\texttt{search\_backend} payload field. Two backends are supported:
+
+\begin{description}
+  \item[\texttt{numpy}] Computes exact cosine distances as a matrix product
+    followed by L2 normalisation. This is $O(NQ)$ in both time and memory, but
+    is acceptable for reference sets up to $\sim$100k proteins when the reference
+    embeddings fit in RAM as float16 (approximately 250 MB for 100k × 1280
+    dimensions).
+  \item[\texttt{faiss}] Uses the FAISS library~\cite{johnson2021faiss} with a
+    configurable index type. \texttt{IVFFlat} partitions the vector space into
+    Voronoi cells and restricts the search to the \texttt{nprobe} nearest cells,
+    reducing query time from $O(N)$ to approximately $O(\sqrt{N})$ with
+    negligible recall loss for typical parameter settings.
+\end{description}
+
+The pgvector \texttt{VECTOR} type is used solely for storage and retrieval;
+nearest-neighbour queries are never issued via SQL, as pgvector's index
+performance degrades at the scale of hundreds of thousands of vectors under
+concurrent load.
+
+% ────────────────────────────────────────────────────────────
+\section{Prediction Export}
+\label{sec:export}
+
+Prediction results can be exported as a tab-separated file through the endpoint
+\texttt{GET /embeddings/prediction-sets/\{id\}/predictions.tsv}. The response
+uses \texttt{StreamingResponse} with \texttt{yield\_per(1000)} to avoid loading
+the full result set into memory. The exported file contains 27 columns covering
+protein accessions, GO term, cosine distance, reference evidence code, alignment
+statistics, and taxonomy fields. Optional query-string filters allow the client
+to restrict the export by accession, GO aspect (\texttt{F}/\texttt{P}/\texttt{C}),
+or maximum distance threshold.
+
+% ────────────────────────────────────────────────────────────
+\section{Process Management}
+\label{sec:process-management}
+
+PROTEA uses a shell script (\texttt{scripts/manage.sh}) to manage the set of
+long-running processes required by the stack. The script starts, stops, and
+reports the status of nine process roles:
+
+\begingroup\sloppy
+\begin{enumerate}
+  \item FastAPI server (\texttt{uvicorn})
+  \item Worker: \texttt{protea.ping}
+  \item Worker: \texttt{protea.jobs}
+  \item Worker: \texttt{protea.embeddings} (serialised coordinator)
+  \item $N \times$ Worker: \texttt{protea.embeddings.batch} (GPU inference)
+  \item $N \times$ Worker: \texttt{protea.embeddings.write}
+  \item $N \times$ Worker: \texttt{protea.predictions.batch} (kNN)
+  \item $N \times$ Worker: \texttt{protea.predictions.write}
+  \item Next.js development server
+\end{enumerate}
+\endgroup
+
+PID files and log files are written under \texttt{logs/}. The
+\texttt{manage.sh scale} subcommand adds extra batch workers to a queue without
+restarting the rest of the stack.
+
+% ────────────────────────────────────────────────────────────
+\section{Reranker Promotion Pipeline}
+\label{sec:reranker-promotion}
+
+The learning-to-rank reranker component is developed in a companion repository,
+\texttt{protea-reranker-lab}, kept deliberately separate from PROTEA to protect
+the production image from the research dependency tree (LightGBM, Pandas, the
+training runtime). The two repositories exchange information through a narrow
+contract rather than direct imports, so that a regression in the research
+sandbox can never degrade serving behaviour.
+
+The contract consists of three artefacts:
+
+\begin{description}
+  \item[\texttt{manifest.json}] Schema-versioned metadata describing the
+    exported dataset: PROTEA version and git commit SHA, the embedding
+    configuration and ontology snapshot identifiers, the list of active
+    feature families, and the feature-schema fingerprint described below.
+  \item[\texttt{train.parquet} / \texttt{eval.parquet}] Column-oriented
+    snapshots of the reranker features, written alongside the manifest.
+  \item[\texttt{run.json} + \texttt{model.txt} + \texttt{spec.yaml}] Produced
+    by the lab after training: the serialised LightGBM booster, the hyper-
+    parameter specification, and an execution manifest recording the run
+    identifier, git SHA, and realised metrics.
+\end{description}
+
+Both sides agree on a \emph{feature-schema fingerprint}, a 12-character hash
+computed over the sorted list of enabled feature families. The fingerprint is
+recorded on the exported manifest and again on the \texttt{RerankerModel} row
+inserted by the registration script. At inference time PROTEA computes the
+fingerprint a third time from the live flag set; if it diverges from the value
+stored on the registered model, the batch worker emits a
+\texttt{reranker.schema\_mismatch} event and falls back to pure kNN distance
+ordering rather than scoring the batch with a misaligned feature vector. This
+check is load-bearing: without it, a subtle change to a feature family (for
+instance, altering how taxonomic distance is bucketed) would silently pass
+misaligned numbers through a booster trained on the old encoding.
+
+Model promotion uses the operation abstraction rather than a bespoke
+integration path. The \texttt{export\_research\_dataset} operation writes the
+manifest and parquet files through PROTEA's storage abstraction, which
+supports a local-filesystem backend (default) and an S3-compatible backend
+(MinIO, opt-in through the \texttt{storage} Docker Compose profile). The
+registration script \texttt{scripts/register\_reranker.py} uploads a trained
+booster to the same storage backend, parses the lab's run manifest, and
+inserts a \texttt{RerankerModel} row pointing at the booster's storage URI.
+Prediction jobs opt into the reranker by submitting a \texttt{reranker\_model\_id}
+in the \texttt{predict\_go\_terms} payload; the coordinator validates the row
+and snapshots the artefact URI together with the expected feature-schema
+fingerprint onto each batch message.
+
+% ────────────────────────────────────────────────────────────
+\section{Frontend}
+\label{sec:frontend}
+
+The web interface is a Next.js 19 application using Tailwind CSS v4 for styling.
+It communicates with the FastAPI backend exclusively through the REST API,
+enabling the two layers to be deployed independently. The primary workflows
+exposed by the frontend are:
+
+\begin{itemize}
+  \item Uploading FASTA files to create query sets.
+  \item Triggering and monitoring embedding and prediction jobs.
+  \item Browsing prediction results grouped by protein and GO aspect.
+  \item Downloading predictions as TSV with aspect and distance filters.
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────
+\section{Testing Strategy}
+\label{sec:testing}
+
+The test suite is split into two categories:
+
+\begin{description}
+  \item[Unit tests] Run with plain \texttt{pytest}. They mock external services
+    (HTTP, RabbitMQ) and use an in-memory SQLite database or minimal fixtures.
+    They cover operation logic, alignment and taxonomy utilities, FASTA parsing,
+    and API router behaviour.
+  \item[Integration tests] Run with \texttt{pytest --with-postgres}. The
+    \texttt{conftest.py} fixture pulls a \texttt{pgvector/pgvector:pg16} Docker
+    image, initialises the schema, and tears down the container after the session.
+    These tests exercise the full round-trip from job submission to database state.
+\end{description}
+
+Coverage is enforced at 70\,\% by \texttt{pytest-cov}; the current suite
+contains 283 passing tests across 17 test files.

@@ -1,0 +1,200 @@
+% ============================================================
+%  PROTEA — Doctoral Thesis (PhD)
+%  Main document entry point
+% ============================================================
+\documentclass[12pt, a4paper, twoside, openright]{report}
+
+% ── Encoding & language ─────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+% ── Typography ──────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\emergencystretch}{3em}
+
+% ── Page layout ─────────────────────────────────────────────
+\usepackage[
+  a4paper,
+  top=3cm, bottom=3cm,
+  inner=3.5cm, outer=2.5cm,
+  headheight=28pt
+]{geometry}
+
+% ── Headers & footers ───────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\textit{\leftmark}}
+\fancyhead[LO]{\textit{\rightmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Colours ─────────────────────────────────────────────────
+\usepackage[dvipsnames]{xcolor}
+\definecolor{proteagreen}{RGB}{38, 120, 78}
+\definecolor{linkblue}{RGB}{0, 70, 140}
+
+% ── Math ────────────────────────────────────────────────────
+\usepackage{amsmath, amssymb, amsthm}
+
+% ── Figures & tables ────────────────────────────────────────
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+% ── TikZ for native vector diagrams ─────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, fit, shapes.geometric, calc, backgrounds, shadows.blur}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots, statistics}
+\pgfplotsset{
+  protea plot/.style={
+    width=6.2cm, height=4.6cm,
+    tick label style={font=\scriptsize},
+    label style={font=\scriptsize},
+    title style={font=\small\bfseries},
+    legend style={font=\scriptsize, draw=black!30, fill=white, fill opacity=0.85, text opacity=1, inner sep=2pt, row sep=-1pt},
+    major grid style={dashed, draw=black!15},
+    minor grid style={dotted, draw=black!10},
+    axis line style={draw=black!50},
+    every axis plot/.append style={line width=1pt, mark size=1.6pt},
+    cycle list={
+      {proteagreen, mark=*, mark options={fill=proteagreen}},
+      {linkblue, mark=square*, mark options={fill=linkblue}},
+      {BurntOrange, mark=triangle*, mark options={fill=BurntOrange}},
+      {RedViolet, mark=diamond*, mark options={fill=RedViolet}},
+      {black!60, mark=pentagon*, mark options={fill=black!60}},
+    },
+  },
+}
+\tikzset{
+  proteablock/.style={
+    draw=proteagreen!70!black, very thick, fill=proteagreen!10,
+    rounded corners=4pt, align=center, font=\small,
+    minimum height=10mm, minimum width=28mm, blur shadow={shadow blur steps=4}
+  },
+  proteastore/.style={
+    draw=linkblue!70!black, very thick, fill=linkblue!10,
+    cylinder, shape border rotate=90, aspect=0.18, align=center,
+    font=\small, minimum height=14mm, minimum width=24mm
+  },
+  proteaqueue/.style={
+    draw=BurntOrange!70!black, very thick, fill=BurntOrange!10,
+    rounded corners=2pt, align=center, font=\footnotesize\ttfamily,
+    minimum height=7mm, minimum width=42mm
+  },
+  proteastate/.style={
+    draw=black!70, thick, fill=black!5,
+    rounded corners=3pt, align=center, font=\footnotesize\ttfamily,
+    minimum height=7mm, minimum width=18mm
+  },
+  proteaarrow/.style={-{Stealth[length=2.4mm]}, thick, draw=black!70},
+  proteadashed/.style={proteaarrow, dashed},
+}
+
+% ── Code listings ───────────────────────────────────────────
+\usepackage{listings}
+\usepackage{minted}          % requires --shell-escape
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{proteagreen}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{BrickRed},
+}
+
+% ── Cross-references & hyperlinks ───────────────────────────
+\usepackage[
+  colorlinks=true,
+  linkcolor=linkblue,
+  citecolor=proteagreen,
+  urlcolor=linkblue,
+  pdftitle={PROTEA: A Framework for Scalable Protein Functional Annotation},
+  pdfauthor={Francisco Percan},
+  pdfkeywords={protein function prediction, gene ontology, embeddings, bioinformatics},
+]{hyperref}
+\usepackage{cleveref}
+
+% ── Bibliography ────────────────────────────────────────────
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=nyt,
+  maxbibnames=6,
+]{biblatex}
+\addbibresource{bibliography/references.bib}
+
+% ── Glossary / acronyms ─────────────────────────────────────
+\usepackage[acronym, toc]{glossaries}
+\makeglossaries
+\input{frontmatter/acronyms}
+
+% ── Front/main/backmatter for report class ──────────────────
+\newcommand{\frontmatter}{\pagenumbering{roman}}
+\newcommand{\mainmatter}{\cleardoublepage\pagenumbering{arabic}}
+\newcommand{\backmatter}{\cleardoublepage}
+
+% ── Utilities ───────────────────────────────────────────────
+\usepackage{todo}            % \todo{...} inline notes
+\usepackage{csquotes}
+\usepackage{enumitem}
+
+% ── Theorem-like environments ───────────────────────────────
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{example}{Example}[chapter]
+
+% ============================================================
+\begin{document}
+
+% ── Front matter ────────────────────────────────────────────
+\frontmatter
+\input{frontmatter/titlepage}
+\cleardoublepage
+\input{frontmatter/abstract}
+\cleardoublepage
+\input{frontmatter/acknowledgements}
+\cleardoublepage
+
+\tableofcontents
+\cleardoublepage
+\listoffigures
+\listoftables
+\cleardoublepage
+
+\printglossary[type=\acronymtype, title=Acronyms]
+\cleardoublepage
+
+% ── Main matter ─────────────────────────────────────────────
+\mainmatter
+\input{chapters/01_introduction}
+\input{chapters/02_biological_background}
+\input{chapters/03_related_work}
+\input{chapters/04_system_design}
+\input{chapters/05_implementation}
+\input{chapters/06_evaluation}
+\input{chapters/07_conclusion}
+
+% ── Back matter ─────────────────────────────────────────────
+\backmatter
+\printbibliography[heading=bibintoc]
+
+\appendix
+\input{chapters/appendix_a}
+\input{chapters/appendix_b}
+
+\end{document}

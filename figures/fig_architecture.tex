@@ -1,0 +1,50 @@
+% ============================================================
+%  Figure: PROTEA high-level architecture (four layers)
+% ============================================================
+\begin{tikzpicture}[
+  node distance=6mm and 8mm,
+  every node/.style={font=\small},
+]
+
+  % ── Presentation layer ──────────────────────────────────────
+  \node[proteablock, minimum width=46mm] (web) {Next.js Web UI\\\footnotesize FASTA upload, job monitor, TSV export};
+
+  % ── API layer ───────────────────────────────────────────────
+  \node[proteablock, minimum width=46mm, below=of web] (api) {FastAPI REST API\\\footnotesize 6 routers · session injection};
+
+  % ── Worker layer ────────────────────────────────────────────
+  \node[proteablock, minimum width=22mm, below=14mm of api, xshift=-30mm] (qc) {QueueConsumer\\\footnotesize tracked jobs};
+  \node[proteablock, minimum width=22mm, right=4mm of qc]                  (oc) {OperationConsumer\\\footnotesize batch sub-tasks};
+  \node[proteablock, minimum width=20mm, right=4mm of oc]                  (gpu) {GPU Inference\\\footnotesize ESMC / ProstT5 / Ankh};
+
+  % ── Data layer ──────────────────────────────────────────────
+  \node[proteastore, below=14mm of qc, xshift=10mm]    (pg)  {PostgreSQL 16\\\footnotesize + pgvector};
+  \node[proteastore, right=14mm of pg]                 (mq)  {RabbitMQ\\\footnotesize 7 queues};
+
+  % ── Layer brackets ──────────────────────────────────────────
+  \begin{scope}[on background layer]
+    \node[draw=proteagreen!40, very thick, dashed, rounded corners=4pt,
+          fit=(web), inner sep=4mm, label={[font=\footnotesize\itshape, text=proteagreen!70!black]left:Presentation}] {};
+    \node[draw=proteagreen!40, very thick, dashed, rounded corners=4pt,
+          fit=(api), inner sep=4mm, label={[font=\footnotesize\itshape, text=proteagreen!70!black]left:API}] {};
+    \node[draw=proteagreen!40, very thick, dashed, rounded corners=4pt,
+          fit=(qc)(oc)(gpu), inner sep=3mm, label={[font=\footnotesize\itshape, text=proteagreen!70!black]left:Workers}] {};
+    \node[draw=linkblue!40, very thick, dashed, rounded corners=4pt,
+          fit=(pg)(mq), inner sep=3mm, label={[font=\footnotesize\itshape, text=linkblue!70!black]left:Data}] {};
+  \end{scope}
+
+  % ── Edges ───────────────────────────────────────────────────
+  \draw[proteaarrow] (web) -- node[right, font=\footnotesize]{HTTPS / JSON} (api);
+  \draw[proteaarrow] (api.south) -- ++(0,-3mm) -| (qc.north);
+  \draw[proteaarrow] (api.south) -- ++(0,-3mm) -| (oc.north);
+  \draw[proteaarrow] (api) -- ++(35mm,0) |- (mq.east);
+
+  \draw[proteaarrow] (qc) -- (pg);
+  \draw[proteaarrow] (oc) -- (pg);
+  \draw[proteaarrow] (oc.south east) -- ++(0,-3mm) -| (gpu.south);
+  \draw[proteaarrow] (qc.east) -- (oc.west);
+
+  \draw[proteadashed] (mq.north) to[bend left=18] node[right, font=\footnotesize]{dispatch} (oc.east);
+  \draw[proteadashed] (mq.north) to[bend left=10] (qc.east);
+
+\end{tikzpicture}
