@@ -10,7 +10,7 @@ may skip directly to \cref{chap:related}.
 \label{sec:proteins}
 
 Proteins are macromolecules composed of chains of amino acids linked by peptide
-bonds. The linear sequence of amino acids — encoded by the genome — is referred
+bonds. The linear sequence of amino acids, encoded by the genome, is referred
 to as the \textit{primary structure}. This sequence folds, driven by
 thermodynamic forces, into a specific three-dimensional conformation that
 determines the protein's biological activity.
@@ -18,9 +18,9 @@ determines the protein's biological activity.
 Protein functions are extraordinarily diverse: enzymes catalyse chemical
 reactions, structural proteins provide mechanical support, signalling proteins
 relay information between cells, and transport proteins shuttle molecules across
-membranes. Understanding \textit{what} a protein does — its molecular function,
+membranes. Understanding \textit{what} a protein does (its molecular function,
 the biological process it participates in, and the cellular compartment where it
-operates — is fundamental to biology and medicine.
+operates) is fundamental to biology and medicine.
 
 \subsection{Amino Acids and the Sequence Space}
 \label{subsec:amino-acids}
@@ -40,7 +40,7 @@ evolutionary ancestor. Homology is typically inferred from sequence similarity:
 proteins with high pairwise sequence identity are almost always homologous and
 usually perform the same function. As sequence identity drops below roughly
 30\,\%, however, the relationship between similarity and function becomes
-ambiguous — proteins may be structurally similar yet functionally diverged, or
+ambiguous: proteins may be structurally similar yet functionally diverged, or
 functionally convergent with unrelated folds.
 
 % ────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ top-level \textit{aspects}:
 Terms within each aspect are connected by \textit{is-a} and \textit{part-of}
 relationships, forming a hierarchy from broad root terms to highly specific
 leaves. A protein annotated with a term is implicitly annotated with all of its
-ancestors up to the root — the \textit{true path rule}.
+ancestors up to the root: the \textit{true path rule}.
 
 \subsection{Evidence Codes}
 \label{subsec:evidence-codes}
@@ -141,8 +141,8 @@ similarity. Two algorithms are central to this thesis:
     sequence is a domain or fragment of the other.
 \end{description}
 
-Both algorithms use a \textit{substitution matrix} — typically BLOSUM62 for
-protein sequences~\cite{henikoff1992amino} — to score residue substitutions
+Both algorithms use a \textit{substitution matrix} (typically BLOSUM62 for
+protein sequences~\cite{henikoff1992amino}) to score residue substitutions
 based on their observed frequency in alignments of related proteins.
 
 % ────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ plugin contract.
 \section{Taxonomic Classification}
 \label{sec:taxonomy}
 
-Biological organisms are classified into a hierarchy — the NCBI taxonomy — that
+Biological organisms are classified into a hierarchy (the NCBI taxonomy) that
 reflects their evolutionary relationships~\cite{schoch2020ncbi}. Each node is
 assigned a numeric \textit{taxon ID}. The distance between two organisms can be
 defined operationally as the number of edges between them through their

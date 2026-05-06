@@ -50,7 +50,7 @@ faithfully than a single representative sequence. HMMER achieves greater
 sensitivity than BLAST at the cost of requiring pre-built profiles.
 
 \textbf{InterPro}~\cite{blum2021interpro} integrates over a dozen family and
-domain databases — Pfam, PRINTS, ProSite, TIGRFAM, and others — into a unified
+domain databases (Pfam, PRINTS, ProSite, TIGRFAM, and others) into a unified
 annotation resource. A protein is assigned InterPro entries whenever it matches
 any member database; GO terms are then inferred via curated mappings. InterPro
 annotation is one of the most reliable computational methods available, but it
@@ -66,7 +66,7 @@ regimes.
 \section{Supervised Machine Learning Approaches}
 \label{sec:related-ml}
 
-Supervised methods learn classifiers — one per GO term of interest — from
+Supervised methods learn classifiers, one per GO term of interest, from
 labelled protein--function pairs. Early approaches used \glspl{hmm} or support
 vector machines on curated feature sets (amino acid composition, physicochemical
 properties, secondary structure predictions). More recent work uses deep neural
@@ -97,7 +97,7 @@ this~\cite{clark2013information}.
 
 The advent of large-scale self-supervised \glspl{plm} has opened a qualitatively
 different avenue for function prediction. Models trained on hundreds of millions
-of sequences develop internal representations — embeddings — that capture
+of sequences develop internal representations (embeddings) that capture
 evolutionary relationships, secondary and tertiary structure propensities, and
 functional sites, without any explicit structural or functional supervision.
 
@@ -229,8 +229,8 @@ pipelines.
 
 None of these platforms provides a reproducible, versioned annotation pipeline
 backed by a relational data model that records which ontology version, reference
-annotation set, and embedding configuration produced each prediction — a gap
-that PROTEA addresses directly.
+annotation set, and embedding configuration produced each prediction. PROTEA
+addresses this gap directly.
 
 % ────────────────────────────────────────────────────────────
 \section{Summary and Positioning of PROTEA}
