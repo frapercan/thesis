@@ -91,7 +91,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 \texttt{SequenceEmbedding} columns are declared as \texttt{VECTOR(n)} where $n$
 is determined by the embedding model (e.g.\ 1280 for ESM-2 650M, 2560 for
 ESM-2 3B). Although pgvector supports index types for nearest-neighbour queries
-(HNSW, IVFFlat), PROTEA intentionally does not use them for kNN search —
+(HNSW, IVFFlat), PROTEA intentionally does not use them for kNN search:
 querying through pgvector at the scale of hundreds of thousands of vectors
 introduces unacceptable latency. Instead, reference embeddings are loaded into
 Python (NumPy or FAISS) at prediction time.
@@ -178,14 +178,14 @@ substitution scores and gap-open/gap-extend penalties of $-11$/$-1$.
 The following derived statistics are stored as columns on \texttt{GOPrediction}:
 
 \begin{itemize}
-  \item \texttt{identity\_nw/sw} — fraction of aligned positions with identical
+  \item \texttt{identity\_nw/sw}: fraction of aligned positions with identical
     residues.
-  \item \texttt{similarity\_nw/sw} — fraction of aligned positions with positive
+  \item \texttt{similarity\_nw/sw}: fraction of aligned positions with positive
     BLOSUM62 score.
-  \item \texttt{alignment\_score\_nw/sw} — raw alignment score.
-  \item \texttt{gaps\_pct\_nw/sw} — fraction of the alignment that is gap.
-  \item \texttt{alignment\_length\_nw/sw} — number of aligned columns.
-  \item \texttt{length\_query / length\_ref} — sequence lengths.
+  \item \texttt{alignment\_score\_nw/sw}: raw alignment score.
+  \item \texttt{gaps\_pct\_nw/sw}: fraction of the alignment that is gap.
+  \item \texttt{alignment\_length\_nw/sw}: number of aligned columns.
+  \item \texttt{length\_query / length\_ref}: sequence lengths.
 \end{itemize}
 
 \subsection{Taxonomic Distance}
@@ -195,11 +195,11 @@ For each (query, reference) pair where taxonomy IDs are available from UniProt
 metadata, the NCBI taxonomy tree is consulted via ete3 to compute:
 
 \begin{itemize}
-  \item \texttt{taxonomic\_lca} — the taxon ID of the \gls{lca}.
-  \item \texttt{taxonomic\_distance} — the total edge count between the two taxa
+  \item \texttt{taxonomic\_lca}: the taxon ID of the \gls{lca}.
+  \item \texttt{taxonomic\_distance}: the total edge count between the two taxa
     through their \gls{lca}.
-  \item \texttt{taxonomic\_common\_ancestors} — the number of shared ancestors.
-  \item \texttt{taxonomic\_relation} — a categorical label:
+  \item \texttt{taxonomic\_common\_ancestors}: the number of shared ancestors.
+  \item \texttt{taxonomic\_relation}: a categorical label:
     \textit{same\_species}, \textit{same\_genus}, \textit{same\_family},
     \textit{same\_order}, \textit{same\_class}, \textit{same\_phylum},
     \textit{same\_kingdom}, or \textit{distant}.

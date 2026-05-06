@@ -2,8 +2,8 @@
 \label{chap:design}
 
 This chapter describes the architecture of PROTEA at the level of design
-decisions. Implementation details — specific libraries, migration tooling,
-frontend components — are deferred to \cref{chap:implementation}.
+decisions. Implementation details (specific libraries, migration tooling,
+frontend components) are deferred to \cref{chap:implementation}.
 
 % ────────────────────────────────────────────────────────────
 \section{Requirements and Design Goals}
@@ -13,19 +13,19 @@ The design of PROTEA is governed by five requirements derived from the
 limitations identified in \cref{chap:related}:
 
 \begin{description}
-  \item[R1 — Reproducibility.] A prediction produced today must be exactly
+  \item[R1: Reproducibility.] A prediction produced today must be exactly
     reproducible in the future. This requires recording the ontology version,
     reference annotation set, and embedding model configuration used for every
     prediction run.
-  \item[R2 — Scalability.] The system must handle reference sets of hundreds of
+  \item[R2: Scalability.] The system must handle reference sets of hundreds of
     thousands of proteins and query sets of thousands without holding all data
     in memory simultaneously.
-  \item[R3 — Separation of concerns.] Domain logic (what to compute), execution
+  \item[R3: Separation of concerns.] Domain logic (what to compute), execution
     flow (how jobs are dispatched and tracked), and infrastructure (database,
     message queue) must be independently replaceable.
-  \item[R4 — Observability.] Every job must produce a structured audit trail so
+  \item[R4: Observability.] Every job must produce a structured audit trail so
     that failures can be diagnosed without replaying the computation.
-  \item[R5 — Accessibility.] Researchers without machine-learning infrastructure
+  \item[R5: Accessibility.] Researchers without machine-learning infrastructure
     expertise must be able to submit sequences and retrieve predictions through a
     web interface or a REST API.
 \end{description}
@@ -45,7 +45,7 @@ PROTEA decomposes into four horizontal layers, illustrated in
     mutations flow through this layer; it writes job requests to PostgreSQL and
     publishes messages to RabbitMQ.
   \item[Worker layer.] A set of Python worker processes consume messages from
-    RabbitMQ queues. Workers are stateless with respect to domain logic — they
+    RabbitMQ queues. Workers are stateless with respect to domain logic: they
     resolve and execute registered operations and update job state in the database.
   \item[Data layer.] PostgreSQL (extended with the pgvector extension for vector
     storage) is the single source of truth. RabbitMQ is used exclusively for
@@ -74,8 +74,8 @@ The central design principle of PROTEA is the \textit{Operation protocol}: every
 unit of domain logic is a class that implements exactly two members:
 
 \begin{itemize}
-  \item \texttt{name: str} — a unique string identifier used to route messages.
-  \item \texttt{execute(session, payload, *, emit) -> OperationResult} — the
+  \item \texttt{name: str}, a unique string identifier used to route messages.
+  \item \texttt{execute(session, payload, *, emit) -> OperationResult}, the
     computation itself.
 \end{itemize}
 
@@ -274,8 +274,8 @@ observability requirements:
 \subsection{QueueConsumer (tracked jobs)}
 \label{subsec:queue-consumer}
 
-Long-running, user-visible jobs — inserting proteins, loading ontologies,
-computing embeddings, predicting GO terms — are submitted through the API as
+Long-running, user-visible jobs (inserting proteins, loading ontologies,
+computing embeddings, predicting GO terms) are submitted through the API as
 \texttt{Job} rows with a JSONB payload. The workflow is:
 
 \begin{enumerate}
@@ -299,8 +299,8 @@ structured diagnostic fields.
 \subsection{OperationConsumer (fire-and-forget sub-tasks)}
 \label{subsec:operation-consumer}
 
-GPU-intensive batch tasks — running the embedding model on a group of sequences,
-or computing kNN predictions for a batch — do not create child \texttt{Job} rows.
+GPU-intensive batch tasks (running the embedding model on a group of sequences,
+or computing kNN predictions for a batch) do not create child \texttt{Job} rows.
 Instead, the coordinator operation publishes \textit{operation messages}
 (containing the payload directly, not a UUID) to dedicated queues.
 \texttt{OperationConsumer} workers execute these messages and report progress
@@ -330,8 +330,8 @@ from hundreds of concurrent batches updating the same row.
 \subsection{RetryLaterError}
 \label{subsec:retry-later}
 
-When a shared resource is unavailable — for instance, the GPU is already
-occupied by a running embedding job — an operation raises
+When a shared resource is unavailable (for instance, the GPU is already
+occupied by a running embedding job), an operation raises
 \texttt{RetryLaterError} instead of failing permanently. \texttt{BaseWorker}
 catches this exception and:
 
