@@ -44,7 +44,7 @@ The main contributions are:
 \section{Answers to the Research Questions}
 \label{sec:rq-answers}
 
-\textbf{RQ1} --- \emph{Can embedding-based KNN annotation transfer match or
+\textbf{RQ1}: \emph{Can embedding-based KNN annotation transfer match or
 exceed alignment-based methods?}
 
 The embedding-only baseline with $k{=}5$ neighbours reaches $F_{\max}$ values
@@ -56,7 +56,7 @@ confirms that PROTEA's embedding-based approach outperforms DIAMOND-based
 orthology transfer in all nine category--aspect cells, with absolute
 improvements of up to +0.306~$F_{\max}$ (NK-CCO).
 
-\textbf{RQ2} --- \emph{Do pairwise alignment statistics and taxonomic distance
+\textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals?}
 
 Yes. The progression from the re-ranker v2 (trained without alignment/taxonomy
@@ -67,7 +67,7 @@ Feature importance analysis confirms that \texttt{identity\_nw},
 features in all three per-category models. The v2 model, lacking these features,
 failed to surpass a simple heuristic that combined them linearly.
 
-\textbf{RQ3} --- \emph{How can a reproducible, scalable annotation pipeline be
+\textbf{RQ3}: \emph{How can a reproducible, scalable annotation pipeline be
 designed?}
 
 \begin{sloppypar}
@@ -120,8 +120,8 @@ Integrating structural representations alongside sequence embeddings would
 extend PROTEA's utility to the $>$200 million AlphaFold Database entries.
 
 \paragraph{Ontology-aware scoring.}
-Replacing flat majority vote with a GO-aware scheme --- weighting by information
-content within the DAG or using a hierarchical classifier --- could reduce
+Replacing flat majority vote with a GO-aware scheme (weighting by information
+content within the DAG or using a hierarchical classifier) could reduce
 semantic distance ($S_{\min}$) without sacrificing recall.
 
 \paragraph{Active learning integration.}

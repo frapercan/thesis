@@ -180,8 +180,8 @@ $k{=}5$.
 \subsection{Experiment~2: Aspect-Separated vs.\ Unified KNN}
 \label{subsec:exp2-aspect}
 
-In aspect-separated mode, three independent \gls{knn} indices are built --- one
-per GO namespace --- using only reference proteins annotated in that namespace.
+In aspect-separated mode, three independent \gls{knn} indices are built, one
+per GO namespace, using only reference proteins annotated in that namespace.
 This guarantees coverage of all three aspects but may dilute the signal for
 well-represented namespaces.
 
@@ -242,7 +242,7 @@ are applied post-hoc via different weight vectors.
 The \texttt{alignment\_weighted} configuration (embedding~$=0.5$, NW
 identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5--4\%
 $F_{\max}$ across all cells. Configurations that incorporate evidence code
-weights \emph{degrade} performance --- the evidence code signal conflicts with
+weights \emph{degrade} performance: the evidence code signal conflicts with
 IA weighting used in evaluation. This demonstrates that pairwise alignment
 statistics provide a genuinely complementary signal to embedding distance
 (addressing \textbf{RQ2}).
@@ -317,7 +317,7 @@ Experiment~5 addresses three weaknesses of v1:
   }
 \end{table}
 
-The v2 re-ranker is substantially more robust than v1 --- MFO no longer
+The v2 re-ranker is substantially more robust than v1: MFO no longer
 collapses (0.607 vs.\ 0.577) and performance is consistent across all cells.
 However, \texttt{alignment\_weighted} still leads in BPO and MFO. Post-hoc
 analysis of feature importance revealed that alignment and taxonomy features
@@ -333,7 +333,7 @@ Experiment~6 addresses the missing-feature problem identified in v2 by
 computing pairwise alignment (Needleman--Wunsch and Smith--Waterman via
 parasail/BLOSUM62) and taxonomic distance (via the NCBI taxonomy tree) for
 every (query, reference) pair during training data generation. This gives the
-model access to all 22 features --- the same set available at inference time.
+model access to all 22 features, the same set available at inference time.
 
 Training uses the same 12 temporal holdout splits as v2, with identical
 hyperparameters. The additional computation adds approximately 45 minutes
@@ -389,7 +389,7 @@ elsewhere.
 
 \Cref{tab:feature-importance} shows the top features by LightGBM gain for each
 per-category model. With the full feature set, alignment features now contribute
-meaningfully --- \texttt{identity\_nw} is the 4th most important feature in NK.
+meaningfully: \texttt{identity\_nw} is the 4th most important feature in NK.
 
 \begin{table}[htbp]
   \centering
@@ -541,7 +541,7 @@ annotations. A more detailed analysis is provided in
 
 \subsection{Addressing the Research Questions}
 
-\textbf{RQ1} --- \emph{Can embedding-based KNN annotation transfer match or
+\textbf{RQ1}: \emph{Can embedding-based KNN annotation transfer match or
 exceed alignment-based methods for GO term prediction, particularly at low
 sequence identity?}
 
@@ -559,7 +559,7 @@ cells by margins of up to +0.306~$F_{\max}$. While the comparison has caveats
 demonstrates that embedding-based KNN transfer is a strong approach for
 large-scale functional annotation.
 
-\textbf{RQ2} --- \emph{Do pairwise alignment statistics and taxonomic distance
+\textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
 
 Yes. The progression from v2 to v3 provides direct evidence: when alignment
@@ -567,10 +567,10 @@ and taxonomy features are available during training, $F_{\max}$ improves in 8 of
 9 cells (up to +0.032 in LK-MFO). Feature importance analysis confirms that
 \texttt{identity\_nw}, \texttt{similarity\_nw}, and \texttt{taxonomic\_distance}
 are among the top-10 features in all three models. Notably, the v2 re-ranker
---- trained without these features --- failed to surpass the simple heuristic that
-used them directly, while v3 --- trained with the same features --- exceeds it.
+(trained without these features) failed to surpass the simple heuristic that
+used them directly, while v3 (trained with the same features) exceeds it.
 
-\textbf{RQ3} --- \emph{How can a reproducible, scalable annotation pipeline be
+\textbf{RQ3}: \emph{How can a reproducible, scalable annotation pipeline be
 designed so that researchers can re-run analyses as ontologies and databases are
 updated?}
 
