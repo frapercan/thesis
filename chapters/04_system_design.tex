@@ -90,6 +90,181 @@ resolve the correct operation by name when they receive a message, enabling
 new operations to be added without modifying any worker code.
 
 % ────────────────────────────────────────────────────────────
+\section{Plugin Contracts and the Contracts Package}
+\label{sec:plugin-contracts}
+
+Operations describe the platform's internal vocabulary, but PROTEA also has
+to evolve along an orthogonal axis: a new protein language model becomes
+available, a new annotation source needs to be ingested, a different
+training algorithm warrants evaluation. If every such addition required
+edits to the core platform repository, the requirement R3 (separation of
+concerns) of \cref{sec:design-goals} would be undermined: domain logic and
+extension points would tangle, third parties could not contribute without
+forking the platform, and the cadence at which new capabilities can be
+shipped would be set by the slowest moving piece. The plugin layer answers
+that pressure.
+
+\subsection{The Contracts Package}
+\label{subsec:contracts-package}
+
+A small Python package, \texttt{protea-contracts}, holds the abstract base
+classes and shared schemas that define the extension surface. The package
+is deliberately minimal: it depends only on \texttt{pydantic},
+\texttt{numpy} and \texttt{pyarrow}, and is forbidden from importing
+\texttt{sqlalchemy}, \texttt{fastapi}, or anything from
+\texttt{protea-core}. Plugin repositories install
+\texttt{protea-contracts} without dragging the platform stack along; the
+inference path likewise consumes the package without paying for the
+worker, queue and ORM machinery. Three direct consequences follow.
+
+First, plugin repositories can be developed, tested and released
+independently of \texttt{protea-core}. The four backends shipped today
+(ESM-2 in three sizes, ESM-C, ProstT5, ProtT5, Ankh) live in a separate
+repository, are installable as \texttt{pip install
+protea-backends[<extra>]}, and ship per-backend Poetry extras that pull
+only the heavy machine-learning libraries the chosen backend actually
+needs.
+
+Second, the inference path can ship as a standalone artefact (the
+\texttt{protea-method} package, in extraction at the time of writing)
+without forcing downstream consumers into the platform's operational
+shape. The same code that PROTEA runs inside its workers powers the LAFA
+benchmark submissions described in \cref{chap:conclusion}, and any
+laboratory that wants to deploy a frozen model receives only the dozen
+megabytes of inference logic.
+
+Third, the contracts themselves become a SemVer-versioned public artefact.
+Adding a feature to the canonical schema bumps a minor; renaming an ABC
+method bumps a major. Consumers pin a known-good range and the platform
+team controls the breakage budget.
+
+\subsection{The Four Plugin Layers}
+\label{subsec:plugin-layers}
+
+\Cref{tab:plugin-layers} summarises the four extension points. Three of
+them are discovered through Python's \texttt{importlib.metadata.entry\_points}
+mechanism: at startup the platform queries each named group, loads the
+plugin instances, and registers them in an in-process map analogous to the
+\texttt{OperationRegistry}. The fourth, the feature registry, is collected
+in-process from a fixed list of family modules within \texttt{protea-core}
+itself; it does not use entry points because the per-candidate features
+have to participate in a single, deterministic ordering for the schema
+fingerprint described below to be stable.
+
+\begin{table}[htbp]
+  \centering
+  \caption{The four plugin extension points of PROTEA.}
+  \label{tab:plugin-layers}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lllc}
+    \toprule
+    \textbf{Extension} & \textbf{ABC} & \textbf{Discovery group} & \textbf{Examples} \\
+    \midrule
+    Annotation sources    & \texttt{AnnotationSource}  & \texttt{protea.sources}  & GOA, QuickGO, UniProt \\
+    Embedding backends    & \texttt{EmbeddingBackend}  & \texttt{protea.backends} & ESM, T5, Ankh, ESM-C \\
+    Experiment runners    & \texttt{ExperimentRunner}  & \texttt{protea.runners}  & KNN, baseline, LightGBM \\
+    Per-candidate features & \texttt{FeatureRegistry}  & in-process registry      & alignment, taxonomy, anc2vec, emb-PCA \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+Each plugin is a Python module that subclasses the relevant ABC, sets a
+class attribute \texttt{name} matching the entry-point name, and exposes a
+module-level instance \texttt{plugin = MyPlugin()}. Heavy dependencies are
+imported lazily inside the methods that need them, never at module top.
+This last detail is load-bearing: \texttt{protea-core} startup queries the
+entry points and instantiates every discovered plugin, which would
+otherwise pay the import cost of \texttt{torch}, \texttt{transformers} and
+\texttt{esm} on every container start regardless of which backends are in
+use.
+
+\subsection{Discovery and Dispatch}
+\label{subsec:plugin-dispatch}
+
+Replacing a hard-coded \texttt{if/elif} chain with a registry lookup is a
+mechanical change with two non-obvious benefits. First, a missing or
+misspelt plugin name produces a single, readable error
+(\texttt{KeyError("unknown backend: \ldots")}) rather than the generic
+fall-through that the chain would have produced. Second, plugins added to
+the deployment after the binary was packaged become available without a
+rebuild: the platform image and the plugin packages are decoupled.
+
+A sanity check guards the boundary: the \texttt{name} attribute on the
+loaded plugin instance must equal the entry-point name as declared in the
+plugin repository's \texttt{pyproject.toml}. A mismatch raises at startup
+rather than producing silent misrouting later. This is the kind of error
+that becomes invisible if it goes unchecked, since the misrouted plugin
+still implements the ABC correctly; the platform would happily call it,
+just under the wrong dispatch key.
+
+\subsection{Schema Drift and the Canonical Fingerprint}
+\label{subsec:schema-sha}
+
+The most operationally consequential schema in \texttt{protea-contracts}
+is the canonical feature list of the re-ranker. Each candidate annotation
+in a \texttt{GOPrediction} row carries a fixed sequence of features
+(embedding distance, alignment statistics, taxonomic distance, ontology
+ancestry vectors, per-PLM PCA projections, annotation metadata). The
+ordering and the names matter: a LightGBM booster trained against feature
+\texttt{[a, b, c]} will silently apply learned weights to the wrong
+columns if it is later loaded against feature \texttt{[a, c, b]}. The
+output looks plausible, the metrics drift downward by a margin that is
+indistinguishable from ordinary model variance, and the bug remains
+invisible until something independent forces an audit.
+
+To prevent that, the package exports a function
+\texttt{compute\_schema\_sha(features)} that reduces a list of feature
+names to a stable digest. The re-ranker registry stores the digest as
+\texttt{feature\_schema\_sha} on every \texttt{RerankerModel} row. At
+inference time, the live pipeline computes the digest from the active
+registry and refuses to apply a booster whose stored digest does not
+match. Adding a feature to the canonical list deliberately changes the
+digest: every booster trained against the old list becomes ineligible and
+must be retrained, which is the correct behaviour because the new feature
+has shifted the column space the booster understood.
+
+The motivation for promoting this helper out of \texttt{protea-core} and
+into \texttt{protea-contracts} was not theoretical. During the
+2026-05-01 evaluation campaign, an experimental run that should have been
+reproducible deviated by approximately three Fmax points across multiple
+ontology aspects. The eventual diagnosis traced the discrepancy to two
+parallel definitions of \texttt{compute\_schema\_sha}: one in the offline
+training repository (the \textit{lab}), one inside \texttt{protea-core}.
+Both functions were correct in isolation, but a refactor to one had not
+propagated to the other, and the resulting digests differed for the same
+input feature list. Boosters registered through one code path were
+silently being scored under the other.
+
+The fix combined three actions. First, the canonical implementation
+landed in \texttt{protea-contracts}, with a golden test pinning its output
+to a known digest. Second, the lab and \texttt{protea-core} were both
+amended to import the helper from the contracts package; their previously
+shadowed copies were deleted. Third, an Alembic migration introduced a
+parallel column \texttt{feature\_schema\_sha\_v2} on the
+\texttt{RerankerModel} and \texttt{Dataset} tables, populated by a
+backfill script that recomputed each row's digest using the canonical
+helper. The legacy column is retained until the audit window closes; new
+registrations write only the v2 column. The episode is recorded in
+ADR D10.
+
+\subsection{Why a Separate Package, Not Just a Module}
+\label{subsec:contracts-rationale}
+
+The contracts could in principle have lived inside \texttt{protea-core}
+as a designated public sub-module. Three considerations argued against
+that. The first is the inference shipping question above: the offline
+trainer and the LAFA submission containers consume contracts but cannot
+afford the platform stack as a transitive dependency. The second is the
+SemVer envelope: a sub-module's version moves with the platform, but the
+contracts evolve at a slower cadence and downstream consumers benefit
+from being able to pin them independently. The third is the schema drift
+incident itself, which would have been impossible if there had been a
+single canonical location for \texttt{compute\_schema\_sha} from the
+start. The discipline of packaging is the discipline of refusing to let
+two implementations drift apart in the first place.
+
+% ────────────────────────────────────────────────────────────
 \section{Job Lifecycle and Worker Patterns}
 \label{sec:job-lifecycle}
 
