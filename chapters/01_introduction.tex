@@ -104,13 +104,17 @@ extensions.
 \Cref{chap:related} surveys existing computational approaches to protein function
 prediction up to 2025, with attention to the most recent embedding-based and
 graph-based methods.
-\Cref{chap:design} presents the architecture of PROTEA, its plugin-based
-extensibility model, and the operational narrative layer.
-\Cref{chap:implementation} describes key implementation decisions across the seven
-repositories, including the configuration system, the artifact-store boundary, the
-queue topology, and the deployment containers.
-\Cref{chap:evaluation} reports the experimental results on the eight-PLM benchmark,
-the impact of feature families through ablation, and the journey that shaped the
-canonical configuration.
-\Cref{chap:conclusion} summarises the findings, discusses limitations, and outlines
-future directions including the LAFA submissions and the post-defense agenda.
+\Cref{chap:design} presents the system architecture of PROTEA: design goals, the
+operation abstraction, plugin contracts, the job lifecycle, the queue topology,
+the data model, the embedding and prediction pipelines, and the public REST API.
+\Cref{chap:implementation} describes how the design materialises across the seven
+repositories, covering the technology stack, the database schema and migrations,
+the operations catalogue, feature engineering, approximate nearest-neighbour
+search, the reranker promotion pipeline, the frontend, and the testing strategy.
+\Cref{chap:evaluation} reports the experimental results on the eight-PLM
+benchmark, defines the NK/LK/PK evaluation categories and the metrics, and walks
+through a sequence of experiments from KNN baselines to the LightGBM reranker,
+including a comparative study against eggNOG-mapper.
+\Cref{chap:conclusion} summarises the findings, answers the research questions,
+discusses limitations, and outlines future directions including the LAFA
+submissions and the post-defense agenda.
