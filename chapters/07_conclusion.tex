@@ -15,29 +15,66 @@ pipelines.
 The main contributions are:
 
 \begin{description}
-  \item[An open-source platform] implementing the full annotation workflow from
-    FASTA upload to structured GO predictions, backed by a REST API and a web
-    interface. The system handles reference sets of over 527,000 proteins and is
-    horizontally scalable through queue-based worker pools.
+  \item[The PROTEA platform] an open-source distributed system implementing
+    the full annotation pipeline, from FASTA upload to structured \gls{go}
+    predictions with optional feature engineering and selective
+    learning-to-rank re-ranking, backed by a REST API and a web interface.
+    The system handles reference sets of over 527,000 reviewed UniProt
+    sequences and is horizontally scalable through queue-based worker pools.
+
+  \item[A plugin architecture] based on Python \texttt{entry\_points},
+    organised across seven code repositories
+    (\texttt{protea-contracts}, \texttt{-method}, \texttt{-sources},
+    \texttt{-runners}, \texttt{-backends}, \texttt{-reranker-lab}, plus the
+    core platform), that lets new annotation sources, runners and \gls{plm}
+    backends be added without modifying the core.
 
   \item[A versioned relational data model] in which every prediction is
-    permanently linked to the exact ontology release, annotation set, and
-    embedding configuration used to produce it. This enables retrospective
-    re-evaluation as databases and ontologies are updated, addressing a gap
-    identified in \cref{chap:related}.
+    permanently linked to the exact ontology release, annotation set,
+    embedding configuration, dataset, re-ranker model and code commit that
+    produced it. The data model spans \texttt{OntologySnapshot},
+    \texttt{AnnotationSet}, \texttt{EmbeddingConfig}, \texttt{Dataset},
+    \texttt{RerankerModel} and \texttt{ExperimentRun}, providing provenance
+    complete enough to exactly replay any past prediction and addressing a
+    reproducibility gap identified in \cref{chap:related}.
 
-  \item[A feature-engineering module] that augments embedding cosine similarity
-    with Needleman--Wunsch and Smith--Waterman alignment statistics and
-    NCBI-taxonomy-based distance metrics. The evaluation in
-    \cref{chap:evaluation} demonstrates that these features provide
-    complementary signals to embedding distance.
+  \item[A benchmark of eight PLM backends] (ESM-2 in three sizes, ESM-C,
+    ProstT5, ProtT5, Ankh, ESM-3 component encoder) on a common evaluation
+    surface, with per-aspect, per-category and per-backend numbers. The
+    benchmark is reproducible end-to-end from the published configuration
+    payloads.
 
-  \item[A temporal holdout re-ranker] using LightGBM with 22 features trained
-    across 12 consecutive GOA splits. The final model achieves
-    $F_{\max}$~values of 0.431 (NK-BPO), 0.620 (NK-MFO), and 0.692 (NK-CCO)
-    on the GOA~220$\to$229 evaluation set with IA weighting, surpassing both
-    the embedding-only baseline and a heuristic scoring rule in 7 of 9
-    category--aspect cells.
+  \item[A feature-engineering layer] organised as a registry of approximately
+    52 features per candidate annotation, augmenting embedding cosine
+    similarity with Needleman--Wunsch and Smith--Waterman alignment
+    statistics, NCBI-taxonomy-based distance metrics, GO directed-acyclic-graph
+    ancestry embeddings, and per-PLM PCA projections. The evaluation in
+    \cref{chap:evaluation} confirms that each family contributes complementary
+    signal to embedding distance alone.
+
+  \item[A selective learning-to-rank re-ranker] trained per category
+    (No-Knowledge, Limited-Knowledge, Prior-Knowledge) and per aspect
+    (BPO, MFO, CCO) using LightGBM over the feature registry, with a
+    selective-application policy that falls back to the embedding-only
+    baseline whenever re-ranking would degrade performance for the current
+    cell. Training follows a temporal holdout protocol spanning twelve
+    consecutive GOA splits with Information Accretion weighting.
+
+  \item[A multi-target deployment story] (development \texttt{docker
+    compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
+    the same canonical pipeline without code branching, and a container
+    workflow that publishes versioned images to GitHub Container Registry
+    on every release.
+
+  \item[An operational narrative model] anchored in the
+    \texttt{Job.findings}, \texttt{ExperimentRun} and free-form comments
+    layers, that captures the why of every run and provides the audit trace
+    from which the evaluation chapter is distilled.
+
+  \item[An empirical evaluation] following the CAFA temporal protocol on
+    held-out GOA splits, complemented by three submissions to the LAFA
+    public benchmark to demonstrate adoption-ready deployment beyond the
+    local evaluation.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
