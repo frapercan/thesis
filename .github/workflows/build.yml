@@ -1,0 +1,59 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdflatex:
+    name: Build PDF
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile thesis with latexmk + biber + glossaries (minted shell-escape)
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: thesis.tex
+          latexmk_use_xelatex: false
+          latexmk_shell_escape: true
+          # publish.sh uses `latexmk -pdf -shell-escape -interaction=nonstopmode -halt-on-error`
+          args: -pdf -shell-escape -interaction=nonstopmode -halt-on-error -file-line-error
+          extra_system_packages: |
+            py3-pygments
+            perl
+          extra_fonts: |
+            ./frontmatter
+
+      - name: Verify PDF produced
+        run: |
+          test -f thesis.pdf || { echo "::error::thesis.pdf not produced"; exit 1; }
+          PAGES=$(pdfinfo thesis.pdf 2>/dev/null | awk '/Pages:/ {print $2}' || echo "?")
+          BYTES=$(stat -c%s thesis.pdf)
+          echo "PDF: $PAGES pages, $BYTES bytes"
+
+      - name: Upload thesis.pdf as artifact
+        if: always() && hashFiles('thesis.pdf') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: thesis-pdf
+          path: thesis.pdf
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            thesis.log
+            thesis.blg
+            *.aux
+          retention-days: 7
