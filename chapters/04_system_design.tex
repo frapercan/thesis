@@ -424,7 +424,7 @@ semantic purpose:
     carries a batch of query embeddings; \texttt{OperationConsumer} workers
     search the reference index and transfer GO annotations.
   \item[\texttt{protea.predictions.write}] Bulk prediction insert queue. Workers
-    write \texttt{GOPrediction} rows for a batch of query--reference pairs.
+    write \texttt{GOPrediction} rows for a batch of query-reference pairs.
   \item[\texttt{protea.evaluations}] CAFA evaluation queue. Runs
     \texttt{run\_cafa\_evaluation} (Fmax, AuPRC, coverage across NK/LK/PK
     subsets). Serialised and isolated so that long evaluation runs do not

@@ -3,7 +3,7 @@ LATEX    = pdflatex
 BIBER    = biber
 GLOSSARY = makeglossaries
 
-.PHONY: all clean distclean
+.PHONY: all clean distclean check-em-dashes lint
 
 all:
 	$(LATEX) -shell-escape $(MAIN)
@@ -19,3 +19,8 @@ clean:
 
 distclean: clean
 	rm -f $(MAIN).pdf
+
+check-em-dashes:
+	python3 scripts/check_no_em_dashes_thesis.py
+
+lint: check-em-dashes

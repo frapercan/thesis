@@ -131,11 +131,11 @@ Pairwise sequence alignment is the classical approach to measuring sequence
 similarity. Two algorithms are central to this thesis:
 
 \begin{description}
-  \item[Needleman--Wunsch (\gls{nw})] A global alignment algorithm that aligns
+  \item[Needleman-Wunsch (\gls{nw})] A global alignment algorithm that aligns
     two sequences end-to-end, maximising a cumulative substitution score minus
     gap penalties~\cite{needleman1970general}. It is suitable for comparing
     proteins of similar length.
-  \item[Smith--Waterman (\gls{sw})] A local alignment algorithm that finds the
+  \item[Smith-Waterman (\gls{sw})] A local alignment algorithm that finds the
     highest-scoring contiguous aligned region, ignoring the tails of each
     sequence~\cite{smith1981identification}. It is more appropriate when one
     sequence is a domain or fragment of the other.
@@ -163,7 +163,7 @@ sequences have diverged below the homology detection threshold of
 alignment-based tools, which is what makes embeddings attractive for annotation
 transfer.
 
-\subsection{The 2020--2024 Generation: Sequence-Only Encoders}
+\subsection{The 2020 to 2024 Generation: Sequence-Only Encoders}
 \label{subsec:plm-seq}
 
 The first generation of practical \glspl{plm} for function prediction was based
@@ -182,12 +182,12 @@ models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on \gls{bfd} and
 UniRef100 using distributed HPC resources. ProtT5-XL achieves the best
 per-residue and per-protein accuracy among the ProtTrans variants.
 
-\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder--decoder model trained on
+\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder-decoder model trained on
 UniRef50 with a focused objective and aggressive vocabulary tuning. It reports
 state-of-the-art accuracy on several downstream tasks at a fraction of the
 parameter count of the largest ESM-2 variants.
 
-\subsection{The 2024--2025 Generation: Structure-Aware and Distilled Models}
+\subsection{The 2024 to 2025 Generation: Structure-Aware and Distilled Models}
 \label{subsec:plm-modern}
 
 Three trends shape the most recent generation: integration of structural

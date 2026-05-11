@@ -240,7 +240,7 @@ are applied post-hoc via different weight vectors.
 \end{table}
 
 The \texttt{alignment\_weighted} configuration (embedding~$=0.5$, NW
-identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5--4\%
+identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5 to 4\%
 $F_{\max}$ across all cells. Configurations that incorporate evidence code
 weights \emph{degrade} performance: the evidence code signal conflicts with
 IA weighting used in evaluation. This demonstrates that pairwise alignment
@@ -277,8 +277,8 @@ Two variants are tested: no class balancing, and subsampling negatives to a
   }
 \end{table}
 
-The v1 re-ranker improves CCO substantially (+2--4\% over baseline) but
-\emph{degrades} MFO by 3--9\% relative to the heuristic. Six of nine per-aspect
+The v1 re-ranker improves CCO substantially (+2 to 4\% over baseline) but
+\emph{degrades} MFO by 3 to 9\% relative to the heuristic. Six of nine per-aspect
 models suffer from early stopping at iteration~1 due to extreme class imbalance
 (positive rate $<0.2\%$). Class balancing corrects the BPO collapse but
 introduces a different trade-off. Neither variant surpasses the heuristic
@@ -330,7 +330,7 @@ learn from embedding distance, aggregation features, and categorical signals.
 \label{subsec:exp6-reranker-v3}
 
 Experiment~6 addresses the missing-feature problem identified in v2 by
-computing pairwise alignment (Needleman--Wunsch and Smith--Waterman via
+computing pairwise alignment (Needleman-Wunsch and Smith-Waterman via
 parasail/BLOSUM62) and taxonomic distance (via the NCBI taxonomy tree) for
 every (query, reference) pair during training data generation. This gives the
 model access to all 22 features, the same set available at inference time.
@@ -362,7 +362,7 @@ SIMD acceleration; taxonomy uses an LRU-cached SQLite lookup).
 \end{table}
 
 The v3 re-ranker with full features achieves the best $F_{\max}$ in 7 of 9
-category--aspect cells, surpassing both the heuristic and all prior re-ranker
+category-aspect cells, surpassing both the heuristic and all prior re-ranker
 versions. The two cells where the heuristic leads (LK-BPO by $+0.022$ and
 LK-CCO by $+0.002$) are relatively small margins compared to the gains
 elsewhere.
@@ -440,7 +440,7 @@ Three observations stand out:
     respectively. These capture the statistical reliability of individual
     reference proteins and GO terms.
   \item \textbf{Alignment features are now active}: \texttt{identity\_nw} and
-    \texttt{similarity\_nw} rank 4th--6th across all models. In v2 (where
+    \texttt{similarity\_nw} rank 4th to 6th across all models. In v2 (where
     these were NULL during training), they had zero importance.
   \item \textbf{Embedding distance ranks low}: \texttt{distance} ranks 10th in
     NK and 8th in LK, well below both alignment and aggregation features. The
@@ -503,7 +503,7 @@ reproduction instructions are given in \cref{app:external-comparison}.
   }
 \end{table}
 
-PROTEA's re-ranker v3 outperforms eggNOG-mapper in all nine category--aspect
+PROTEA's re-ranker v3 outperforms eggNOG-mapper in all nine category-aspect
 cells, with absolute $F_{\max}$ improvements ranging from +0.011 (PK-BPO) to
 +0.306 (NK-CCO). The largest gains occur in the NK and LK categories, where
 eggNOG-mapper's coverage gap (14.5\% of test proteins without predictions) and
@@ -549,7 +549,7 @@ The embedding-only baseline ($k{=}5$, $c = 1 - d/2$) establishes competitive
 performance across all categories, reaching $F_{\max}$ values of 0.590 (NK-MFO),
 0.558 (LK-MFO), and 0.668 (NK-CCO) without any alignment computation. The
 heuristic scoring experiment (Exp.~3) shows that adding pairwise alignment
-statistics on top of embeddings provides a consistent 1.5--4\% improvement,
+statistics on top of embeddings provides a consistent 1.5 to 4\% improvement,
 indicating that embeddings and alignments capture partially orthogonal signals.
 The comparison with eggNOG-mapper (Exp.~7) provides direct evidence: even the
 embedding-only baseline surpasses eggNOG-mapper's DIAMOND-based orthology
@@ -628,5 +628,5 @@ complementary, not substitutes.
     picture of the competitive landscape.
   \item The LK-BPO cell consistently favours the heuristic over the re-ranker,
     suggesting that the learned model may underperform for specific
-    category--aspect combinations with limited positive examples.
+    category-aspect combinations with limited positive examples.
 \end{itemize}

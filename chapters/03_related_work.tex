@@ -17,7 +17,7 @@ with a characterised protein, one can transfer the known annotations to the quer
 
 \textbf{BLAST}~\cite{altschul1990blast} remains the most widely deployed tool for
 this purpose. It uses a heuristic seed-and-extend strategy to find local
-alignments in sublinear time. \texttt{BLASTP} (protein--protein) identifies
+alignments in sublinear time. \texttt{BLASTP} (protein-protein) identifies
 homologues in Swiss-Prot and transfers their GO terms to the query. This simple
 approach is accurate when identity exceeds roughly 50\,\% and degrades
 progressively as identity falls. Below the ``twilight zone'' of $\approx$30\,\%
@@ -67,7 +67,7 @@ regimes.
 \label{sec:related-ml}
 
 Supervised methods learn classifiers, one per GO term of interest, from
-labelled protein--function pairs. Early approaches used \glspl{hmm} or support
+labelled protein-function pairs. Early approaches used \glspl{hmm} or support
 vector machines on curated feature sets (amino acid composition, physicochemical
 properties, secondary structure predictions). More recent work uses deep neural
 networks applied directly to sequences.
@@ -113,12 +113,12 @@ models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on BFD and UniRef100
 using distributed HPC resources. ProtT5-XL achieves the best per-residue and
 per-protein accuracy among the ProtTrans variants.
 
-\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder--decoder model that
+\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder-decoder model that
 matches or exceeds the ESM-2 3B baseline on multiple downstream tasks while
 using a fraction of the parameters, achieved through aggressive vocabulary
 tuning and a re-thought training recipe.
 
-The 2024--2025 generation moves in three complementary directions. First,
+The 2024 to 2025 generation moves in three complementary directions. First,
 \textbf{ProstT5}~\cite{heinzinger2023prostt5} introduces structural awareness
 without requiring explicit 3D input by training a sequence-to-3Di translation
 on top of ProtT5, where 3Di is the structural alphabet introduced by
@@ -189,7 +189,7 @@ after the submission deadline.
 
 The primary metric is $F_{\max}$: the maximum $F_1$ score across all
 prediction confidence thresholds, computed separately for each \gls{go}
-aspect. AUPR (area under the precision--recall curve) and Smin (semantic
+aspect. AUPR (area under the precision-recall curve) and Smin (semantic
 distance) are complementary measures. PROTEA's evaluation in
 \cref{chap:evaluation} follows CAFA conventions.
 
