@@ -10,52 +10,312 @@ contains more than 250 million sequences, yet fewer than 0.02\,\% carry
 experimentally validated functional annotations~\cite{uniprot2023}. The gap is not
 merely quantitative: the proteins that remain unannotated are disproportionately
 found in under-studied organisms, precisely where novel biology, and potential
-therapeutic targets, are most likely to reside.
+therapeutic targets, are most likely to reside. Every new genome sequencing campaign
+deepens the shortfall, because sequencing throughput scales with Moore's law while
+experimental characterisation throughput scales with laboratory headcount.
 
-Computational function prediction attempts to bridge this gap by transferring
+Protein function, in the sense used throughout this thesis, is represented by the
+Gene Ontology (GO): a structured, species-independent vocabulary of molecular
+functions, biological processes, and cellular components. GO terms are organised as
+directed acyclic graphs (DAGs), so that annotating a protein with a specific term
+entails an implicit annotation with every ancestral term. This structure is both a
+strength and a complication. It is a strength because it allows partial knowledge to
+be expressed cleanly: a protein may be known to participate in a biological process
+without the precise molecular mechanism being resolved. It is a complication because
+predictions must respect the DAG constraints, and performance metrics must account
+for the hierarchical nature of the label space.
+
+Computational function prediction attempts to bridge the annotation gap by transferring
 knowledge from characterised proteins to unknown ones. Classical approaches based on
 sequence similarity (BLAST, profile \glspl{hmm}) remain widely used, but their
-accuracy degrades for distantly related sequences. Over the last five years, however,
-\glspl{plm} trained on hundreds of millions of sequences have produced dense vector
-representations that capture structural and functional signal well beyond what
-classical alignment can detect, and a generation of structure-conditioned models
-(ESM-3, ProstT5) has begun to integrate sequence and structure into a single
-representation. Each new PLM unlocks a new operating point in the accuracy/throughput
-trade-off, but also introduces a new dependency, a new tokeniser, a new GPU memory
-footprint, and a new failure mode. Comparing PLMs at scale, on a fair benchmark, with
-reproducible numbers, is itself a research engineering problem.
+accuracy degrades for distantly related sequences where the evolutionary signal is
+too weak for reliable alignment. Sequence-based methods reach a natural ceiling at
+roughly 30\,\% pairwise identity: below this threshold, the ``twilight zone'' of
+sequence similarity, alignment scores lose discriminative power and the majority of
+the evolutionary space that separates distant homologues becomes inaccessible.
+Structure-based approaches, including Foldseek and derivatives of AlphaFold2
+embeddings, extend the reach further by exploiting the fact that protein structure is
+more conserved than sequence. However, structure-based methods depend on high-quality
+structure predictions and introduce additional computational cost that is prohibitive
+at the scale of hundreds of thousands of reference sequences.
 
-PROTEA was designed to address both faces of the problem at once: as a method, it
+Over the last five years, \glspl{plm} trained on hundreds of millions of sequences
+have produced dense vector representations that capture structural and functional
+signal well beyond what classical alignment can detect. The key insight is that a
+large transformer trained on a protein sequence corpus with a masked-language
+objective learns, in its internal representations, a compressed model of protein
+physics that correlates with structure, evolutionary distance, and function.
+ESM-2~\cite{esm2} and its successors, ProtT5~\cite{prottT5}, Ankh~\cite{ankh}, and
+ESM-C have demonstrated that a single forward pass through such a model produces
+embeddings whose nearest neighbours in the representation space correlate strongly
+with functional similarity. A generation of structure-conditioned models (ESM-3,
+ProstT5) has begun to integrate sequence and structure into a single representation,
+opening a new operating point in the accuracy/coverage trade-off.
+
+The practical consequence is that embedding-based annotation transfer, sometimes
+called PLM-KNN (protein language model nearest-neighbour), has emerged as one of the
+most effective families of methods in the CAFA benchmarks. The approach is
+straightforward: embed the query sequence and every sequence in a functionally
+characterised reference set using the same PLM, retrieve the $k$ nearest neighbours
+by cosine distance, and aggregate their annotations weighted by similarity. Despite
+its simplicity, this approach is competitive with methods that incorporate structural
+priors, GO-DAG graph convolutions, or hand-crafted sequence features.
+
+Each new PLM unlocks new predictive power, but also introduces a new dependency, a
+new tokeniser, a new GPU memory footprint, and a new failure mode. Comparing PLMs at
+scale, on a fair benchmark, with reproducible numbers, is itself a research
+engineering problem. It is not sufficient to test a single model on a single snapshot
+of the annotation database: the useful questions involve how performance varies across
+ontology aspects (Biological Process, Molecular Function, Cellular Component), across
+knowledge categories (sequences with no prior annotations, limited annotations, or
+partial annotations), and across sequence identity regimes. Answering these questions
+requires infrastructure that can embed hundreds of thousands of reference sequences,
+perform fast nearest-neighbour search, score predictions against a carefully
+constructed ground truth, and log the provenance of every intermediate artefact.
+
+The feature-engineering question adds a further layer of complexity. Raw embedding
+distance is a useful but noisy signal: two sequences may be close in the PLM embedding
+space for reasons that do not translate into shared GO annotations. Pairwise alignment
+scores (Needleman--Wunsch global alignment, Smith--Waterman local alignment)
+complement the embedding distance with a signal grounded in evolutionary substitution
+models. Taxonomic distance, computed from the NCBI taxonomy tree, captures the
+evolutionary relatedness of the source organism, which is predictive of how well
+annotations transfer. GO-graph ancestry embeddings (anc2vec) encode the structural
+position of candidate terms in the ontology DAG, adding a signal that is orthogonal
+to both sequence and taxonomy. The question of whether these signals, combined in a
+learned ranking model, improve over the embedding-only baseline in a leakage-free
+setting is a central empirical question of this thesis.
+
+A second, equally important problem is evaluation rigour. Most published benchmarks
+in protein function prediction conflate training and test annotations by drawing both
+from the same annotation snapshot, which introduces temporal leakage: the model
+implicitly benefits from annotations that post-date its training cut-off. When an
+embedding model is trained on Swiss-Prot sequences and subsequently evaluated on the
+same snapshot, any annotation that a neighbour carries is a legitimate training
+signal. The problem compounds when the reranker is also trained on the same snapshot,
+because the re-ranker's features (alignment scores, taxonomy proximity, GO-graph
+ancestors) are computed against the very annotations on which it is also scored.
+The result is an inflated picture of generalisation. Published leakage-corrupted
+Fmax numbers are substantially higher than numbers obtained under a rigorous holdout,
+and the delta is large enough that it matters to how one ranks and compares methods.
+
+A meaningful benchmark must follow the temporal holdout protocol established by the
+Critical Assessment of Protein Function Annotation (CAFA)~\cite{cafa5}: fix a
+reference annotation set at time $t_0$, make predictions for sequences with no or
+limited annotations at that date, and evaluate only against annotations that accrued
+between $t_0$ and $t_1$. This protocol isolates the genuine predictive power of the
+method from the passive accumulation of annotations in the reference database. It is
+the protocol that made CAFA a trusted community benchmark, and it is the protocol
+that PROTEA implements end-to-end, including for the re-ranker training pipeline.
+
+The CAFA 6 challenge, whose results were released in late 2025, provided an
+independent blind validation of methods built around these principles. The research
+team in which the author of this thesis served as technical lead achieved a
+second-place ranking, validating the embedding-based annotation transfer approach at
+international scale and under the strictest possible evaluation conditions. The CAFA
+result does not belong to PROTEA as a platform: PROTEA is the post-challenge
+productisation. The result belongs to the research, and it is cited here as evidence
+that the methodology developed in this thesis is competitive with the best publicly
+evaluated alternatives.
+
+\subsection{Research Engineering as a First-Class Output}
+\label{subsec:research-engineering}
+
+Protein function prediction has a reproducibility crisis that is distinct from, but
+related to, the leakage problem. Published methods are frequently described at a level
+of detail that does not permit independent implementation, let alone replication of
+the reported numbers. Source code, when released, is often a collection of
+single-use scripts tied to a specific dataset and a specific version of a database
+that may no longer be available. The result is a literature in which each method is
+evaluated on its own best-case benchmark, making cross-method comparisons unreliable.
+
+The problem is structural, not a consequence of individual carelessness. Producing a
+reproducible, deployable research artefact is a substantial engineering investment,
+and it is not rewarded by the current publication incentive structure. Methods papers
+are evaluated on their headline numbers, not on whether a third party can independently
+verify those numbers on a fresh annotation snapshot three years later. The consequence
+is that the community's shared knowledge is encoded primarily in published results
+rather than in executable, queryable systems.
+
+This thesis takes the position that building such a system is itself a scientific
+contribution. PROTEA is not merely a vehicle for producing numbers: it is a platform
+whose design embodies a set of commitments about reproducibility, auditability, and
+extensibility that have consequences for how protein function prediction research can
+be conducted going forward. The ADR model, the versioned data schema, the plugin
+contracts, and the leakage-free evaluation pipeline are not implementation details.
+They are the mechanism by which the scientific claims of the thesis are made
+independently verifiable.
+
+\subsection{The Engineering Challenge}
+\label{subsec:engineering-challenge}
+
+The scientific problem sketched above has a shadow that receives less attention in the
+literature: the problem of building infrastructure that can support this kind of
+research sustainably. A typical research implementation of embedding-based annotation
+transfer consists of a notebook that embeds a set of sequences, a script that performs
+a cosine similarity search, and a second script that scores the results. This workflow
+is adequate for a one-off experiment but fails to scale in several dimensions.
+
+First, it does not compose. When a new PLM is released, the entire embedding step must
+be repeated, typically by copy-pasting the script, introducing version drift and
+making comparisons unreliable. When a new annotation source (QuickGO, UniProt) must
+be added, a new loader is written outside the framework. When the evaluation protocol
+must be changed (from a single snapshot to a temporal split), the scoring logic must
+be rewritten from scratch.
+
+Second, it does not audit. A one-off script produces a prediction file but does not
+record the ontology version, the annotation release, the embedding model
+configuration, the nearest-neighbour search parameters, or the feature-engineering
+decisions. Reproducing the result six months later requires either perfect memory or a
+trail of ad-hoc log files. Neither is reliable.
+
+Third, it does not deploy. A notebook is not a method that can be submitted to a
+public benchmark, run in an HPC cluster, or handed to a collaborator without
+significant additional work. The gap between ``it runs on my machine'' and ``it is
+deployable as an independently verifiable artefact'' is routinely underestimated.
+
+PROTEA was designed to address all three dimensions simultaneously. As a method, it
 operationalises embedding-based annotation transfer with selective learning-to-rank
-re-finement; as a platform, it provides the extensible foundation that lets new
-backends, annotation sources, and ranking methods be plugged in without ad-hoc
-glue. The platform is deliberately built around the assumption that the canonical
-pipeline of today will be obsolete tomorrow. What must remain stable is the contract
-between layers, the trace of every run, and the pathway from a FASTA file to a
-ranked, interpretable Gene Ontology prediction.
+refinement, following a leakage-free temporal protocol throughout. As a platform, it
+provides the extensible foundation that lets new backends, annotation sources, and
+ranking methods be plugged in without ad-hoc glue. As a deployment story, it ships
+pre-built containers that run the same canonical pipeline on a developer workstation,
+in a cloud cluster, on an HPC system via Apptainer, or in an airgapped environment.
+
+The architectural answer to composability is the operation abstraction: every unit of
+domain logic is a Python class with a name and an \texttt{execute} method, registered
+at startup in an \texttt{OperationRegistry}. Adding a new step to the pipeline means
+writing a new operation class, not modifying any existing one. Workers are stateless
+with respect to domain logic and route messages purely by name. This design makes the
+platform horizontally extensible without touching the core, and it makes every
+operation independently testable.
+
+The architectural answer to auditability is the versioned data model combined with the
+\texttt{Job.findings} narrative. Every job writes its inputs (ontology version,
+annotation release, embedding configuration, search parameters) to a structured
+database record before execution begins. Findings written during execution are attached
+to the job record as structured observations. The result is that the database is not
+only a store of predictions but a journal of the research: every number in the
+evaluation chapter can be traced to a specific job, with the configuration and the
+observations that produced it.
+
+The architectural answer to deployability is the contracts-first plugin split. Because
+the inference path (\texttt{protea-method}) and the embedding backends
+(\texttt{protea-backends}) carry no dependency on the platform's ORM, queue, or API
+machinery, they can be bundled into a standalone container with a FASTA file and a
+reference set of parquet embeddings. This is the artefact submitted to the LAFA
+benchmark. The same artefact runs on an HPC cluster with Apptainer without
+modification.
+
+The platform is deliberately built around the assumption that the canonical pipeline
+of today will be obsolete tomorrow. ESM-2 was state-of-the-art in 2022; ESM-C and
+ESM-3 succeeded it; the next generation is already in preparation. What must remain
+stable across this evolution is the contract between layers, the trace of every run,
+and the pathway from a FASTA file to a ranked, interpretable Gene Ontology
+prediction. The plugin architecture ensures that replacing the embedding backend
+requires only a new class implementing the \texttt{EmbeddingBackend} ABC, not a
+rewrite of the pipeline. The versioned data model ensures that embeddings computed
+with the old backend are preserved alongside those computed with the new one, enabling
+controlled comparisons rather than overwrites.
+
+\textbf{Thesis statement.} PROTEA demonstrates that a contracts-first, plugin-driven
+platform for protein function annotation can simultaneously deliver a reproducible,
+leakage-free evaluation methodology, quantifiable gains from feature-engineered
+re-ranking over PLM-embedding baselines, and independently verifiable deployment as a
+public benchmark submission, together constituting a reusable infrastructure for the
+next generation of annotation research.
 
 \section{Research Questions}
 \label{sec:research-questions}
 
-This thesis addresses the following questions:
+The thesis addresses the following questions, each of which corresponds to a distinct
+dimension of the problem. The questions are deliberately ordered from the most
+scientific (what does embedding-based transfer achieve?) to the most architectural
+(how should a platform that supports this science be built?). This ordering reflects
+the view that the engineering decisions are not independent of the scientific ones:
+the choice to plug PLM backends rather than hard-code them is not aesthetic but
+empirical, motivated by the expectation that the answer to RQ1 will change as PLMs
+evolve. Similarly, the choice to implement leakage-free evaluation as an integral
+part of the platform rather than as a post-hoc script is motivated by the expectation
+that RQ2 cannot be answered reliably unless the evaluation methodology is correct.
 
 \begin{enumerate}[label=\textbf{RQ\arabic*.}]
   \item Can embedding-based \gls{knn} annotation transfer match or exceed
         alignment-based methods for \gls{go} term prediction, particularly at low
         sequence identity, and how does the answer change as new PLMs replace
         older ones?
+
+        This question drives the choice to treat the PLM backend as a plugin rather
+        than a fixed dependency: the answer must be re-evaluable without changing the
+        platform.
+
   \item Do pairwise alignment statistics, taxonomic distance, ontology-graph
         ancestry features, and per-PLM PCA projections provide complementary signal
         that improves the ranking of candidate annotations once the embedding
         baseline is already strong?
+
+        This question motivates the feature-engineering layer and the learning-to-rank
+        reranker. The relevant evidence is whether the 52-feature schema adds
+        measurable lift on top of the embedding-only baseline under a leakage-free
+        evaluation, and whether that lift is robust across ontology aspects and
+        knowledge categories.
+
   \item How can a reproducible, scalable annotation pipeline be designed so that
         researchers can re-run analyses as ontologies and databases are updated, and
         so that the pipeline itself can be deployed in development, cloud, on-premise
         HPC, and airgapped environments without code branching?
+
+        This question is architectural. The answer involves the operation abstraction,
+        the plugin contract system, the versioned data model, and the container
+        deployment matrix, all of which are developed in \cref{chap:design} and
+        \cref{chap:implementation}.
+
   \item How can the journey of a research platform, with its dead ends and pivots,
         be captured operationally so that the canonical pipeline is justified by an
         auditable trace rather than by post-hoc rationalisation?
+
+        This question motivates the \texttt{Job.findings} narrative model and the
+        Architecture Decision Record (ADR) index, which record the why of every
+        non-obvious choice alongside the what of every computed result.
 \end{enumerate}
+
+\section{Scope and Limitations}
+\label{sec:scope}
+
+This thesis is explicitly a research engineering work, not a biology work. The
+application domain is protein function prediction, but the author's expertise is in
+the design and implementation of reproducible machine-learning pipelines, not in the
+biochemistry of protein function. Where biological claims appear, they are grounded in
+the existing literature and in the GO ontology itself, not in original biological
+analysis. The thesis does not propose new protein language models, new graph neural
+network architectures, or new GO terms. It proposes a platform within which such
+contributions can be developed, evaluated, and deployed.
+
+The evaluation is conducted on a single hardware configuration (one workstation with a
+16\,GB GPU). Large-scale multi-GPU experiments, distributed training of the reranker,
+and evaluation at full UniProt scale are out of scope. The reference set of
+approximately 527,000 Swiss-Prot sequences covers the reviewed, experimentally
+curated portion of UniProt. Extending PROTEA to TrEMBL-scale (hundreds of millions of
+sequences) would require replacing the NumPy-based exact nearest-neighbour search with
+a distributed approximate search backend; FAISS provides the first step in that
+direction, and the platform is designed to accommodate it.
+
+The thesis covers three LAFA benchmark submissions, which establish the deployability
+of the platform and provide an independently verifiable performance reference.
+Improving the LAFA ranking is not an objective of the current thesis: the submission
+demonstrates that the same code path that runs on the development workstation can be
+packaged as a benchmark-ready container without modification.
+
+Finally, this thesis does not propose a new PLM pre-training scheme. The embedding
+models used (ESM-2, ESM-C, ProstT5, ProtT5, Ankh) are third-party models accessed
+via their public APIs or weights. PROTEA's contribution is to the systems layer: the
+platform that orchestrates their use, the evaluation harness that measures their
+output fairly, and the re-ranker that combines their representations with additional
+features to improve prediction quality. This is a deliberate positioning: the PLM
+space is advancing rapidly, and a system designed to use the best available model at
+any given time is more durable than one optimised for a specific model version.
+The author's expertise is in research engineering and applied machine learning, not
+in neural network architecture research, and the system design reflects this honestly.
 
 \section{Contributions}
 \label{sec:contributions}
@@ -66,55 +326,127 @@ The main contributions of this work are:
   \item \textbf{PROTEA}: an open-source distributed platform implementing the full
         annotation pipeline, from FASTA upload to structured \gls{go} predictions
         with optional feature engineering and selective learning-to-rank re-ranking.
+        PROTEA is designed, implemented, and maintained solely by the author of this
+        thesis, and is available under an open-source licence at the address given
+        in \cref{chap:implementation}.
+
   \item A \textbf{plugin architecture} based on Python \texttt{entry\_points},
-        organised across seven code repositories, that lets new annotation sources,
-        runners and PLM backends be added without modifying the core platform.
+        organised across seven code repositories (core, contracts, method, sources,
+        backends, runners, and the offline reranker lab), that lets new annotation
+        sources, runners, and PLM backends be added without modifying the core
+        platform. The contracts package (\texttt{protea-contracts}) defines the
+        extension surface as a SemVer-versioned public artefact independent of the
+        platform stack.
+
   \item A \textbf{versioned data model} for ontology snapshots, annotation sets,
-        embedding configurations, datasets, re-ranker models and experiment runs,
-        with provenance complete enough to exactly replay any past prediction.
+        embedding configurations, datasets, re-ranker models, and experiment runs,
+        with provenance complete enough to exactly replay any past prediction. The
+        model is encoded as a sequence of Alembic migrations under version control.
+
   \item A \textbf{benchmark of eight PLM backends} (ESM-2 in three sizes, ESM-C,
         ProstT5, ProtT5, Ankh, ESM-3 component encoder) on a common evaluation
-        surface, with per-aspect, per-category and per-backend numbers.
+        surface, with per-aspect, per-category, and per-backend numbers obtained
+        under a leakage-free temporal holdout covering twelve consecutive GOA
+        releases.
+
   \item A \textbf{feature engineering layer} that augments embedding similarity with
         Needleman--Wunsch / Smith--Waterman alignment scores,
-        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings, and
-        per-PLM PCA projections, organised as a registry of approximately 52
-        features.
-  \item A \textbf{selective learning-to-rank re-ranker} trained per category and per
-        aspect, that falls back to the embedding-only baseline whenever re-ranking
-        would degrade performance for the current cell.
+        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
+        (anc2vec), and per-PLM PCA projections, organised as a registry of
+        approximately 52 features. The feature schema fingerprint ensures that
+        any stored re-ranker model is automatically invalidated if the feature
+        definition changes.
+
+  \item A \textbf{selective learning-to-rank re-ranker} (LightGBM, trained per
+        category and per aspect) that falls back to the embedding-only baseline
+        whenever re-ranking would degrade performance for the current cell. Under
+        the leakage-free protocol, the re-ranker raises NK-BPO $F_{\max}$ from
+        0.431 to 0.599, a gain of 0.168 absolute that disappears almost entirely
+        when temporal leakage is introduced, underscoring the importance of the
+        evaluation methodology.
+
   \item A \textbf{multi-target deployment story} (development \texttt{docker
-        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering the
-        same canonical pipeline without code branching.
+        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
+        the same canonical pipeline without code branching. The deployment matrix
+        was validated by submitting three pre-built containers to the LAFA public
+        benchmark.
+
   \item An \textbf{operational narrative model} (\texttt{Job.findings},
-        \texttt{ExperimentRun}, comments) that captures the why of every run and
-        provides the audit trace from which the evaluation chapter is distilled.
+        \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why
+        of every run and provides the audit trace from which the evaluation chapter
+        is distilled. Complementing this, an index of 31 Architecture Decision
+        Records (D1--D31) in \texttt{protea-core/docs/source/adr/} provides a
+        curated history of non-obvious design choices.
+
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
-        baseline methods on held-out \gls{goa} splits following the CAFA temporal
-        protocol, complemented by three submissions to the LAFA public benchmark.
+        baseline methods on held-out \gls{goa} splits under a leakage-free temporal
+        holdout (GOA~220 $\to$~229), demonstrating that the 52-feature LightGBM
+        re-ranker raises NK-BPO $F_{\max}$ from 0.431 to 0.599 relative to the
+        embedding-only baseline.
+
+  \item A \textbf{contribution to CAFA~6} as part of a research team, achieving a
+        second-place team ranking in the international challenge, and three pre-built
+        container submissions to the LAFA public benchmark as independently verifiable
+        performance references.
 \end{itemize}
 
 \section{Thesis Structure}
 \label{sec:structure}
 
-The remainder of this document is organised as follows.
-\Cref{chap:background} introduces the biological concepts underpinning the work,
-including the modern landscape of protein language models and their structural
-extensions.
+The remainder of this document is organised as follows. The chapters are sequenced
+to build understanding progressively: biological background and related work provide
+the necessary context before the system design and implementation are presented, and
+the evaluation chapter can then be read against a concrete understanding of what the
+system does and why it was designed that way.
+
+\Cref{chap:background} introduces the biological concepts underpinning the work.
+It covers the Gene Ontology in depth (aspects, DAG structure, evidence codes, the
+role of IEA (Inferred from Electronic Annotation) evidence codes and why IEA annotations are excluded from the
+evaluation ground truth), surveys the modern landscape of protein language models from
+ProtBERT and ProtT5 through ESM-2 to ESM-C and ESM-3, and situates PLM-based
+annotation transfer within the broader landscape of embedding-based machine learning.
+Readers with a strong background in either biology or machine learning may read this
+chapter selectively.
+
 \Cref{chap:related} surveys existing computational approaches to protein function
-prediction up to 2025, with attention to the most recent embedding-based and
-graph-based methods.
-\Cref{chap:design} presents the system architecture of PROTEA: design goals, the
-operation abstraction, plugin contracts, the job lifecycle, the queue topology,
-the data model, the embedding and prediction pipelines, and the public REST API.
+prediction up to 2025. It covers the CAFA challenge history and winning approaches,
+embedding-based methods (TransFew, FunBind, GoCurator), GO-DAG machine learning
+methods (GeOKG and related work), and the LAFA benchmark ecosystem. It situates
+PROTEA's contributions relative to this landscape, identifying both the deltas and
+the complementary strengths, and is explicit about the cases where PROTEA chooses
+depth over breadth.
+
+\Cref{chap:design} presents the system architecture of PROTEA at the level of
+design decisions. It develops the five core requirements (Reproducibility,
+Scalability, Separation of Concerns, Observability, Accessibility), the operation
+abstraction and the OperationRegistry, the plugin contract system and the
+contracts-first split across seven repositories, the job lifecycle and the ten-queue
+RabbitMQ topology, the versioned data model, the embedding and prediction pipelines,
+the ArtifactStore, and the public REST API with its seventeen routers. The ADR index
+D1--D31 cross-references the major design decisions to this narrative.
+
 \Cref{chap:implementation} describes how the design materialises across the seven
-repositories, covering the technology stack, the database schema and migrations,
-the operations catalogue, feature engineering, approximate nearest-neighbour
-search, the reranker promotion pipeline, the frontend, and the testing strategy.
-\Cref{chap:evaluation} reports the experimental results on the eight-PLM
-benchmark, defines the NK/LK/PK evaluation categories and the metrics, and walks
-through a sequence of experiments from KNN baselines to the LightGBM reranker,
-including a comparative study against eggNOG-mapper.
-\Cref{chap:conclusion} summarises the findings, answers the research questions,
-discusses limitations, and outlines future directions including the LAFA
-submissions and the post-defense agenda.
+repositories. It covers the technology stack, the database schema and Alembic
+migrations, the 33-operation catalogue, feature engineering and the schema
+fingerprint mechanism, approximate nearest-neighbour search with NumPy and FAISS, the
+LightGBM reranker promotion pipeline, the Next.js frontend, and the testing strategy
+across unit, integration, and end-to-end levels.
+
+\Cref{chap:evaluation} reports the experimental results. It defines the NK/LK/PK
+evaluation categories and the metrics ($F_{\max}$, coverage, AuPRC), establishes the
+leakage-free temporal holdout over fifteen GOA snapshots, presents per-aspect and
+per-category results for the eight PLM backends, traces the sequence of experiments
+from the KNN baseline to the LightGBM reranker, and includes a comparative study
+against eggNOG-mapper. The chapter also documents the impact of temporal leakage on
+reported performance and quantifies the gap between leakage-corrupted and
+leakage-free numbers, motivating the evaluation design choices made throughout.
+
+\Cref{chap:conclusion} summarises the findings, answers the four research questions,
+discusses limitations (single workstation evaluation, GO ontology drift, PLM version
+churn), and outlines future directions including post-defense platform extensions, the
+possibility of integrating R-GCN graph convolution over the GO-DAG, and the open
+research agenda. Readers who prefer to begin with the experimental results before
+the architectural narrative may read \cref{chap:evaluation} independently; the
+evaluation chapter is written to be self-contained with respect to the evaluation
+protocol, and forward-references to earlier chapters are limited to definitions that
+cannot be assumed without background.
