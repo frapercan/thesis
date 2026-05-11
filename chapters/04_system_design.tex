@@ -373,7 +373,7 @@ frontend reflects the cancelled state regardless of how the worker exits.
     \emph{execute session} that runs the operation and commits the terminal
     state. \texttt{RetryLaterError} resets the job to \texttt{QUEUED} and
     re-publishes it after a delay (typically 60\,s) so that GPU contention
-    never produces hard failures. The right column shows the seven RabbitMQ
+    never produces hard failures. The right column shows the ten RabbitMQ
     queues; coordinator operations fan out work into the
     \texttt{*.batch}~$\to$~\texttt{*.write} chains, where every write worker
     atomically increments \texttt{progress\_current} on the parent job. The
@@ -387,7 +387,7 @@ frontend reflects the cancelled state regardless of how the worker exits.
 \section{Queue Topology}
 \label{sec:queue-topology}
 
-PROTEA routes messages across seven RabbitMQ queues, each with a distinct
+PROTEA routes messages across ten RabbitMQ queues, each with a distinct
 semantic purpose:
 
 \begin{description}
@@ -395,7 +395,13 @@ semantic purpose:
     connectivity.
   \item[\texttt{protea.jobs}] General-purpose job queue. Handles protein
     insertion, metadata fetch, ontology loading, annotation loading, and the
-    coordinator phase of embeddings and predictions.
+    \texttt{generate\_evaluation\_set} operation.
+  \item[\texttt{protea.training}] Serialised export queue. Runs
+    \texttt{export\_research\_dataset}, which performs the GPU/RAM-intensive
+    KNN pass, feature engineering, and artefact-store upload that produces
+    the frozen \texttt{train.parquet} / \texttt{eval.parquet} dataset consumed
+    by the reranker lab (ADR D9). Re-ranker training itself no longer runs
+    inside PROTEA.
   \item[\texttt{protea.embeddings}] Serialised embedding coordinator queue. At
     most one coordinator runs at a time; if the GPU is busy the coordinator
     raises \texttt{RetryLaterError} and is re-queued with a 60-second delay.
@@ -406,11 +412,18 @@ semantic purpose:
   \item[\texttt{protea.embeddings.write}] Bulk insert queue. Workers receive
     computed embedding vectors and write them to the \texttt{SequenceEmbedding}
     table via pgvector.
+  \item[\texttt{protea.predictions}] Serialised prediction coordinator queue.
+    The \texttt{predict\_go\_terms} coordinator partitions the query set into
+    batches and fans them out to \texttt{protea.predictions.batch}.
   \item[\texttt{protea.predictions.batch}] kNN prediction queue. Each message
-    carries a batch of query embeddings; workers search the reference index and
-    transfer GO annotations.
+    carries a batch of query embeddings; \texttt{OperationConsumer} workers
+    search the reference index and transfer GO annotations.
   \item[\texttt{protea.predictions.write}] Bulk prediction insert queue. Workers
     write \texttt{GOPrediction} rows for a batch of query--reference pairs.
+  \item[\texttt{protea.evaluations}] CAFA evaluation queue. Runs
+    \texttt{run\_cafa\_evaluation} (Fmax, AuPRC, coverage across NK/LK/PK
+    subsets). Serialised and isolated so that long evaluation runs do not
+    block the general jobs queue.
 \end{description}
 
 This topology separates GPU-bound inference, I/O-bound database writes, and
@@ -562,23 +575,176 @@ booster; the job otherwise proceeds to the store stage unchanged. The
 promotion mechanics are described in \cref{sec:reranker-promotion}.
 
 % ────────────────────────────────────────────────────────────
+\section{Artifact Store}
+\label{sec:artifact-store}
+
+Large produced blobs (trained LightGBM boosters, exported research datasets
+comprising \texttt{train.parquet}, \texttt{eval.parquet}, and
+\texttt{manifest.json}) are not stored in PostgreSQL. Placing binary model
+artefacts in a relational database would conflate the roles of the transactional
+store and the object store, complicate backup strategies, and make it
+impractical to share datasets with the offline training environment. Instead,
+PROTEA writes these blobs through an \texttt{ArtifactStore} protocol defined in
+\texttt{protea/infrastructure/storage/}.
+
+The protocol exposes four methods (\texttt{put}, \texttt{get}, \texttt{url},
+\texttt{exists}) and two concrete implementations:
+
+\begin{description}
+  \item[\texttt{LocalFsArtifactStore}] The default backend. Blobs are written to
+    a configurable directory on the API host (by convention
+    \texttt{storage/artifacts/}). URIs are \texttt{file:///\ldots} paths.
+    Suitable for single-node deployments and development.
+  \item[\texttt{MinioArtifactStore}] An S3-compatible object store, activated
+    by setting \texttt{storage.backend: minio} in \texttt{system.yaml} and
+    starting the compose storage profile. URIs are \texttt{s3://<bucket>/<key>}.
+    Suitable for multi-node deployments and cloud environments.
+\end{description}
+
+Operation code is agnostic of which backend is active: it calls
+\texttt{ArtifactStore.put()} and receives back a URI string that is then stored
+in the corresponding ORM row (\texttt{RerankerModel.artifact\_uri} or
+\texttt{Dataset.artifact\_uri}). If MinIO is configured but unreachable at
+startup, the factory logs a warning and degrades to the local filesystem; a
+missing optional service never crashes the stack. This graceful degradation
+satisfies requirement R3 (separation of concerns): the storage backend is
+independently replaceable without modifying any operation logic.
+
+% ────────────────────────────────────────────────────────────
 \section{REST API Design}
 \label{sec:api-design}
 
-The API follows REST conventions. Resources are grouped into six routers:
+The API follows REST conventions. Resources are grouped into seventeen routers
+spanning the full operational surface of the platform (ADR D4):
 
 \begin{description}
-  \item[\texttt{/proteins}] Insert proteins from UniProt accession lists or FASTA.
-  \item[\texttt{/annotations}] Load ontology snapshots and annotation sets.
+  \item[\texttt{/proteins}] Insert proteins from UniProt accession lists or FASTA;
+    fetch and cache UniProt metadata.
+  \item[\texttt{/annotations}] Load ontology snapshots and annotation sets from
+    GOA or QuickGO sources.
   \item[\texttt{/embeddings}] Manage embedding configurations, trigger computation,
     submit prediction jobs, and export results.
   \item[\texttt{/query-sets}] Upload FASTA files and manage user query datasets.
   \item[\texttt{/jobs}] Track job state and stream structured events.
-  \item[\texttt{/admin}] Administrative maintenance tasks.
+  \item[\texttt{/admin}] Administrative and maintenance tasks (schema health,
+    stale-job reaping).
+  \item[\texttt{/scoring}] Weighted composite scoring of candidate GO predictions
+    with configurable formulas.
+  \item[\texttt{/annotate}] High-level annotate endpoint; accepts a FASTA and
+    returns structured GO predictions in a single synchronous call.
+  \item[\texttt{/benchmark}] Trigger and retrieve CAFA-style evaluation runs
+    (Fmax, AuPRC, coverage) against registered evaluation sets.
+  \item[\texttt{/datasets}] Manage exported research datasets (the frozen
+    \texttt{train.parquet} / \texttt{eval.parquet} artefacts consumed by the
+    reranker lab).
+  \item[\texttt{/reranker-models}] Register promoted LightGBM boosters, inspect
+    their \texttt{feature\_schema\_sha}, and set an active model for inference.
+  \item[\texttt{/registry}] Inspect registered plugins (backends, sources,
+    runners) and available operations at runtime.
+  \item[\texttt{/experiment-runs}] Record and retrieve experiment provenance:
+    parameters, findings, and tags attached to a prediction or evaluation job.
+  \item[\texttt{/support}] Diagnostic and support endpoints used by the frontend
+    for connectivity checks and stack introspection.
+  \item[\texttt{/showcase}] Read-only endpoints for pre-computed demonstration
+    predictions surfaced in the public-facing interface.
+  \item[\texttt{/stack}] Runtime stack inspection: worker counts, queue depths,
+    and database connectivity status.
+  \item[\texttt{/maintenance}] Database maintenance tasks (vacuum, index rebuild,
+    schema repair) exposed for operational use.
 \end{description}
 
 \begin{sloppypar}
 Session injection follows FastAPI's dependency system:
 \texttt{app.state.session\_factory} is set at startup and injected into each
-request handler, keeping router code free of infrastructure imports.
+request handler, keeping router code free of infrastructure imports. The strict
+\texttt{extra=forbid} configuration on all \texttt{ProteaPayload} subclasses
+means that a malformed request body fails at HTTP 422 before any database write
+occurs.
 \end{sloppypar}
+
+% ────────────────────────────────────────────────────────────
+\section{Design Decision Index}
+\label{sec:adr-index}
+
+The architecture described in this chapter is the outcome of a series of design
+decisions recorded as Architectural Decision Records (ADRs) in the PROTEA
+repository. The following index maps the major design themes of this chapter to
+their authoritative ADRs; the full text of each record is available in
+\texttt{docs/source/adr/} in the PROTEA repository (Appendix~B summarises the
+most consequential decisions).
+
+\begin{description}
+  \item[Repository and plugin structure (D1, D14).] ADR D1 establishes the
+    seven-repository split (core, contracts, method, sources, backends, runners,
+    cafaeval) and the entry-points discovery mechanism. D14 defers per-plugin
+    repository granularity to post-defense (F9), keeping each plugin group in a
+    single repo for now.
+  \item[KNN without pgvector search (D1, referenced as ADR-001).] pgvector is
+    used for vector storage only; KNN search runs in Python via NumPy or FAISS.
+    The constraint is a hard project rule (see \cref{chap:implementation}).
+  \item[Two-session worker pattern (ADR-002).] The claim session and execute
+    session separation described in \cref{subsec:queue-consumer} ensures that
+    job claims survive execute-session rollbacks.
+  \item[QueueConsumer versus OperationConsumer (ADR-003, D11).] The two consumer
+    patterns and their observability trade-offs are formalised in ADR-003.
+    D11 adds the narrative model (\texttt{description}, \texttt{findings},
+    \texttt{tags}) to \texttt{Job} rows.
+  \item[Dead-letter and retry strategy (ADR-004).] \texttt{RetryLaterError} and
+    the 60-second re-queue mechanism described in \cref{subsec:retry-later} are
+    specified here.
+  \item[Thread-local RabbitMQ connections (ADR-005).] Each worker thread holds
+    its own channel; sharing a single connection across threads would require
+    locking that the aio-pika layer does not provide.
+  \item[Sequence deduplication by MD5 (ADR-006).] The
+    \texttt{Sequence}/\texttt{Protein} split described in
+    \cref{subsec:dm-sequence} prevents redundant embedding computation.
+  \item[Contract-first lab integration (ADR-007, D9).] The narrow interface
+    between PROTEA and the reranker lab (frozen parquet datasets, booster
+    artefacts, and the shared \texttt{compute\_schema\_sha} helper) is
+    specified in ADR-007 and D9.
+  \item[cafaeval coverage fix (ADR-008).] An upstream bug in the cafaeval
+    library that affected PK coverage reporting is documented here; the fix
+    was contributed upstream and backported.
+  \item[Schema SHA v2 migration (D10).] The parallel \texttt{schema\_sha\_v2}
+    column migration described in \cref{subsec:schema-sha} is fully specified
+    in D10, including the production rollout gate (staging verification before
+    live migration).
+  \item[Exportable research dataset location (D2).] The \texttt{Dataset} ORM
+    model and the frozen parquet artefact layout (\texttt{train.parquet},
+    \texttt{eval.parquet}, \texttt{manifest.json}) are specified here.
+  \item[GOPrediction features in JSONB (D3).] The extensible JSONB column on
+    \texttt{GOPrediction} that carries per-candidate features without
+    schema migrations is specified in D3.
+  \item[API versioning (D4).] The decision not to version the API path (no
+    \texttt{/v1/}) and to use contract stability through strict payload
+    validation instead is recorded in D4.
+  \item[Frontend co-located in core (D5).] The Next.js application lives
+    inside the PROTEA monorepo under \texttt{apps/web/} rather than in a
+    separate repository (D5, D8, D13).
+  \item[Authentication scope (D6).] Single-instance, researcher-facing
+    deployment does not implement authentication at this stage; the decision
+    and its deferral conditions are in D6.
+  \item[Observability stack (D7).] OpenTelemetry traces, Prometheus metrics,
+    Grafana dashboards, and Loki log aggregation are specified in D7.
+  \item[\texttt{protea-method} distribution (D15).] The three distribution
+    channels (PyPI, Docker Hub minimal image, companion engineering paper)
+    for the standalone inference path are specified in D15.
+  \item[Container runtime (D26).] OCI multi-stage Dockerfiles as the source
+    of truth; Apptainer \texttt{.sif} images generated as release artefacts
+    for HPC environments.
+  \item[HPC operation mode (D25).] Mode B (stateless workers on HPC nodes
+    connecting to cloud-hosted Postgres and RabbitMQ) is the primary HPC
+    deployment target; mode C (airgapped \texttt{.sif} bundle) is deferred
+    to post-defense.
+  \item[Secrets management (D28).] Credentials are never committed; the
+    canonical pattern is environment variables injected at container start.
+  \item[Release pipeline (D29).] Per-repo SemVer driven by Conventional
+    Commits and \texttt{release-please}; cross-repo integration test on tag.
+  \item[Operational insights appendix (D30).] Consequential incidents
+    (schema SHA drift, anc2vec feature leakage, cafaeval coverage bug) are
+    documented in Appendix~B rather than buried in commit history.
+  \item[T2B.5 Method Object reframe (D31).] The refactor strategy for large
+    batch operation classes (extracting cohesive sub-clusters as
+    \texttt{\_<Cluster>Runner} classes rather than wrapping already-budgeted
+    \texttt{execute()} methods) is formalised in D31.
+\end{description}
