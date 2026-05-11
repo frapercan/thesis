@@ -331,14 +331,27 @@ learn from embedding distance, aggregation features, and categorical signals.
 
 Experiment~6 addresses the missing-feature problem identified in v2 by
 computing pairwise alignment (Needleman--Wunsch and Smith--Waterman via
-parasail/BLOSUM62) and taxonomic distance (via the NCBI taxonomy tree) for
-every (query, reference) pair during training data generation. This gives the
-model access to all 22 features, the same set available at inference time.
+parasail/BLOSUM62), taxonomic distance (via the NCBI taxonomy tree), and
+anc2vec GO-embedding cosine similarities
+for every (query, reference) pair during training data generation. This gives the
+model access to all 52 features, the same set available at inference time.
 
 Training uses the same 12 temporal holdout splits as v2, with identical
-hyperparameters. The additional computation adds approximately 45 minutes
-to the 2-hour training time (alignment is $O(mn)$ per pair but benefits from
-SIMD acceleration; taxonomy uses an LRU-cached SQLite lookup).
+hyperparameters. The feature dataset is the leakage-free
+\texttt{bench-v1-K5-filtered} snapshot (evaluation pair GOA~220$\to$230),
+which removes anc2vec look-up leakage present in the original
+\texttt{bench-v1-K5} dataset. Nine per-cell models are trained
+(NK/LK/PK $\times$ BPO/MFO/CCO) and evaluated with the lab
+protein-averaged $F_{\max}$ metric (no prediction-side propagation); three
+random seeds (42, 7, 137) are run and averaged.
+
+\begin{quote}
+\textbf{Note.} The preceding experiments (Exp.~1--5) were run on the
+pre-leakage-fix \texttt{bench-v1-K5} dataset with the older 22-feature schema.
+Their absolute $F_{\max}$ values are not directly comparable to the v3 numbers
+reported here. A full leakage-free re-run of the baseline and heuristic
+experiments is pending (lab-runner slice LB.2).
+\end{quote}
 
 \begin{table}[htbp]
   \centering
@@ -351,49 +364,53 @@ SIMD acceleration; taxonomy uses an LRU-cached SQLite lookup).
     \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
     \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
     \midrule
-    Baseline (emb.\ only) & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
-    Alignment weighted    & 0.428 & 0.611 & 0.683 & \textbf{0.500} & 0.598 & \textbf{0.699} & 0.201 & 0.285 & 0.337 \\
-    Re-ranker v1 (bal.)   & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
-    Re-ranker v2          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
-    \textbf{Re-ranker v3} & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & 0.478 & \textbf{0.607} & 0.697 & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    Baseline (emb.\ only)$^\dagger$ & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted$^\dagger$    & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    Re-ranker v1 (bal.)$^\dagger$   & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    Re-ranker v2$^\dagger$          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \textbf{Re-ranker v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
-The v3 re-ranker with full features achieves the best $F_{\max}$ in 7 of 9
-category--aspect cells, surpassing both the heuristic and all prior re-ranker
-versions. The two cells where the heuristic leads (LK-BPO by $+0.022$ and
-LK-CCO by $+0.002$) are relatively small margins compared to the gains
-elsewhere.
+\noindent$^\dagger$~Numbers from pre-leakage-fix \texttt{bench-v1-K5} dataset
+(22-feature schema, GOA~220$\to$229 eval split); not directly comparable with
+the v3 row, which uses \texttt{bench-v1-K5-filtered}
+(52-feature schema, GOA~220$\to$230 eval split, mean of 3 seeds).
+
+The v3 re-ranker trained on the leakage-free feature set achieves strong
+$F_{\max}$ across all nine category--aspect cells. The GOA~220$\to$230
+evaluation window (versus 220$\to$229 for earlier rows) adds one additional
+GOA release to the test delta; this difference is expected to be small relative
+to the dataset size. Direct cell-by-cell comparison with the pre-leakage-fix
+rows is not valid; a full leakage-free re-run of the earlier methods is pending
+(lab-runner slice LB.2).
 
 \begin{figure}[htbp]
   \centering
   \input{figures/fig_reranker_progression}
   \caption[Re-ranker progression across methods]{%
-    Method progression on the GOA~220$\to$229 evaluation set, faceted by
-    category (NK / LK / PK) with one bar per GO aspect.
-    \texttt{AlnWeighted} is the best heuristic from Experiment~3
-    (embedding\,$=0.5$, NW identity\,$=0.3$, SW identity\,$=0.2$); \texttt{v1bal}
-    is the per-aspect LightGBM re-ranker with class balancing; \texttt{v2}
-    consolidates per-category models with IA weighting; \texttt{v3} adds the
-    full alignment\,+\,taxonomy feature set during training. The transition
-    \texttt{v2}\,$\to$\,\texttt{v3} is the only step that consistently surpasses
-    the heuristic in MFO and BPO, isolating feature availability (and not
-    model capacity) as the operative cause.%
+    Method progression faceted by category (NK / LK / PK) with one bar per GO
+    aspect. The v3 bar reflects the leakage-free \texttt{bench-v1-K5-filtered}
+    dataset (52 features, mean of 3 seeds); all other bars use the
+    pre-leakage-fix \texttt{bench-v1-K5} dataset and are included for
+    directional reference only. A full leakage-free re-run of earlier methods
+    is pending (lab-runner LB.2).%
   }
   \label{fig:reranker-progression}
 \end{figure}
 
 \subsubsection{Feature Importance Analysis}
 
-\Cref{tab:feature-importance} shows the top features by LightGBM gain for each
-per-category model. With the full feature set, alignment features now contribute
-meaningfully: \texttt{identity\_nw} is the 4th most important feature in NK.
+\Cref{tab:feature-importance} shows the top-10 features by LightGBM gain
+for each category, aggregated over the three per-aspect models (BPO, MFO, CCO),
+seed 42, leakage-free dataset.
 
 \begin{table}[htbp]
   \centering
-  \caption{Top-10 features by LightGBM gain for v3 per-category models.}
+  \caption{Top-10 features by LightGBM gain for v3 per-cell models (seed~42,
+    aggregated across BPO + MFO + CCO within each category).}
   \label{tab:feature-importance}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{clr clr clr}
@@ -402,16 +419,16 @@ meaningfully: \texttt{identity\_nw} is the 4th most important feature in NK.
     \cmidrule(lr){1-3} \cmidrule(lr){4-6} \cmidrule(lr){7-9}
     \# & Feature & Gain & \# & Feature & Gain & \# & Feature & Gain \\
     \midrule
-    1 & ref\_ann\_dens.  & 971K & 1 & ref\_ann\_dens.  & 309K & 1 & go\_term\_freq  & 680K \\
-    2 & go\_term\_freq   & 280K & 2 & go\_term\_freq   & 256K & 2 & evidence\_code  & 531K \\
-    3 & evidence\_code   & 163K & 3 & evidence\_code   & 169K & 3 & similarity\_nw  & 307K \\
-    4 & identity\_nw     & 157K & 4 & vote\_count      & 122K & 4 & identity\_nw    & 267K \\
-    5 & vote\_count      & 137K & 5 & nb\_dist\_std    & 71K  & 5 & ref\_ann\_dens. & 262K \\
-    6 & align\_score\_nw & 122K & 6 & identity\_nw     & 64K  & 6 & qualifier       & 185K \\
-    7 & nb\_dist\_std    & 108K & 7 & similarity\_nw   & 50K  & 7 & k\_position     & 126K \\
-    8 & k\_position      & 73K  & 8 & distance         & 46K  & 8 & vote\_count     & 117K \\
-    9 & similarity\_nw   & 70K  & 9 & align\_score\_nw & 45K  & 9 & nb\_dist\_std   & 88K  \\
-   10 & distance         & 68K  & 10 & qualifier       & 42K  & 10 & tax\_distance  & 75K  \\
+    1 & nb\_vote\_frac   & 155K & 1 & nb\_vote\_frac   & 98K  & 1 & go\_term\_freq       & 410K \\
+    2 & k\_position      & 58K  & 2 & evidence\_code   & 45K  & 2 & anc2vec\_q\_maxcos   & 233K \\
+    3 & evidence\_code   & 48K  & 3 & k\_position      & 38K  & 3 & nb\_vote\_frac       & 166K \\
+    4 & go\_term\_freq   & 45K  & 4 & go\_term\_freq   & 33K  & 4 & nb\_min\_dist        & 133K \\
+    5 & vote\_count      & 28K  & 5 & anc2vec\_n\_cos  & 18K  & 5 & qualifier            & 85K  \\
+    6 & anc2vec\_n\_cos  & 27K  & 6 & vote\_count      & 17K  & 6 & anc2vec\_n\_cos      & 83K  \\
+    7 & ref\_ann\_dens.  & 17K  & 7 & anc2vec\_q\_maxcos& 13K & 7 & evidence\_code       & 64K  \\
+    8 & emb\_pca\_q\_5   & 5K   & 8 & ref\_ann\_dens.  & 9K   & 8 & anc2vec\_q\_cos      & 55K  \\
+    9 & emb\_pca\_q\_0   & 5K   & 9 & anc2vec\_q\_count& 7K   & 9 & vote\_count          & 53K  \\
+   10 & anc2vec\_n\_maxcos& 5K  & 10 & anc2vec\_q\_cos & 7K   & 10 & anc2vec\_q\_count   & 50K  \\
     \bottomrule
   \end{tabular}
   }
@@ -420,58 +437,66 @@ meaningfully: \texttt{identity\_nw} is the 4th most important feature in NK.
 \begin{figure}[htbp]
   \centering
   \input{figures/fig_feature_importance}
-  \caption[Top-10 LightGBM feature importances per per-category model]{%
-    Top-10 features by LightGBM gain for the per-category v3 re-ranker models
-    (NK, LK, PK). Aggregation features (\texttt{ref\_annotation\_density},
-    \texttt{go\_term\_frequency}) dominate in NK and LK, while in PK the
-    aggregation signal is overtaken by alignment-based features
-    (\texttt{similarity\_nw}, \texttt{identity\_nw}). Raw embedding distance
-    falls outside the top features in NK/LK, indicating that the re-ranker
-    learns to use embedding similarity primarily as a candidate-generation
-    filter rather than as the final ranking signal.%
+  \caption[Top-10 LightGBM feature importances per category (v3, leakage-free)]{%
+    Top-10 features by LightGBM gain aggregated over the three per-aspect
+    models per category (NK, LK, PK), seed~42, \texttt{bench-v1-K5-filtered}.
+    Aggregation features (\texttt{neighbor\_vote\_fraction},
+    \texttt{go\_term\_frequency}) dominate across all three categories.
+    GO-embedding similarity (\texttt{anc2vec\_neighbor\_cos},
+    \texttt{anc2vec\_query\_known\_maxcos}) contributes prominently in LK and PK.
+    Raw embedding distance (\texttt{distance}) does not appear in the top-10
+    for any category, confirming that the model uses embedding similarity
+    primarily as a candidate-generation filter.%
   }
   \label{fig:feature-importance}
 \end{figure}
 
 Three observations stand out:
 \begin{itemize}
-  \item \textbf{Aggregation features dominate}: \texttt{ref\_annotation\_density}
-    and \texttt{go\_term\_frequency} are the top features in NK/LK and PK
-    respectively. These capture the statistical reliability of individual
-    reference proteins and GO terms.
-  \item \textbf{Alignment features are now active}: \texttt{identity\_nw} and
-    \texttt{similarity\_nw} rank 4th--6th across all models. In v2 (where
-    these were NULL during training), they had zero importance.
-  \item \textbf{Embedding distance ranks low}: \texttt{distance} ranks 10th in
-    NK and 8th in LK, well below both alignment and aggregation features. The
-    re-ranker learns to rely on more granular signals than raw embedding
-    similarity.
+  \item \textbf{Vote-aggregation features dominate}: \texttt{neighbor\_vote\_fraction}
+    is the top feature in NK and LK; \texttt{go\_term\_frequency} tops PK. These
+    capture the statistical reliability of the annotation vote.
+  \item \textbf{GO-embedding features are prominent}: \texttt{anc2vec\_neighbor\_cos}
+    and \texttt{anc2vec\_query\_known\_maxcos} appear in all three category
+    top-10 lists, reflecting the utility of GO-ontology-derived embeddings as a
+    complementary signal to protein-sequence-derived embeddings.
+  \item \textbf{Embedding distance ranks low}: the raw cosine distance between
+    protein language model embeddings does not appear in any category top-10,
+    confirming that the re-ranker learns to use it as a candidate-generation
+    filter rather than a final ranking signal.
 \end{itemize}
 
-\subsubsection{Improvement Over Baseline}
+\subsubsection{Improvement Over v2 (Indicative)}
 
-\Cref{tab:improvement} summarises the absolute $F_{\max}$ improvement of the
-best re-ranker (v3) over the embedding-only baseline.
+\Cref{tab:improvement} summarises the absolute $F_{\max}$ change of the
+leakage-free v3 re-ranker relative to the pre-leakage-fix v2 baseline. These
+deltas are not clean apples-to-apples comparisons because the datasets and
+feature schemas differ; they are reported as an indicative reference pending
+the full leakage-free ablation (lab-runner LB.2).
 
 \begin{table}[htbp]
   \centering
-  \caption[Absolute Fmax improvement: re-ranker v3 vs.\ baseline]{Absolute $F_{\max}$ improvement: re-ranker v3 vs.\ baseline.}
+  \caption[Indicative Fmax delta: v3 (leakage-free) vs.\ v2 (pre-leakage-fix)]{%
+    Indicative $F_{\max}$ delta: v3 (leakage-free, \texttt{bench-v1-K5-filtered})
+    vs.\ v2 (pre-leakage-fix, \texttt{bench-v1-K5}). Datasets and feature
+    schemas differ; these figures are not a controlled ablation.}
   \label{tab:improvement}
   \begin{tabular}{lccc}
     \toprule
     \textbf{Category} & \textbf{BPO} & \textbf{MFO} & \textbf{CCO} \\
     \midrule
-    NK & +0.019 & +0.030 & +0.024 \\
-    LK & +0.011 & +0.049 & +0.022 \\
-    PK & +0.014 & +0.019 & +0.014 \\
+    NK & +0.174 & +0.039 & +0.086 \\
+    LK & +0.134 & +0.031 & +0.087 \\
+    PK & $-$0.034 & $-$0.004 & +0.011 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The largest gains are in MFO (+0.030 NK, +0.049 LK), the aspect where the
-baseline was already strongest. This suggests that the re-ranker's additional
-features are particularly effective at disambiguating molecular function
-predictions.
+The large positive deltas in NK-BPO and LK-BPO reflect both the
+leakage-fix correction and the expanded feature set (anc2vec). The negative
+PK-BPO delta is consistent with the leakage fix tightening the category
+criterion, reducing over-optimistic positive rates in PK. A controlled
+leakage-free re-run of v2 is required to isolate the net feature contribution.
 
 % ── Experiment 7 ──────────────────────────────────────────────
 \subsection{Experiment~7: Comparison with eggNOG-mapper}
@@ -495,42 +520,49 @@ reproduction instructions are given in \cref{app:external-comparison}.
     \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
     \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
     \midrule
-    eggNOG-mapper 2.1.13 & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
-    PROTEA baseline      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
-    \textbf{PROTEA re-ranker v3} & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    eggNOG-mapper 2.1.13$^\ddagger$ & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
+    PROTEA baseline$^\dagger$      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    \textbf{PROTEA re-ranker v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
-PROTEA's re-ranker v3 outperforms eggNOG-mapper in all nine category--aspect
-cells, with absolute $F_{\max}$ improvements ranging from +0.011 (PK-BPO) to
-+0.306 (NK-CCO). The largest gains occur in the NK and LK categories, where
-eggNOG-mapper's coverage gap (14.5\% of test proteins without predictions) and
-lack of graded confidence scores limit its performance. Even the
-embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells, suggesting
-that protein language model embeddings provide a stronger retrieval signal
-than DIAMOND-based orthology assignment for this evaluation protocol.
+\noindent$^\dagger$~Pre-leakage-fix \texttt{bench-v1-K5} dataset (22-feature schema).
+$^\ddagger$~eggNOG-mapper evaluated on the same pre-leakage-fix evaluation set
+as the baseline; a re-evaluation against the updated split is pending.
 
-Two caveats apply: (i)~eggNOG-mapper assigns uniform confidence to all
-predictions (no threshold optimisation), which disadvantages it under
-$F_{\max}$; and (ii)~the eggNOG database version (5.0.2) predates the
-evaluation window, so its orthologous groups may not reflect the latest
-annotations. A more detailed analysis is provided in
-\cref{app:external-comparison}.
+The PROTEA re-ranker v3 outperforms both eggNOG-mapper and the pre-leakage-fix
+baseline in NK and LK across all aspects. In PK-BPO the leakage-fix
+recategorisation reduces the positive rate, leading to a lower absolute
+$F_{\max}$ for v3 compared to the pre-leakage-fix baseline and eggNOG-mapper;
+this is expected, as the leakage-free criterion is stricter. A side-by-side
+comparison on a shared leakage-free eval set (including a re-run of
+eggNOG-mapper) is pending (lab-runner LB.2).
+
+The PROTEA baseline surpasses eggNOG-mapper in 8 of 9 cells (pre-leakage-fix
+numbers), consistent with the earlier finding that protein language model
+embeddings provide a stronger retrieval signal than DIAMOND-based orthology
+transfer for NK and LK proteins.
+
+Three caveats apply: (i)~the v3 and baseline rows use different evaluation
+splits and feature schemas and cannot be directly compared;
+(ii)~eggNOG-mapper assigns uniform confidence (no threshold optimisation),
+which disadvantages it under $F_{\max}$; and (iii)~the eggNOG database
+version (5.0.2) predates the evaluation window. A more detailed analysis is
+provided in \cref{app:external-comparison}.
 
 \begin{figure}[htbp]
   \centering
   \input{figures/fig_protea_vs_emapper}
   \caption[PROTEA vs eggNOG-mapper across NK/LK/PK and aspects]{%
     Head-to-head $F_{\max}$ comparison between eggNOG-mapper~v2.1.13,
-    PROTEA's embedding-only baseline, and PROTEA's re-ranker~v3 on the
-    GOA~220$\to$229 evaluation set. Both PROTEA configurations dominate
-    eggNOG-mapper across NK and LK, with the largest absolute gain
-    (+0.306~$F_{\max}$) in NK-CCO. The PK gap narrows because PROTEA's
-    PK predictions are filtered against the protein's existing annotations
-    (\texttt{known\_terms}) while eggNOG-mapper does not perform such
-    exclusion, slightly favouring it in PK-BPO.%
+    PROTEA's pre-leakage-fix embedding-only baseline ($^\dagger$), and
+    PROTEA's leakage-free re-ranker~v3 on the GOA~220$\to$230 evaluation
+    set. The v3 and baseline rows use different datasets; direct cell-by-cell
+    comparisons are indicative only. NK and LK show large margins over
+    eggNOG-mapper across all methods. PK-BPO shows lower v3 performance
+    due to the leakage-fix recategorisation tightening the positive set.%
   }
   \label{fig:protea-vs-emapper}
 \end{figure}
@@ -546,29 +578,30 @@ exceed alignment-based methods for GO term prediction, particularly at low
 sequence identity?}
 
 The embedding-only baseline ($k{=}5$, $c = 1 - d/2$) establishes competitive
-performance across all categories, reaching $F_{\max}$ values of 0.590 (NK-MFO),
-0.558 (LK-MFO), and 0.668 (NK-CCO) without any alignment computation. The
-heuristic scoring experiment (Exp.~3) shows that adding pairwise alignment
-statistics on top of embeddings provides a consistent 1.5--4\% improvement,
-indicating that embeddings and alignments capture partially orthogonal signals.
-The comparison with eggNOG-mapper (Exp.~7) provides direct evidence: even the
-embedding-only baseline surpasses eggNOG-mapper's DIAMOND-based orthology
-transfer in 8 of 9 cells, and PROTEA's re-ranker v3 outperforms it in all 9
-cells by margins of up to +0.306~$F_{\max}$. While the comparison has caveats
-(uniform confidence scores for eggNOG-mapper, different database versions), it
-demonstrates that embedding-based KNN transfer is a strong approach for
-large-scale functional annotation.
+performance across all categories (pre-leakage-fix numbers), reaching
+$F_{\max}$ values of 0.590 (NK-MFO), 0.558 (LK-MFO), and 0.668 (NK-CCO)
+without any alignment computation. The heuristic scoring experiment (Exp.~3)
+shows that adding pairwise alignment statistics on top of embeddings provides
+a consistent 1.5--4\% improvement, indicating that embeddings and alignments
+capture partially orthogonal signals. The comparison with eggNOG-mapper
+(Exp.~7, pre-leakage-fix baseline) provides directional evidence: the
+embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells and
+PROTEA's leakage-free v3 re-ranker substantially exceeds both in NK and LK.
+These comparisons are on different evaluation sets; a controlled comparison
+on a shared leakage-free split is pending (lab-runner LB.2).
 
 \textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
 
-Yes. The progression from v2 to v3 provides direct evidence: when alignment
-and taxonomy features are available during training, $F_{\max}$ improves in 8 of
-9 cells (up to +0.032 in LK-MFO). Feature importance analysis confirms that
-\texttt{identity\_nw}, \texttt{similarity\_nw}, and \texttt{taxonomic\_distance}
-are among the top-10 features in all three models. Notably, the v2 re-ranker
-(trained without these features) failed to surpass the simple heuristic that
-used them directly, while v3 (trained with the same features) exceeds it.
+Yes. The feature importance analysis for the leakage-free v3 re-ranker
+(Tab.~\ref{tab:feature-importance}) confirms that GO-embedding similarity
+(\texttt{anc2vec\_neighbor\_cos}, \texttt{anc2vec\_query\_known\_maxcos}) and
+aggregation features (\texttt{neighbor\_vote\_fraction}) are the dominant
+signals, while raw embedding distance does not appear in the top-10 for any
+category. The pre-leakage-fix v2-to-v3 progression (Exp.~5--6, different
+datasets) showed directional improvement in most cells when the full feature
+set was available. A controlled per-feature ablation on the leakage-free
+dataset is pending (lab-runner LB.3).
 
 \textbf{RQ3}: \emph{How can a reproducible, scalable annotation pipeline be
 designed so that researchers can re-run analyses as ontologies and databases are
@@ -594,19 +627,22 @@ space, but its ranking is limited to a single signal: cosine distance.
 The LightGBM re-ranker, when given access to the full feature set, learns to
 combine multiple complementary signals:
 \begin{itemize}
-  \item \textbf{Embedding distance} provides the initial retrieval signal.
+  \item \textbf{Embedding distance} provides the initial KNN retrieval signal.
   \item \textbf{Alignment identity and scores} capture sequence-level conservation
-    that the embedding may compress away.
-  \item \textbf{Aggregation features} (vote count, GO term frequency, reference
-    annotation density) encode the statistical confidence of each prediction.
+    that the protein language model embedding may compress away.
+  \item \textbf{Aggregation features} (vote fraction, GO term frequency) encode
+    the statistical confidence of each candidate annotation.
+  \item \textbf{GO-embedding similarity} (\texttt{anc2vec}) provides an
+    ontology-aware signal complementary to protein-sequence embeddings.
   \item \textbf{Taxonomic distance} provides phylogenetic context.
 \end{itemize}
 
-The fact that the v2 re-ranker (without alignment/taxonomy in training) failed
-to surpass a simple heuristic combining these signals, while v3 (with full
-features) succeeded, underscores that feature engineering remains valuable even
-when powerful embeddings are available. Embeddings and classical features are
-complementary, not substitutes.
+The leakage-free feature importance analysis (Tab.~\ref{tab:feature-importance})
+shows that vote-aggregation and GO-embedding features dominate across all
+three categories, while raw protein-embedding distance ranks outside the
+top-10. This confirms that feature engineering remains valuable even when
+powerful embeddings are available, and that the ontology structure provides
+information not captured by the protein sequence alone.
 
 \subsection{Limitations}
 \label{subsec:limitations}
