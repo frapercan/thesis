@@ -12,11 +12,11 @@ The PROTEA codebase is organised into three top-level packages that mirror the
 architectural layers described in \cref{chap:design}:
 
 \begin{description}
-  \item[\texttt{protea/api/}] FastAPI application and routers
-    (\texttt{jobs}, \texttt{proteins}, \texttt{annotations},
-    \texttt{embeddings}, \texttt{query\_sets}, \texttt{admin}).
+  \item[\texttt{protea/api/}] FastAPI application and seventeen routers
+    spanning the full operational surface of the platform. The routers are
+    described in \cref{sec:api-design}.
   \item[\texttt{protea/core/}] Pure domain logic: the \texttt{Operation}
-    protocol and \texttt{OperationRegistry} contracts, all nine registered
+    protocol and \texttt{OperationRegistry} contracts, all registered
     operations, the kNN search backends, feature engineering utilities, and
     shared HTTP helpers.
   \item[\texttt{protea/infrastructure/}] SQLAlchemy ORM models,
@@ -61,7 +61,7 @@ dependency on either of the other two.
     Alignment            & parasail-python (BLOSUM62)  & 1.x              \\
     Taxonomy             & ete3 + NCBITaxa             & 3.x              \\
     ANN search           & NumPy / FAISS               & n/a              \\
-    Frontend             & Next.js 19 + Tailwind v4    & 19 / 4           \\
+    Frontend             & Next.js 16 + Tailwind v4    & 16 / 4           \\
     Dependency mgmt.     & Poetry                      & 1.x              \\
     \bottomrule
   \end{tabular}
@@ -124,7 +124,13 @@ crash during execution never rolls back the \texttt{RUNNING} state transition.
 \section{Operations}
 \label{sec:operations}
 
-PROTEA ships nine operations registered at worker startup:
+\begin{sloppypar}
+The \texttt{build\_operation\_registry()} factory in
+\texttt{protea/core/\allowbreak{}operation\_catalog.py} registers the full set of operations
+at startup; both the API process and every worker call the same factory so
+the set is always in sync.
+\end{sloppypar}
+The user-facing operations are:
 
 \begingroup\sloppy
 \begin{description}
@@ -147,6 +153,13 @@ PROTEA ships nine operations registered at worker startup:
   \item[\texttt{load\_quickgo\_annotations}] Streams GO annotations from the
     QuickGO bulk download API (paginated TSV). Supports optional ECO→GO evidence
     code mapping and per-page commits to bound transaction size.
+  \item[\texttt{generate\_evaluation\_set}] Materialises an \texttt{EvaluationSet}
+    by snapshotting ground-truth annotations for a target ontology snapshot and
+    accession set; consumed downstream by \texttt{run\_cafa\_evaluation}.
+  \item[\texttt{run\_cafa\_evaluation}] Runs the standalone \texttt{cafaeval} fork
+    against a \texttt{PredictionSet} and persists \texttt{EvaluationResult} rows
+    (Fmax, AuPRC, coverage, per-aspect breakdowns). Isolated on its own queue so
+    long evaluations do not block the general jobs queue.
   \item[\texttt{compute\_embeddings}] Coordinator operation described in
     \cref{sec:embedding-pipeline}.
   \item[\texttt{predict\_go\_terms}] Coordinator operation described in
@@ -154,10 +167,10 @@ PROTEA ships nine operations registered at worker startup:
   \item[\texttt{export\_research\_dataset}] Writes the frozen train/eval
     parquet dataset and its \texttt{manifest.json} used by the external
     research sandbox described in \cref{sec:reranker-promotion}. The operation
-    delegates the data-generation path to the same code used by
-    \texttt{train\_reranker}, but publishes the resulting artefacts through
-    the storage abstraction (\cref{subsec:dm-reranker}) instead of the local
-    filesystem.
+    runs the same KNN and feature-generation pipeline as the internal
+    \texttt{training\_dump\_helpers} module, skips the LightGBM training stage,
+    and publishes the resulting artefacts through the storage abstraction
+    (\cref{subsec:dm-reranker}).
 \end{description}
 \endgroup
 
@@ -252,19 +265,23 @@ or maximum distance threshold.
 
 PROTEA uses a shell script (\texttt{scripts/manage.sh}) to manage the set of
 long-running processes required by the stack. The script starts, stops, and
-reports the status of nine process roles:
+reports the status of all process roles:
 
 \begingroup\sloppy
 \begin{enumerate}
   \item FastAPI server (\texttt{uvicorn})
   \item Worker: \texttt{protea.ping}
   \item Worker: \texttt{protea.jobs}
+  \item Worker: \texttt{protea.training} (serialised dataset-export queue)
   \item Worker: \texttt{protea.embeddings} (serialised coordinator)
   \item $N \times$ Worker: \texttt{protea.embeddings.batch} (GPU inference)
   \item $N \times$ Worker: \texttt{protea.embeddings.write}
+  \item Worker: \texttt{protea.predictions} (serialised coordinator)
   \item $N \times$ Worker: \texttt{protea.predictions.batch} (kNN)
   \item $N \times$ Worker: \texttt{protea.predictions.write}
-  \item Next.js development server
+  \item Worker: \texttt{protea.evaluations} (CAFA evaluation queue)
+  \item Stale-job reaper (\texttt{reaper} queue, periodic heartbeat check)
+  \item Next.js frontend server
 \end{enumerate}
 \endgroup
 
@@ -327,7 +344,7 @@ fingerprint onto each batch message.
 \section{Frontend}
 \label{sec:frontend}
 
-The web interface is a Next.js 19 application using Tailwind CSS v4 for styling.
+The web interface is a Next.js 16 application using Tailwind CSS v4 for styling.
 It communicates with the FastAPI backend exclusively through the REST API,
 enabling the two layers to be deployed independently. The primary workflows
 exposed by the frontend are:
@@ -356,5 +373,4 @@ The test suite is split into two categories:
     These tests exercise the full round-trip from job submission to database state.
 \end{description}
 
-Coverage is enforced at 70\,\% by \texttt{pytest-cov}; the current suite
-contains 283 passing tests across 17 test files.
+Coverage is enforced at 70\,\% by \texttt{pytest-cov}.
