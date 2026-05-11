@@ -125,13 +125,18 @@ protea-backends[<extra>]}, and ship per-backend Poetry extras that pull
 only the heavy machine-learning libraries the chosen backend actually
 needs.
 
-Second, the inference path can ship as a standalone artefact (the
-\texttt{protea-method} package, in extraction at the time of writing)
-without forcing downstream consumers into the platform's operational
-shape. The same code that PROTEA runs inside its workers powers the LAFA
-benchmark submissions described in \cref{chap:conclusion}, and any
-laboratory that wants to deploy a frozen model receives only the dozen
-megabytes of inference logic.
+Second, the inference path ships as a standalone artefact,
+\texttt{protea-method}, without forcing downstream consumers into the
+platform's operational shape. The package exposes a single
+\texttt{pipeline.predict()} function that accepts already-loaded numpy
+arrays (query embeddings, reference embeddings, annotation maps) and
+returns structured prediction dicts. PROTEA's
+\texttt{predict\_go\_terms\_batch} operation wires the DB-loaded inputs
+into this interface through a thin adapter; LAFA benchmark containers
+call the same function from bind-mounted parquet files. Any laboratory
+that wants to deploy a frozen model receives only the dozen megabytes of
+inference logic, without the platform's worker, queue, or ORM machinery
+as transitive dependencies.
 
 Third, the contracts themselves become a SemVer-versioned public artefact.
 Adding a feature to the canonical schema bumps a minor; renaming an ABC
@@ -549,13 +554,13 @@ The prediction pipeline mirrors the structure of the embedding pipeline:
     a process-level cache compressed to float16; partitions the query set into
     batches; publishes one operation message per batch to
     \texttt{protea.predictions.batch}.
-  \item \textbf{Batch prediction} (\texttt{predict\_go\_terms\_batch}): for each
-    query, retrieves the $k$ nearest reference proteins using the configured
-    search backend (NumPy exact cosine search or FAISS approximate search);
-    transfers GO annotations from each neighbour; optionally computes pairwise
-    alignment statistics (\gls{nw} and \gls{sw} via the parasail library) and
-    taxonomic distance (via ete3 and the NCBI taxonomy); publishes the results
-    to \texttt{protea.predictions.write}.
+  \item \textbf{Batch prediction} (\texttt{predict\_go\_terms\_batch}): delegates
+    KNN search, GO annotation transfer, v6 feature enrichment, and optional
+    reranking to \texttt{protea\_method.pipeline.predict()}. The operation class
+    is responsible for loading reference embeddings and annotations from the
+    database, wiring them into the pure-function interface through a thin
+    adapter, expanding predictions to ancestor GO terms, and publishing the
+    resulting rows to \texttt{protea.predictions.write}.
   \item \textbf{Store} (\texttt{store\_predictions}): bulk-inserts
     \texttt{GOPrediction} rows.
 \end{enumerate}
@@ -563,6 +568,31 @@ The prediction pipeline mirrors the structure of the embedding pipeline:
 The reference cache is held at the process level and is keyed by
 (embedding config, annotation set). It holds at most one entry to bound memory
 usage; a restart reloads from the database automatically.
+
+\subsection{Unified and Aspect-Separated KNN Modes}
+\label{subsec:knn-modes}
+
+Two KNN modes are available, selected via the \texttt{aspect\_separated} flag
+on the batch payload:
+
+\begin{description}
+  \item[Unified KNN] A single index is built across all reference embeddings
+    regardless of GO aspect. One search per query yields the $k$ globally
+    nearest neighbours; their annotations are pooled across all three GO
+    aspects.
+  \item[Aspect-separated KNN] Three independent indices are built, one per
+    GO aspect (Biological Process, Molecular Function, Cellular Component),
+    each restricted to references that carry at least one annotation in that
+    aspect. The results from all three searches are merged. This mode
+    guarantees per-aspect candidates even when a query's globally nearest
+    neighbours happen to carry annotations in only one or two aspects, which
+    is the dominant cause of the BPO recall ceiling on a unified index.
+\end{description}
+
+Both modes share the same adapter entry-point to
+\texttt{protea\_method.pipeline.predict()} and the same downstream store
+path; switching between them changes only the argument passed to the
+orchestrator.
 
 When a job payload includes a \texttt{reranker\_model\_id}, the batch worker
 performs one additional pass after the kNN stage: the booster referenced by
@@ -663,6 +693,84 @@ occurs.
 \end{sloppypar}
 
 % ────────────────────────────────────────────────────────────
+\section{Internal Design Patterns}
+\label{sec:design-patterns}
+
+PROTEA's operations contain non-trivial coordination logic. Two recurring
+structural patterns keep that logic tractable as the codebase evolves.
+
+\subsection{Parameter Object}
+\label{subsec:parameter-object}
+
+Long-running operations accumulate state that must be threaded through
+multiple private helpers. Passing each field as a separate argument pushes
+function signatures beyond a manageable width and makes refactoring
+expensive: any addition or removal of a field requires updating every
+call site.
+
+The Parameter Object pattern addresses this by grouping related values into
+a frozen dataclass or \texttt{NamedTuple}. PROTEA uses this pattern
+systematically:
+
+\begin{description}
+  \item[\texttt{AspectSeparatedKnnContext}] Bundles the per-batch inputs
+    for the aspect-separated KNN path (query embeddings, per-aspect
+    reference pools, annotation-set and prediction-set identifiers, and the
+    full batch payload). Every private helper in the batch operation receives
+    this context rather than the same six arguments individually.
+  \item[\texttt{\_UnifiedPredictContext}] Analogous bundle for the
+    unified-KNN path: query embeddings, cached reference data, and the
+    resolved set identifiers.
+  \item[\texttt{KnnTransferContext}] Groups the inputs for the
+    KNN-transfer-and-label step inside the training-dump operation:
+    annotation snapshot pair, embedding config, and KNN parameters.
+  \item[\texttt{RetryPolicy}] Bundles the six tunable knobs of the
+    \texttt{with\_retry} transient-error middleware (maximum attempts, base
+    delay, maximum delay, jitter ratio, retry predicate, and initial delay
+    override) into a single value that can be constructed once and passed to
+    every call site without repeating defaults.
+\end{description}
+
+The pattern has an important secondary benefit: when an operation is split
+into a Method Object (see \cref{subsec:method-object-subcluster}), the
+existing context dataclass becomes the constructor argument for the new
+class without any further refactoring at the call sites.
+
+\subsection{Method Object at Sub-Cluster Granularity}
+\label{subsec:method-object-subcluster}
+
+The classic Replace-Method-with-Method-Object refactoring encapsulates one
+large method into a dedicated class whose constructor receives the method's
+arguments and whose fields replace local variables. PROTEA applies a
+refinement of this pattern: rather than one Method Object per \textit{entry
+point}, a Method Object is introduced per cohesive \textit{sub-cluster} of
+helpers that share mutable state.
+
+The motivation is empirical. During the T2B.5 refactoring pass, static
+analysis confirmed that the four originally targeted \texttt{execute()}
+methods had already been reduced to well under the 60-LOC budget by earlier
+extraction rounds. The residual smell was not the size of any single method
+but the breadth of the parent class whose private helpers spanned unrelated
+concerns. The appropriate unit of encapsulation was therefore the cohesive
+sub-cluster rather than the entry point.
+
+In the prediction batch operation this produced \texttt{\_AspectSeparatedKnnRunner},
+a class that owned the nine private methods implementing the aspect-separated
+KNN path and exposed a single \texttt{run()} entry point; the original
+\texttt{\_run\_aspect\_separated\_knn} became a one-line forwarder. When
+F2C.5b subsequently delegated this path entirely to
+\texttt{protea\_method.pipeline.predict()}, the runner was dissolved because
+its responsibilities had moved to the library layer; only the thin orchestrator
+method and the adapter module remained. The sub-cluster pattern thus served its
+purpose as a transitional structure rather than a permanent one.
+
+The design principle carried forward is: the correct granularity for a Method
+Object is the smallest set of methods that share mutable state and have no
+coupling to the surrounding class beyond that shared state. Applying the
+pattern at this granularity keeps classes navigable and avoids prematurely
+freezing the structure of code that is still evolving.
+
+% ────────────────────────────────────────────────────────────
 \section{Design Decision Index}
 \label{sec:adr-index}
 
@@ -746,5 +854,6 @@ most consequential decisions).
   \item[T2B.5 Method Object reframe (D31).] The refactor strategy for large
     batch operation classes (extracting cohesive sub-clusters as
     \texttt{\_<Cluster>Runner} classes rather than wrapping already-budgeted
-    \texttt{execute()} methods) is formalised in D31.
+    \texttt{execute()} methods, see \cref{subsec:method-object-subcluster})
+    is formalised in D31.
 \end{description}
