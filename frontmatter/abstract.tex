@@ -1,52 +1,41 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Predicting the biological function of proteins at scale remains one of the central
-challenges in computational biology. Experimental characterisation cannot keep pace
-with the rate at which new sequences are deposited in public databases, leaving the
-vast majority of known proteins with no experimentally validated functional annotation.
-The gap is widening: large-scale protein language models (PLMs) and structural
-predictors generate dense representations of every UniProt sequence in days, yet the
-infrastructure required to turn those representations into auditable, reproducible Gene
-Ontology predictions is fragmented across notebooks, prototype scripts and one-off
-benchmarks.
+Fewer than 0.02\,\% of the proteins deposited in UniProt carry experimentally
+validated functional annotations. Computational methods attempt to close this gap by
+transferring Gene Ontology (GO) knowledge from characterised proteins to unknown ones,
+yet the ecosystem of tools for doing so is fragmented across notebooks and one-off
+scripts, and most published benchmarks conflate training and test annotations through
+temporal leakage, inflating reported performance.
 
-This thesis presents \textbf{PROTEA} (\textit{PROtein funcTional annotation framEwork
-and plAtform}), an open-source distributed platform that automates the full pipeline
-from raw protein sequence to structured Gene Ontology predictions, and provides an
-extensible foundation on top of which third parties can plug in new PLMs, annotation
-sources, and ranking methods. PROTEA combines protein language model embeddings (eight
-backends evaluated, including ESM-2 in three sizes, ESM-C, ProstT5, ProtT5, Ankh and
-ESM-3 component encoder), approximate $k$-nearest-neighbour search over 527,000 reviewed
-UniProt sequences, and evidence transfer from versioned annotation sets to produce
-ranked, interpretable predictions. A versioned relational data model links every
-prediction to the exact ontology release, annotation set, embedding configuration and
-code commit that produced it, enabling exact replay of any past run.
+This doctoral thesis presents \textbf{PROTEA} (\textit{PROtein funcTional annotation
+framEwork and plAtform}), designed and maintained by Francisco Miguel P\'{e}rez
+Canales, an open-source distributed platform that automates the full pipeline from raw
+protein sequence to structured GO predictions. PROTEA couples protein language model
+(PLM) embeddings from eight backends (including ESM-2, ESM-C, ProstT5, ProtT5, Ankh
+and ESM-3) with approximate $k$-nearest-neighbour search over 527,000 reviewed
+UniProt sequences and a contracts-first plugin architecture spanning seven code
+repositories, so that new backends, annotation sources and ranking methods can be
+added without modifying the core platform.
 
-To improve prediction quality beyond embedding cosine similarity, PROTEA incorporates a
-plugin-based feature engineering layer that computes Needleman--Wunsch and
-Smith--Waterman alignment statistics, NCBI-taxonomy-based distance metrics, ancestry
-embeddings of the GO directed acyclic graph, and per-PLM PCA projections, yielding a
-schema of approximately 52 features per candidate annotation. A LightGBM re-ranker is
-trained on these features using a temporal holdout protocol spanning twelve consecutive
-GOA releases, with Information Accretion weighting, per-category models (No-Knowledge,
-Limited-Knowledge, Prior-Knowledge), and selective application that falls back to the
-embedding-only baseline when re-ranking would degrade performance.
+Prediction quality is improved by a LightGBM re-ranker trained on a 52-feature schema
+combining embedding distance, Needleman--Wunsch and Smith--Waterman alignment
+statistics, NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings
+(anc2vec). Training follows a leakage-free temporal holdout over twelve consecutive
+GOA releases. Under this protocol, the re-ranker raises NK-BPO $F_{\max}$ from 0.431
+to 0.599 relative to the embedding-only baseline, a gain that disappears almost
+entirely when temporal leakage is present, underscoring the importance of rigorous
+evaluation methodology.
 
-Beyond the prediction method, the thesis describes the engineering pillars that make
-the platform deployable across heterogeneous environments: a seven-repository plugin
-architecture discovered via Python entry points, externalised configuration via
-\texttt{pydantic-settings}, OpenTelemetry-based distributed tracing, multi-target
-container packaging covering development, cloud, HPC (Apptainer) and airgapped
-environments, and an operational narrative model that makes every Job and
-\texttt{ExperimentRun} self-describing.
+The experimental work contributed to a team placement of second in CAFA~6, validating
+the approach in a blinded international benchmark. Three pre-built containers were
+submitted to the LAFA public benchmark, demonstrating deployment across development,
+cloud, HPC (Apptainer) and airgapped environments.
 
-Evaluation follows the CAFA temporal protocol on held-out GOA splits and reports the
-performance of the canonical pipeline across the eight PLM backends and three category
-slices, contextualises the impact of each feature family through ablation studies, and
-documents the methodological pivots that shaped the canonical configuration. Three
-pre-built containers are submitted to the LAFA benchmark to demonstrate adoption-ready
-deployment.
+The doctoral contribution is threefold: (1) PROTEA as a reproducible, operationally
+auditable platform; (2) a leakage-free reranker pipeline that quantifies the true lift
+of feature engineering over PLM embeddings; (3) the LAFA v2 method submission as an
+independently verifiable performance reference.
 
 \bigskip
 \noindent\textbf{Keywords:} protein function prediction, gene ontology, protein
