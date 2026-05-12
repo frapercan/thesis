@@ -304,8 +304,76 @@ The user-facing operations are:
     runs the same kNN and feature-generation pipeline as the internal
     \texttt{training\_dump\_helpers} module, skips the LightGBM training stage,
     and publishes the resulting artefacts through the storage abstraction.
+  \item[\texttt{run\_interproscan\_batch}] Resolves target proteins (via
+    a \texttt{query\_set\_id} or an explicit accession list), invokes the
+    \texttt{InterProSource} subprocess plugin (IP.1b), parses the TSV output,
+    and persists \texttt{InterProAnnotation} rows. Described in detail in
+    \cref{sec:interpro-integration}.
 \end{description}
 \endgroup
+
+% ────────────────────────────────────────────────────────────
+\section{InterPro Annotation Integration}
+\label{sec:interpro-integration}
+
+InterProScan domain hits are persisted in PROTEA through the \texttt{interpro\_annotation}
+table (IP.2, PR~\#306) and loaded via the \texttt{run\_interproscan\_batch} operation
+(IP.3, PR~\#307).
+
+\subsection{The \texttt{InterProAnnotation} ORM Model}
+\label{subsec:interpro-orm}
+
+The \texttt{InterProAnnotation} table stores one InterProScan domain hit per row.
+Each row carries:
+
+\begin{description}
+  \item[\texttt{id}] UUID surrogate primary key.
+  \item[\texttt{protein\_accession}] Foreign key to \texttt{protein.accession}
+    with \texttt{ON DELETE CASCADE}, following the same pattern as
+    \texttt{protein\_go\_annotation}.
+  \item[\texttt{source\_db}, \texttt{accession}] Source database identifier
+    (e.g.\ Pfam, PANTHER) and the domain accession within that database.
+  \item[\texttt{start}, \texttt{end}] Residue coordinates, both \texttt{NOT NULL
+    INTEGER}. Two database-level \texttt{CHECK} constraints enforce
+    \texttt{start $\geq$ 1} and \texttt{end $\geq$ start}, preventing
+    invalid coordinates from entering the schema.
+  \item[\texttt{ipr\_release}] InterPro release version tag so annotations
+    from different InterProScan runs can coexist for the same protein.
+  \item[\texttt{evidence}] Nullable free-form text (e.g.\ \texttt{"IEA"} or a
+    Pfam E-value string).
+\end{description}
+
+The Alembic migration for IP.2 serves as the merge-point for two diverged
+develop heads (\texttt{t3.1a\_goprediction\_features\_jsonb} from PR~\#299
+and \texttt{add\_api\_key\_table} from PR~\#296), giving subsequent migrations
+a single \texttt{down\_revision} chain to follow.
+
+\subsection{The \texttt{run\_interproscan\_batch} Operation}
+\label{subsec:run-interproscan}
+
+\texttt{run\_interproscan\_batch} (IP.3) orchestrates the end-to-end InterProScan
+pipeline:
+
+\begin{enumerate}
+  \item Resolve target proteins either from a \texttt{query\_set\_id}
+    (intersected with the \texttt{protein} table via \texttt{QuerySetEntry})
+    or from an explicit \texttt{accessions} list.
+  \item Filter already-annotated proteins using the optional
+    \texttt{ipr\_release\_floor} parameter: proteins whose latest persisted
+    \texttt{ipr\_release} is lexicographically $\geq$ the floor are skipped,
+    giving the operation natural resume semantics when workers crash mid-batch.
+  \item Chunk the target list, write temporary FASTA files, and invoke the
+    \texttt{InterProSource} plugin (IP.1b) as a subprocess. Plugin events are
+    absorbed by a no-op emit callback; the operation's own chunk-level events
+    are sufficient for the frontend job monitor.
+  \item Parse the InterProScan TSV output via the IP.1a parser and bulk-insert
+    \texttt{InterProAnnotation} rows into the database.
+\end{enumerate}
+
+The operation is registered in \texttt{build\_operation\_registry()} and is
+therefore dispatchable via \texttt{POST /jobs} with
+\texttt{\{operation: "run\_interproscan\_batch", payload: \{\ldots\}\}} through
+the standard job worker, with no dedicated endpoint required.
 
 % ────────────────────────────────────────────────────────────
 \section{Embedding Pipeline Implementation}
@@ -453,6 +521,39 @@ metadata, the NCBI taxonomy tree is consulted via ete3 to compute:
 Taxonomy lookups are memoised with an LRU cache keyed by taxon ID pair to avoid
 redundant tree traversals across a batch.
 
+\subsection{Lineage Features}
+\label{subsec:fe-lineage}
+
+Lineage features (T-RES.1) capture the relationship between a candidate GO
+term and the protein's pre-cutoff known annotation set, a signal that the v6
+alignment and taxonomy features do not encode. The
+\texttt{protea\_method.lineage.compute\_lineage\_features} function adds four
+columns to each prediction record:
+
+\begin{itemize}
+  \item \texttt{lineage\_is\_ancestor\_of\_known}: 1.0 if the candidate is an
+    ancestor of at least one term already known for the query protein.
+  \item \texttt{lineage\_is\_descendant\_of\_known}: 1.0 if the candidate has
+    at least one known term as an ancestor.
+  \item \texttt{lineage\_ancestor\_of\_count}: count of known terms whose
+    ancestor closure contains the candidate.
+  \item \texttt{lineage\_descendant\_of\_count}: count of known terms in the
+    candidate's own ancestor closure.
+\end{itemize}
+
+The function operates on the pre-built GO DAG parent map
+(\texttt{go\_id $\to$ list[parent\_ids]}, covering both \texttt{is\_a} and
+\texttt{part\_of} edges) and a \texttt{known\_by\_protein} mapping; it
+performs no database access. Ancestor closures are computed via iterative
+BFS and memoised per term so the per-batch overhead is proportional to the
+number of distinct candidate terms rather than the number of
+query-reference pairs. The four columns were registered in
+\texttt{protea-contracts} v0.3.0 as the \texttt{lineage} feature family
+and bound in PROTEA's \texttt{FeatureRegistry} via a lazy import shim
+(T-RES.1b, PR~\#304). The feature-schema fingerprint consequently advances
+to a new SHA, and any LightGBM booster trained before T-RES.1b ignores the
+new columns via the native missing-value branch without requiring retraining.
+
 % ────────────────────────────────────────────────────────────
 \section{Approximate Nearest-Neighbour Search}
 \label{sec:ann-search}
@@ -526,6 +627,28 @@ PID files and log files are written under \texttt{logs/}. The
 \texttt{manage.sh scale} subcommand adds extra batch workers to a queue without
 restarting the rest of the stack.
 
+\subsection{Bundle Deployment Mode}
+\label{subsec:bundle-deployment}
+
+For smoke testing and reproducibility without a local source checkout, PROTEA
+ships a \texttt{docker-compose.bundle.yml} file (T-OPS.2, PR~\#290). The
+bundle brings up the full stack from pre-built GHCR images:
+\texttt{postgres} (pgvector/pg16), \texttt{rabbitmq} (3-management), a
+one-shot \texttt{migrate} container that runs \texttt{alembic upgrade head}
+and exits, an \texttt{api} container, three trimmed worker roles
+(jobs, ping, embeddings), and the \texttt{web} Next.js container.
+Healthchecks on every long-running service gate startup via
+\texttt{depends\_on: condition: service\_healthy}, so the API container does
+not start until the migration has completed and RabbitMQ is ready.
+
+The bundle uses only the \texttt{local} storage backend so no MinIO service is
+required; the optional monitoring sidecar from \texttt{docker-compose.monitoring.yml}
+can be attached with a second \texttt{-f} flag without name collisions.
+Image tags are pinnable via \texttt{PROTEA\_IMAGE\_TAG} and
+\texttt{PROTEA\_FRONTEND\_TAG} (default \texttt{latest}). No secret values are
+committed; \texttt{.env.bundle.example} documents the full environment surface
+and \texttt{.env.bundle} is gitignored.
+
 % ────────────────────────────────────────────────────────────
 \section{Reranker Promotion Pipeline}
 \label{sec:reranker-promotion}
@@ -575,6 +698,101 @@ Prediction jobs opt into the reranker by submitting a \texttt{reranker\_model\_i
 in the \texttt{predict\_go\_terms} payload; the coordinator validates the row
 and snapshots the artefact URI together with the expected feature-schema
 fingerprint onto each batch message.
+
+% ────────────────────────────────────────────────────────────
+\section{Gated-Attention MIL Head}
+\label{sec:mil-head}
+
+Multiple-instance learning (MIL) applied to per-residue PLM embeddings offers
+a route from the current sequence-level prediction to residue-level attribution,
+enabling the interpretability features planned for MIL.4. The
+\texttt{protea-method} package ships the \texttt{GatedAttentionMILHead}
+module (MIL.2a, PR~\#13) as an optional component.
+
+\subsection{Architecture}
+\label{subsec:mil-architecture}
+
+The head operates on per-residue PLM embeddings of shape $(B, L, D)$ together
+with a boolean padding mask of shape $(B, L)$. The gated-attention mechanism
+follows Ilse, Tomczak, and Welling (ICML 2018)~\cite{ilse2018attention}:
+
+\begin{equation}
+  A_{\text{unscaled}} = w^\top \bigl(\tanh(V H) \odot \sigma(U H)\bigr)
+\end{equation}
+
+where $H$ is the per-residue embedding matrix, $V$ and $U$ are two
+projection matrices of width \texttt{attention\_dim}, $\odot$ is the
+element-wise product, and one weight vector $w_k$ per GO term $k$ yields an
+independent attention map per term. Padding positions receive $-\infty$ before
+the softmax so their attention is identically zero; the unmasked positions sum
+to~1 for every $(batch, term)$ pair, which is the invariant that the
+forthcoming MIL.4 entropy and InterPro overlap features require. The forward
+pass returns a logit vector of shape $(B, K)$ and an attention tensor of shape
+$(B, L, K)$.
+
+The torch import is guarded behind the optional \texttt{[mil]} Poetry extra:
+
+\begin{lstlisting}[caption={Opt-in install for the MIL head.}]
+pip install "protea-method[mil]"
+\end{lstlisting}
+
+Consumers without the extra keep the rest of \texttt{protea-method}
+importable and see a clear \texttt{ImportError} only when they touch
+\texttt{protea\_method.mil.head}, which preserves the distribution
+discipline established by ADR~D15.
+
+\subsection{Scope and Roadmap}
+\label{subsec:mil-scope}
+
+MIL.2a delivers the head and its test coverage (95.5\,\% branch coverage).
+The training loop on frozen embeddings (MIL.2b) and the integration into
+\texttt{predict\_go\_terms\_batch} (MIL.2c) are deferred to follow-up
+slices once the InterProScan annotation table provides the per-residue
+domain labels required to supervise the head.
+
+% ────────────────────────────────────────────────────────────
+\section{LAFA Submission Containers}
+\label{sec:lafa-containers}
+
+The LAFA benchmark accepts containerised systems. PROTEA submits three Docker
+images for the LAFA v2 evaluation (ADR~D23), all layered on the
+\texttt{protea-method-runtime} base image (ADR~D15, PR~\#276) so the heavy
+dependency graph (torch, transformers, ProtT5 checkpoint) ships only once.
+Each image pins the bind-mount layout specified in the
+\texttt{anphan0828/LAFA\_container\_guide}.
+
+\begin{description}
+  \item[\texttt{protea-knn-v1} (F-LAFA.1, PR~\#284)] The v1 baseline. Runs
+    aspect-separated KNN with ProtT5-XL without v6 feature enrichment or a
+    learned reranker (\texttt{-{}-no\_v6 -{}-no\_reranker}). Provides the
+    kNN-only lower bound against which the v6 and ensemble submissions are
+    measured.
+
+  \item[\texttt{protea-knn-8plm} (F-LAFA.2, PR~\#294)] A score-level mean
+    ensemble over eight PLMs: ESM-2~150M, 650M, and 3B; ProtT5; ProstT5;
+    Ankh-base and Ankh-large; ESMC~600M. Each PLM runs per-aspect KNN
+    independently; the per-protein score vectors are averaged (or optionally
+    maximised via a CLI flag) before prediction. No v6 features or reranker.
+    This image captures the embedding-level ensemble gain that the single-PLM
+    v18 submission cannot achieve on its own.
+
+  \item[\texttt{protea-v18} (F-LAFA.3, PR~\#305)] The full pipeline
+    container: single PLM (ProtT5-XL UniRef50, half-precision encoder),
+    aspect-separated KNN, complete v6 feature enrichment (NW/SW alignments,
+    taxonomy voters, Anc2Vec, 16-dimensional embedding PCA), and per-aspect
+    LightGBM reranking (one booster per BPO/MFO/CCO). The entrypoint pins
+    \texttt{-{}-aspect\_separated} and forwards any additional positional
+    arguments so the LAFA evaluator can sweep $K$, distance metric, or
+    backend without rebuilding the image. Lineage features
+    (\texttt{lineage\_*} from protea-contracts v0.3.0) are consumed via the
+    LightGBM native missing-value branch when referenced by the per-aspect
+    booster.
+\end{description}
+
+Each submission ships with a \texttt{METHOD\_CARD.md} addressed to the
+LAFA system operator (An Phan) and a GitHub Actions workflow that publishes
+the image to the GHCR namespace \texttt{ghcr.io/frapercan/protea/<name>}
+on every push to main, release tag, or manual dispatch.
 
 % ────────────────────────────────────────────────────────────
 \section{Frontend}
