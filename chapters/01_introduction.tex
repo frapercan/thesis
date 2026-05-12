@@ -350,6 +350,7 @@ The main contributions of this work are:
         releases.
 
   \item A \textbf{feature engineering layer} that augments embedding similarity with
+<<<<<<< HEAD
         Needleman--Wunsch / Smith--Waterman alignment scores,
         NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
         (anc2vec), and per-PLM PCA projections, organised as a registry of
@@ -365,6 +366,15 @@ The main contributions of this work are:
         when temporal leakage is introduced, underscoring the importance of the
         evaluation methodology.
 
+=======
+        Needleman-Wunsch / Smith-Waterman alignment scores,
+        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings, and
+        per-PLM PCA projections, organised as a registry of approximately 52
+        features.
+  \item A \textbf{selective learning-to-rank re-ranker} trained per category and per
+        aspect, that falls back to the embedding-only baseline whenever re-ranking
+        would degrade performance for the current cell.
+>>>>>>> origin/feat/tx1-em-dash-sweep
   \item A \textbf{multi-target deployment story} (development \texttt{docker
         compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
         the same canonical pipeline without code branching. The deployment matrix

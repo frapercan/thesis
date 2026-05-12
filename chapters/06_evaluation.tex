@@ -240,7 +240,7 @@ are applied post-hoc via different weight vectors.
 \end{table}
 
 The \texttt{alignment\_weighted} configuration (embedding~$=0.5$, NW
-identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5--4\%
+identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5 to 4\%
 $F_{\max}$ across all cells. Configurations that incorporate evidence code
 weights \emph{degrade} performance: the evidence code signal conflicts with
 IA weighting used in evaluation. This demonstrates that pairwise alignment
@@ -277,8 +277,8 @@ Two variants are tested: no class balancing, and subsampling negatives to a
   }
 \end{table}
 
-The v1 re-ranker improves CCO substantially (+2--4\% over baseline) but
-\emph{degrades} MFO by 3--9\% relative to the heuristic. Six of nine per-aspect
+The v1 re-ranker improves CCO substantially (+2 to 4\% over baseline) but
+\emph{degrades} MFO by 3 to 9\% relative to the heuristic. Six of nine per-aspect
 models suffer from early stopping at iteration~1 due to extreme class imbalance
 (positive rate $<0.2\%$). Class balancing corrects the BPO collapse but
 introduces a different trade-off. Neither variant surpasses the heuristic
@@ -330,7 +330,7 @@ learn from embedding distance, aggregation features, and categorical signals.
 \label{subsec:exp6-reranker-v3}
 
 Experiment~6 addresses the missing-feature problem identified in v2 by
-computing pairwise alignment (Needleman--Wunsch and Smith--Waterman via
+computing pairwise alignment (Needleman-Wunsch and Smith-Waterman via
 parasail/BLOSUM62), taxonomic distance (via the NCBI taxonomy tree), and
 anc2vec GO-embedding cosine similarities
 for every (query, reference) pair during training data generation. This gives the
@@ -346,7 +346,7 @@ protein-averaged $F_{\max}$ metric (no prediction-side propagation); three
 random seeds (42, 7, 137) are run and averaged.
 
 \begin{quote}
-\textbf{Note.} The preceding experiments (Exp.~1--5) were run on the
+\textbf{Note.} The preceding experiments (Exp.~1 to 5) were run on the
 pre-leakage-fix \texttt{bench-v1-K5} dataset with the older 22-feature schema.
 Their absolute $F_{\max}$ values are not directly comparable to the v3 numbers
 reported here. A full leakage-free re-run of the baseline and heuristic
@@ -380,7 +380,7 @@ the v3 row, which uses \texttt{bench-v1-K5-filtered}
 (52-feature schema, GOA~220$\to$230 eval split, mean of 3 seeds).
 
 The v3 re-ranker trained on the leakage-free feature set achieves strong
-$F_{\max}$ across all nine category--aspect cells. The GOA~220$\to$230
+$F_{\max}$ across all nine category-aspect cells. The GOA~220$\to$230
 evaluation window (versus 220$\to$229 for earlier rows) adds one additional
 GOA release to the test delta; this difference is expected to be small relative
 to the dataset size. Direct cell-by-cell comparison with the pre-leakage-fix
@@ -582,7 +582,7 @@ performance across all categories (pre-leakage-fix numbers), reaching
 $F_{\max}$ values of 0.590 (NK-MFO), 0.558 (LK-MFO), and 0.668 (NK-CCO)
 without any alignment computation. The heuristic scoring experiment (Exp.~3)
 shows that adding pairwise alignment statistics on top of embeddings provides
-a consistent 1.5--4\% improvement, indicating that embeddings and alignments
+a consistent 1.5 to 4\% improvement, indicating that embeddings and alignments
 capture partially orthogonal signals. The comparison with eggNOG-mapper
 (Exp.~7, pre-leakage-fix baseline) provides directional evidence: the
 embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells and
@@ -598,7 +598,7 @@ Yes. The feature importance analysis for the leakage-free v3 re-ranker
 (\texttt{anc2vec\_neighbor\_cos}, \texttt{anc2vec\_query\_known\_maxcos}) and
 aggregation features (\texttt{neighbor\_vote\_fraction}) are the dominant
 signals, while raw embedding distance does not appear in the top-10 for any
-category. The pre-leakage-fix v2-to-v3 progression (Exp.~5--6, different
+category. The pre-leakage-fix v2-to-v3 progression (Exp.~5, 6, different
 datasets) showed directional improvement in most cells when the full feature
 set was available. A controlled per-feature ablation on the leakage-free
 dataset is pending (lab-runner LB.3).
@@ -664,5 +664,5 @@ information not captured by the protein sequence alone.
     picture of the competitive landscape.
   \item The LK-BPO cell consistently favours the heuristic over the re-ranker,
     suggesting that the learned model may underperform for specific
-    category--aspect combinations with limited positive examples.
+    category-aspect combinations with limited positive examples.
 \end{itemize}

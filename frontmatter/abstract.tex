@@ -19,7 +19,7 @@ repositories, so that new backends, annotation sources and ranking methods can b
 added without modifying the core platform.
 
 Prediction quality is improved by a LightGBM re-ranker trained on a 52-feature schema
-combining embedding distance, Needleman--Wunsch and Smith--Waterman alignment
+combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment
 statistics, NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings
 (anc2vec). Training follows a leakage-free temporal holdout over twelve consecutive
 GOA releases. Under this protocol, the re-ranker raises NK-BPO $F_{\max}$ from 0.431
