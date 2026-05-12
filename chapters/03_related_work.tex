@@ -100,6 +100,37 @@ vector machines on curated feature sets (amino acid composition, physicochemical
 properties, secondary structure predictions). More recent work uses deep neural
 networks applied directly to sequences or structures.
 
+\subsection{Classical Supervised Classifiers and Hierarchical Correction}
+\label{subsec:related-classical-sup}
+
+Before deep learning displaced them, the dominant family of supervised methods
+trained independent binary classifiers (support vector machines or random forests)
+for each \gls{go} term of interest, using features derived from sequence composition,
+physicochemical indices, or BLAST-derived profiles~\cite{radivojac2013cafa1}. The
+label set for each classifier was drawn from the \gls{goa} database at a fixed
+release, ensuring that the model sees only experimentally curated annotations.
+
+A critical design choice in all hierarchical prediction systems is how to enforce
+the true-path rule: if a protein is predicted to have function $t$, it must also
+be predicted to have every ancestor of $t$ in the \gls{go} \gls{dag}. Naive
+independent classifiers violate this rule; post-processing propagation steps (or
+hierarchical loss functions) are required to restore consistency. The $S_{\min}$
+metric~\cite{jiang2016cafa2} penalises violations of this consistency at
+evaluation time: it measures the minimum semantic distance between the
+prediction set and the ground-truth set, weighted by the information content of
+each term. Systems that produce high $F_{\max}$ without attending to $S_{\min}$
+tend to over-predict high-level, low-specificity terms; the dual optimisation
+forces a specificity-coverage trade-off that coarse classifiers handle poorly.
+
+\textbf{GOA-trained classifiers} of this form were the baseline for CAFA 1
+through CAFA 3. They achieved reasonable $F_{\max}$ on the Biological Process
+aspect (where GO depth is moderate and training data abundant) but struggled on
+Molecular Function (high depth, sparse positive labels) and Cellular Component
+(where localization-based features are not easily extracted from sequence alone).
+The transition to deep learning and later to \gls{plm} embeddings was driven
+precisely by the failure of hand-crafted features to distinguish proteins at the
+\gls{go} leaf level.
+
 \subsection{Sequence-Based Deep Models}
 \label{subsec:related-seq-deep}
 
@@ -308,6 +339,17 @@ embedding, domain matching) is an ensemble strategy evaluated in
 \cref{chap:evaluation} and forms the basis of PROTEA's multi-source scoring
 architecture.
 
+\textbf{Backend comparison} across PLM models has received limited systematic
+treatment in the literature. Most published KNN systems fix a single embedding
+model and report results for that model only, making cross-model comparisons
+difficult due to differences in evaluation sets and splitting strategies. PROTEA
+addresses this gap by holding the inference pipeline fixed (same FAISS index
+structure, same reference corpus, same aggregation function) and varying only the
+embedding backend, producing a controlled comparison across ESM-2 (650M), ProtT5,
+Ankh, ProstT5, and ESM-C (600M). This controlled design is a methodological
+contribution independent of the performance numbers; \cref{chap:evaluation}
+reports the resulting backend ablation study.
+
 % ────────────────────────────────────────────────────────────
 \section{Ensemble Methods and Learning-to-Rank}
 \label{sec:related-ensembles}
@@ -354,6 +396,21 @@ but instead treats the PLM as a fixed feature extractor, which allows the same
 reference index to be updated (by adding newly annotated proteins) without
 retraining the backbone. This decoupling is central to the versioned-pipeline
 design described in \cref{chap:design}.
+
+\textbf{The re-ranking step in CAFA 6 top teams.} Post-retrieval re-ranking
+emerged as a differentiating factor among CAFA 6 PLM-KNN systems. Systems that
+applied a learned re-ranker on top of initial KNN scores consistently improved
+over simple cosine-similarity-weighted aggregation. The feature space used by
+these re-rankers is broadly consistent across independent implementations: (i)
+cosine distance to each neighbour, (ii) the information content (specificity) of
+the candidate GO term under the Resnik measure, (iii) alignment-derived evidence
+where available (DIAMOND bit-score or E-value), (iv) taxonomic distance between
+query and annotated reference protein, and (v) GO-term embedding features
+(anc2vec or similar) that encode the ancestor structure of the candidate term.
+PROTEA's LightGBM re-ranker uses this feature set in three progressively richer
+configurations (v1, v2, v3), with ablation results reported in
+\cref{chap:evaluation}. The offline training procedure and dataset construction
+are described in \cref{chap:implementation}.
 
 % ────────────────────────────────────────────────────────────
 \section{Multiple Instance Learning and Interpretable Prediction}
@@ -459,18 +516,84 @@ methods began to appear prominently.
 
 \textbf{CAFA 5} (2022, Kaggle competition format)~\cite{cafa5_2023} attracted
 over 1500 teams from the machine learning community, reflecting the broader
-interest in protein machine learning. The top submissions combined PLM embeddings with
-graph neural networks over the \gls{go} \gls{dag} and interaction networks. The
-scale of participation surfaced important questions about data leakage.
+interest in protein machine learning. The top submissions combined PLM embeddings
+with graph neural networks over the \gls{go} \gls{dag} and interaction networks.
+The scale of participation surfaced important questions about data leakage; several
+top-performing systems achieved high $F_{\max}$ by exploiting sequences that had
+been annotated in intermediate UniProt releases between target release and
+evaluation, rather than genuinely predicting novel functions.
+
+An analysis of the CAFA 5 leaderboard reveals that the dominant winning pattern
+was \gls{knn} transfer from a PLM embedding space: the plurality of top-20
+submissions used ESM-2 or ProtT5 embeddings with Swiss-Prot or GOA as the
+reference corpus, aggregating annotation scores over $k$ nearest neighbours by
+cosine similarity. Graph-based models that encoded \gls{go} \gls{dag} topology
+provided incremental gains over flat KNN on the Molecular Function aspect, where
+the ontology's depth is most pronounced. Interaction network features (from
+STRING) contributed most on Biological Process, where pathway-level evidence is
+available, but were largely uninformative for Cellular Component and for orphan
+proteins lacking interactome coverage.
 
 \textbf{CAFA 6} (2024)~\cite{cafa6_2024} introduced stricter temporal splits and
 a leakage-controlled evaluation protocol, addressing the criticism that prior
 editions allowed training on sequences that overlapped with evaluation targets via
-intermediate databases. The PROTEA team (with the present author as technical
-lead) participated in CAFA 6, achieving a second-place team result in the
-combined GO track. The leakage question is addressed directly in PROTEA's
-evaluation protocol (\cref{chap:evaluation}) through a temporal snapshot split
-analogous to the CAFA 6 protocol.
+intermediate databases. Among the CAFA 6 participants, the PLM-KNN family again
+dominated the top rankings, but the re-ranking step proved more important than in
+CAFA 5: systems that learned a secondary model over the initial KNN scores (using
+alignment bit-scores, taxonomy features, and GO-term information content as
+covariates) improved consistently over unweighted KNN transfer. This observation
+is the direct empirical motivation for PROTEA's LightGBM re-ranker. The PROTEA
+team participated in CAFA 6, achieving a second-place team result in the combined
+GO track; the present author was the technical lead responsible for the embedding
+pipeline, the FAISS index, and the re-ranking framework. The leakage question is
+addressed directly in PROTEA's evaluation protocol (\cref{chap:evaluation})
+through a temporal snapshot split analogous to the CAFA 6 protocol.
+
+\subsection{Recurring High-Rank Systems and Their Strategies}
+\label{subsec:related-cafa-top-systems}
+
+Several systems have placed consistently in the top tier across multiple CAFA
+editions and merit explicit discussion as reference points against which PROTEA's
+design choices are calibrated.
+
+\textbf{NetGO}~\cite{you2019netgo} and its CAFA 5 successor
+\textbf{NetGO 3}~\cite{you2023netgo3} represent the STRING-augmented PLM approach.
+Their architecture fuses ESM-2 sequence embeddings with protein-protein interaction
+context from the STRING database, producing per-aspect classifiers trained on
+GOA-derived labels. The multi-modal fusion consistently outperforms pure sequence
+methods on Biological Process but requires species-level interaction data that is
+unavailable for metagenomics targets.
+
+\textbf{TransFew}~\cite{transfew2024} is a few-shot transfer method that treats
+each GO term as a class and computes query-to-support-set similarity in ESM-2
+embedding space, weighting support proteins by their annotation reliability
+scores. The few-shot framing is well-suited to leaf-level terms where training
+examples number in the tens; it degrades gracefully compared to classifiers that
+require large positive sets.
+
+\textbf{FunBind}~\cite{funbind2023} combines structure-based binding site
+matching (using AlphaFold-predicted residue contacts) with sequence-level PLM
+embeddings in a late-fusion architecture. Its binding-site component gives it a
+distinctive advantage on Molecular Function terms related to enzyme activity and
+ligand binding, where local structural context is more informative than global
+sequence identity.
+
+\textbf{GoCurator}~\cite{gocurator2024} is a more direct antecedent to PROTEA's
+design: it applies KNN retrieval in Swiss-Prot embedding space, then filters
+candidate annotations through a cascade of evidence-consistency checks (GO axiom
+compliance, evidence code weighting, taxon scope validation). The filtering step
+reduces false positives at the cost of recall on novel functions, a trade-off
+that PROTEA addresses differently by learning the filtering weights with LightGBM
+rather than applying fixed heuristics.
+
+The convergence of these distinct architectures onto the PLM-KNN retrieval step
+as a shared foundation confirms that embedding-based nearest-neighbour transfer
+is now the load-bearing component of the state of the art. The principal axes of
+differentiation are: (a) the choice of PLM backbone, (b) the reference corpus
+and its temporal versioning, (c) the aggregation and re-ranking strategy, and
+(d) the integration of auxiliary evidence channels (structure, interaction
+networks, taxonomy). PROTEA occupies a specific position on each axis,
+documented in \cref{sec:related-summary}.
 
 \subsection{The Leakage Question and NK/LK/PK Splits}
 \label{subsec:related-leakage}
