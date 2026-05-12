@@ -76,8 +76,10 @@ calibrated significance threshold. Pfam is now maintained inside the
 \textbf{InterPro}~\cite{blum2021interpro} consortium, which integrates over a dozen
 family and domain databases (Pfam, PRINTS, ProSite, TIGRFAM, and others) into a
 unified annotation resource. A protein is assigned InterPro entries whenever it
-matches any member database; \gls{go} terms are then inferred via curated
-mappings. InterProScan, the companion command-line tool, is widely used as an
+matches any member database; \gls{go} terms are then inferred via the
+curated InterPro2GO mapping~\cite{burge2012interpro2go}, in which each
+InterPro entry is manually linked to one or more \gls{go} terms by database
+curators at the EBI. InterProScan, the companion command-line tool, is widely used as an
 annotation step in genome pipelines. InterPro annotation is one of the most
 reliable computational methods available, but it is limited to protein families
 and domains that have been explicitly curated and modelled; novel folds with no
@@ -160,6 +162,21 @@ state-of-the-art results in CAFA3 and subsequent benchmarks. The approach
 requires interaction data, which limits applicability for poorly studied
 organisms and environmental metagenomic sequences for which interactomes are
 unavailable.
+
+\textbf{ProteInfer}~\cite{bileschi2022proteInfer} (Bileschi et al., \textit{Nature
+Biotechnology} 2022) takes a complementary approach: instead of KNN transfer, it
+trains a dilated convolutional network directly on protein sequences to predict
+GO terms and EC numbers, scaling to the full UniProt sequence space. Its key
+contribution is the demonstration that a single sequence encoder, trained at
+the scale of the protein universe, can assign meaningful GO predictions to
+sequences that share no detectable homologue in Swiss-Prot. ProteInfer's
+predictions are confidence-scored per term, making them amenable to downstream
+re-ranking, and they are available through the Google Research
+\texttt{proteInfer} API. PROTEA's pipeline is architecturally distinct: rather
+than a fine-tuned classifier, it uses a fixed PLM backbone for KNN retrieval,
+enabling backend swaps without retraining. However, ProteInfer's term-level
+confidence outputs are compatible with PROTEA's multi-source aggregation layer
+as an additional evidence channel.
 
 \textbf{TALE}, \textbf{NetGO 3}, and related methods established the pattern of
 fusing pre-trained \gls{plm} representations with task-specific supervision.
@@ -263,7 +280,7 @@ using distributed HPC resources. The suite includes ProtBERT (BERT architecture)
 ProtAlbert (ALBERT architecture), ProtXLNet, and \textbf{ProtT5-XL}, the latter
 of which achieves the best per-residue and per-protein accuracy among the
 ProtTrans variants. ProtT5 is an encoder-decoder architecture derived from
-Google's T5 pre-trained on the T5 sequence-to-sequence objective applied to
+Google's T5~\cite{raffel2020t5} pre-trained on the T5 sequence-to-sequence objective applied to
 protein sequences; the encoder outputs serve as fixed-dimensional embeddings for
 downstream classification. ProtT5-XL-U50 (half-precision) is PROTEA's default
 alignment-free backend and the representation used in the LAFA container
@@ -420,8 +437,17 @@ A growing body of work addresses interpretability in protein function prediction
 motivated by the desire to understand not only whether a protein has a given
 function but which regions of the sequence are responsible.
 
+The \textbf{gated-attention MIL} framework of Ilse et al.~\cite{ilse2018attention}
+(ICML 2018) provides the methodological foundation for attention-based bag
+aggregation used throughout the protein function MIL literature. In this
+framework, a bag-level representation is computed as a weighted sum of instance
+(residue-level) embeddings, where the weights are produced by a gated attention
+network that learns to focus on the most discriminative instances. The resulting
+bag representation is passed to a standard classifier, and the attention weights
+serve as interpretable instance relevance scores.
+
 \textbf{OPUS-GO}~\cite{opusgo2024} (Yang et al., 2024, bioRxiv) applies
-multiple instance learning (MIL) to protein function prediction. The key insight
+this MIL paradigm to protein function prediction. The key insight
 is that a protein sequence can be viewed as a ``bag'' of residue-level instances,
 and the function of the whole protein is a label on the bag. OPUS-GO uses an
 attention-based MIL aggregator over per-residue ESM-2 embeddings, learning which
@@ -462,6 +488,16 @@ penalise predictions that contradict the true-path rule. PROTEA uses anc2vec
 features as an input to its LightGBM re-ranker, contributing the
 information-theoretic relationships between predicted and known terms as a
 structured feature.
+
+\textbf{OPA2Vec}~\cite{smaili2018opa2vec} (Smaili et al., \textit{Bioinformatics}
+2019) combines the formal axioms of an ontology (expressed in OWL) with informal
+text content from annotation labels and definitions, training a Word2Vec model
+over the resulting corpus to produce ontology-term embeddings. For \gls{go},
+OPA2Vec embeddings encode both hierarchical relationships and the natural-language
+descriptions of each term, making them richer than pure graph-walk embeddings but
+dependent on the quality of annotation text. OPA2Vec has been applied to GO-based
+protein similarity tasks and serves as an alternative to anc2vec when
+text-semantic signals are expected to be informative.
 
 \textbf{GeOKG}~\cite{geokg2025} extends this idea by embedding the \gls{go}
 graph in a multi-curvature space combining hyperbolic and Euclidean geometry,
