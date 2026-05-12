@@ -1,6 +1,10 @@
 % ============================================================
 %  Figure: PROTEA (baseline + v3) vs eggNOG-mapper 2.1.13
 %  Data source: Table 6.6 (chapters/06_evaluation.tex, Experiment 7)
+%  NOTE: baseline and eggNOG-mapper rows use pre-leakage-fix bench-v1-K5
+%        (22-feature schema, GOA 220->229).
+%        v3 uses leakage-free bench-v1-K5-filtered
+%        (52-feature schema, GOA 220->230, mean of 3 seeds).
 % ============================================================
 \begin{tikzpicture}
   \begin{groupplot}[
@@ -14,7 +18,7 @@
     enlarge x limits=0.25,
     symbolic x coords={BPO, MFO, CCO},
     xtick=data,
-    ymin=0, ymax=0.78,
+    ymin=0, ymax=0.85,
     ylabel={$F_{\max}$},
     grid=both,
     legend columns=3,
@@ -33,7 +37,7 @@
         coordinates {(BPO,0.412) (MFO,0.590) (CCO,0.668)};
       \addlegendentry{PROTEA baseline}
       \addplot+[fill=proteagreen, draw=proteagreen!60!black]
-        coordinates {(BPO,0.431) (MFO,0.620) (CCO,0.692)};
+        coordinates {(BPO,0.599) (MFO,0.646) (CCO,0.775)};
       \addlegendentry{PROTEA re-ranker v3}
 
     % ── LK panel ────────────────────────────────────────────
@@ -43,7 +47,7 @@
       \addplot+[fill=linkblue, draw=linkblue!60!black]
         coordinates {(BPO,0.467) (MFO,0.558) (CCO,0.675)};
       \addplot+[fill=proteagreen, draw=proteagreen!60!black]
-        coordinates {(BPO,0.478) (MFO,0.607) (CCO,0.697)};
+        coordinates {(BPO,0.620) (MFO,0.606) (CCO,0.794)};
 
     % ── PK panel ────────────────────────────────────────────
     \nextgroupplot[title={PK}, ymax=0.42, ybar, bar width=4.5pt]
@@ -52,7 +56,7 @@
       \addplot+[fill=linkblue, draw=linkblue!60!black]
         coordinates {(BPO,0.187) (MFO,0.278) (CCO,0.325)};
       \addplot+[fill=proteagreen, draw=proteagreen!60!black]
-        coordinates {(BPO,0.201) (MFO,0.297) (CCO,0.339)};
+        coordinates {(BPO,0.165) (MFO,0.293) (CCO,0.346)};
   \end{groupplot}
 
   \node[anchor=north] at ($(group c2r1.south) + (0,-7mm)$)
