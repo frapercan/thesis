@@ -542,6 +542,15 @@
 
 % ── Sequence-based deep models ───────────────────────────────
 
+% TODO: verify metadata
+% The cite key tale2023 is used in chapter 3 for a paper described as
+% "TALE (Transformer-based Annotation Learning and Extraction)" using ESM-1b
+% with a multi-label head and GO-DAG consistency loss, evaluated on CAFA3.
+% The entry below is the ProteinBERT paper (Brandes et al. 2022), which does
+% NOT match that description. Either (a) replace this entry with the real TALE
+% citation once the paper is identified, or (b) if no standalone TALE paper
+% exists, update chapter 3 to cite the correct ProteinBERT entry and rename the
+% key. The ProteinBERT metadata is preserved below pending resolution.
 @article{tale2023,
   author  = {Brandes, Nadav and Ofer, Dan and Peleg, Yam and Rappoport, Nadav and
              Linial, Michal},
@@ -553,8 +562,6 @@
   number  = {8},
   pages   = {2102--2110},
   doi     = {10.1093/bioinformatics/btac020},
-  note    = {Used here as representative of PLM fine-tuning for function prediction;
-             cite also TALE-specific preprint if available.},
 }
 
 @article{you2023netgo3,
@@ -583,22 +590,44 @@
   publisher = {PMLR},
 }
 
+% Resolved via bioRxiv API (10.1101/2024.12.17.629067). Note: the method
+% description in chapter 3 frames this as MIL for GO prediction; the preprint
+% title uses broader "protein/RNA sequence annotation" framing. Authors are
+% Xu et al., not Yang et al. as originally placeholder-listed.
 @misc{opusgo2024,
-  author       = {Yang, Yihe and others},
-  title        = {{OPUS-GO}: multiple instance learning for interpretable protein
-                  function prediction},
+  author       = {Xu, G. and Lv, Y. and Zhang, R. and Xia, X. and Wang, Q. and Ma, J.},
+  title        = {{OPUS-GO}: An interpretable protein/{RNA} sequence annotation
+                  framework based on biological language model},
   howpublished = {bioRxiv preprint},
   year         = {2024},
-  note         = {[?] Citation: verify DOI and author list from bioRxiv once confirmed.},
+  doi          = {10.1101/2024.12.17.629067},
+}
+@misc{opusgo2024,
+  author       = {Xu, G. and Lv, Y. and Zhang, R. and Xia, X. and Wang, Q. and Ma, J.},
+  title        = {{OPUS-GO}: An interpretable protein/{RNA} sequence annotation
+                  framework based on biological language model},
+  howpublished = {bioRxiv preprint},
+  year         = {2024},
+  doi          = {10.1101/2024.12.17.629067},
 }
 
+% TODO: verify metadata
+% A bioRxiv preprint titled "Protein Sequence Domain Annotation using Language
+% Models" by Sarkar A., Krishnan K., Eddy S.R. (doi:10.1101/2024.06.04.596712)
+% uses the PSALM acronym but is about Pfam domain annotation, not GO-term
+% function prediction with CAFA evaluation. The description in chapter 3 (MLSB
+% 2024, probabilistic MIL, uncertainty calibration, CAFA targets) may refer to a
+% different or extended version of PSALM. Confirm the exact paper before deposit.
 @inproceedings{psalm2024,
   author    = {{PSALM authors}},
   title     = {{PSALM}: probabilistic sequence annotation with multiple instance
                learning},
   booktitle = {Machine Learning in Structural Biology Workshop (MLSB), NeurIPS},
   year      = {2024},
-  note      = {[?] Citation: confirm final authorship from MLSB 2024 proceedings.},
+  note      = {[?] Authorship and proceedings not confirmed. Candidate: Sarkar,
+               Krishnan, Eddy (bioRxiv 2024, doi:10.1101/2024.06.04.596712) but
+               that paper addresses domain annotation, not GO prediction; verify
+               whether a distinct MLSB-2024 PSALM submission exists.},
 }
 
 % ── CAFA top systems — verify and backfill for TB.1 ────────────────────────────
@@ -630,13 +659,24 @@
 
 % ── FANTASIA ─────────────────────────────────────────────────
 
+% Resolved via CrossRef (doi:10.1038/s42003-025-08651-2). Note: the key is
+% fantasia2024 (legacy) but the paper was published in 2025. The prior entry
+% had wrong first author (Pavia vs. Martinez-Redondo) and wrong arXiv ID
+% (2412.08376 is unrelated). Published in Communications Biology, vol 8, art 1227.
 @article{fantasia2024,
-  author  = {Pavia, Gemma and others},
-  title   = {{FANTASIA}: functional annotation of novel and taxonomically diverse
-             sequences using protein language model embeddings},
-  journal = {arXiv preprint},
-  year    = {2024},
-  note    = {[?] Verify final journal or conference venue; arXiv:2412.08376.},
+  author  = {Mart{\'{i}}nez-Redondo, Gemma I. and Perez-Canales, Francisco M. and
+             Carbonetto, Bel{\'{e}}n and Fern{\'{a}}ndez, Jos{\'{e}} M. and
+             Barrios-N{\'{u}}{\~{n}}ez, Israel and
+             V{\'{a}}zquez-Valls, Mar{\c{c}}al and Cases, Ildefonso and
+             Rojas, Ana M. and Fern{\'{a}}ndez, Rosa},
+  title   = {{FANTASIA} leverages language models to decode the functional dark
+             proteome across the animal tree of life},
+  journal = {Communications Biology},
+  year    = {2025},
+  volume  = {8},
+  number  = {1},
+  pages   = {1227},
+  doi     = {10.1038/s42003-025-08651-2},
 }
 
 % ── ProteInfer ───────────────────────────────────────────────
