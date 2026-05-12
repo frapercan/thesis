@@ -2,10 +2,15 @@
 \label{chap:related}
 
 Automated protein function prediction has been an active research area for more
-than two decades. Methods can be grouped into four broad families: sequence
-alignment transfer, profile and domain matching, supervised machine learning, and
-embedding-based approaches. This chapter surveys each family, identifies their
-limitations, and contextualises PROTEA within the landscape.
+than two decades. Methods can be grouped into five broad families: (i) sequence
+alignment transfer, (ii) profile and domain matching, (iii) supervised deep
+learning, (iv) embedding-based nearest-neighbour transfer, and (v) multiple
+instance learning and interpretable models. Complementing these methodological
+threads are the community benchmarking challenges that have calibrated the
+field's progress, and a layer of genome-scale annotation platforms that
+operationalise whichever inference method is selected. This chapter surveys each
+family, identifies their limitations, and contextualises PROTEA within the
+landscape.
 
 % ────────────────────────────────────────────────────────────
 \section{Alignment-Based Annotation Transfer}
@@ -17,8 +22,13 @@ with a characterised protein, one can transfer the known annotations to the quer
 
 \textbf{BLAST}~\cite{altschul1990blast} remains the most widely deployed tool for
 this purpose. It uses a heuristic seed-and-extend strategy to find local
+<<<<<<< HEAD
 alignments in sublinear time. \texttt{BLASTP} (protein-protein) identifies
 homologues in Swiss-Prot and transfers their GO terms to the query. This simple
+=======
+alignments in sublinear time. \texttt{BLASTP} (protein--protein) identifies
+homologues in Swiss-Prot and transfers their \gls{go} terms to the query. This simple
+>>>>>>> origin/task/thesis-writer-1778546422-5353
 approach is accurate when identity exceeds roughly 50\,\% and degrades
 progressively as identity falls. Below the ``twilight zone'' of $\approx$30\,\%
 identity, alignment scores lose statistical power and functional inference becomes
@@ -29,11 +39,21 @@ at orders-of-magnitude higher throughput, making it practical for genome-scale
 annotation. Its speed advantage comes from reduced-alphabet seeds and better
 SIMD utilisation; the fundamental twilight-zone limitation remains.
 
-\textbf{Annotation propagation rules} add another layer of nuance: not all GO
-terms are equally transferable. Terms annotated with \texttt{IEA} codes can be
-propagated freely, while experimental annotations require explicit curation
-policies. The CAFA community has established benchmark protocols that penalise
-propagation errors~\cite{zhou2019cafa3}.
+\textbf{PSI-BLAST}~\cite{altschul1997psiblast} extends the basic BLAST paradigm
+through an iterative cascade: hits from a first-round search are assembled into
+a position-specific scoring matrix (PSSM), and subsequent rounds use that PSSM
+rather than a single query sequence. The approach substantially extends
+sensitivity into the twilight zone but introduces false-positive accumulation in
+later iterations, particularly for proteins with multi-domain architectures.
+PSI-BLAST prefigures the profile \gls{hmm} approach described in
+\cref{sec:related-hmm}: both methods exploit evolutionary conservation captured
+across multiple sequences rather than a single representative.
+
+\textbf{Annotation propagation rules} add a further layer of nuance: not all \gls{go}
+terms are equally transferable. Terms annotated with \texttt{IEA} evidence codes
+can be propagated freely, while experimental annotations require explicit
+curation policies. The \gls{cafa} community has established benchmark protocols
+that penalise propagation errors~\cite{zhou2019cafa3}.
 
 % ────────────────────────────────────────────────────────────
 \section{Profile and Domain Methods}
@@ -47,52 +67,131 @@ protein families.
 purpose. A family is represented as a probabilistic model over residue
 frequencies at each position, capturing conserved and variable sites more
 faithfully than a single representative sequence. HMMER achieves greater
-sensitivity than BLAST at the cost of requiring pre-built profiles.
+sensitivity than BLAST at the cost of requiring pre-built profiles. The
+algorithm's expectation-maximisation training scales to millions of sequences,
+and the HMMER3 release replaced the earlier quadratic forward algorithm with an
+accelerated filter pipeline that achieves near-linear average complexity without
+measurable loss of sensitivity.
 
-\textbf{InterPro}~\cite{blum2021interpro} integrates over a dozen family and
-domain databases (Pfam, PRINTS, ProSite, TIGRFAM, and others) into a unified
-annotation resource. A protein is assigned InterPro entries whenever it matches
-any member database; GO terms are then inferred via curated mappings. InterPro
-annotation is one of the most reliable computational methods available, but it
-is limited to protein families and domains that have been explicitly curated and
-modelled.
+\textbf{Pfam}~\cite{mistry2021pfam} is the canonical curated database of protein
+domain families represented as \gls{hmm} profiles. Each Pfam entry covers a
+structurally or functionally coherent domain; \gls{go} term mappings from Pfam
+entries are transferred to any protein whose sequence matches the profile above a
+calibrated significance threshold. Pfam is now maintained inside the
+\textbf{InterPro}~\cite{blum2021interpro} consortium, which integrates over a dozen
+family and domain databases (Pfam, PRINTS, ProSite, TIGRFAM, and others) into a
+unified annotation resource. A protein is assigned InterPro entries whenever it
+matches any member database; \gls{go} terms are then inferred via curated
+mappings. InterProScan, the companion command-line tool, is widely used as an
+annotation step in genome pipelines. InterPro annotation is one of the most
+reliable computational methods available, but it is limited to protein families
+and domains that have been explicitly curated and modelled; novel folds with no
+detectable sequence relatives receive no annotation.
 
 \textbf{Cascade homology search}~\cite{park1998sequence} iteratively extends
 sensitivity by feeding BLAST hits into further BLAST searches (PSI-BLAST) or
-HMM construction, at the cost of introducing false positives in remote homology
-regimes.
+\gls{hmm} construction, at the cost of introducing false positives in remote
+homology regimes. The fundamental ceiling shared by all profile methods is
+coverage: organisms with many lineage-specific proteins benefit little from
+profile transfer.
 
 % ────────────────────────────────────────────────────────────
-\section{Supervised Machine Learning Approaches}
+\section{Supervised Deep Learning Approaches}
 \label{sec:related-ml}
 
+<<<<<<< HEAD
 Supervised methods learn classifiers, one per GO term of interest, from
 labelled protein-function pairs. Early approaches used \glspl{hmm} or support
+=======
+Supervised methods learn classifiers, one per \gls{go} term of interest, from
+labelled protein--function pairs. Early approaches used \glspl{hmm} or support
+>>>>>>> origin/task/thesis-writer-1778546422-5353
 vector machines on curated feature sets (amino acid composition, physicochemical
 properties, secondary structure predictions). More recent work uses deep neural
-networks applied directly to sequences.
+networks applied directly to sequences or structures.
+
+\subsection{Sequence-Based Deep Models}
+\label{subsec:related-seq-deep}
 
 \textbf{DeepGO}~\cite{kulmanov2018deepgo} and its successor
 \textbf{DeepGOPlus}~\cite{kulmanov2020deepgoplus} train convolutional networks on
-sequence $k$-mers and combine the output with sequence similarity scores. They
-demonstrate that learned sequence features and alignment evidence are
-complementary: the two signals fuse into a more reliable predictor than either
-alone.
+sequence $k$-mers and combine the output with sequence similarity scores from
+BLAST. DeepGOPlus demonstrated that learned sequence features and alignment
+evidence are complementary: the two signals fuse into a more reliable predictor
+than either alone. Ontology axioms encoded as logical implications are used to
+regularise the prediction, a direction later extended in
+DeepGOZero~\cite{kulmanov2022deepgozero}, which performs zero-shot prediction for
+terms with no training examples by grounding predictions in \gls{go} axioms
+expressed in EL description logic.
 
-\textbf{NetGO}~\cite{you2019netgo} augments sequence-based models with
-protein–protein interaction network features, achieving state-of-the-art results
-in the CAFA3 challenge. Its dependency on interaction data limits applicability
-for poorly studied organisms.
+\textbf{TALE}~\cite{tale2023} (Transformer-based Annotation Learning and
+Extraction) adapts the pre-trained ESM-1b encoder with a multi-label task head
+and a consistency loss that enforces true-path rule compliance across the \gls{go}
+\gls{dag}. Its evaluation on CAFA3 targets showed that fine-tuning a protein
+language model encoder on a function prediction objective produces substantially
+stronger results than using frozen embeddings, particularly for the Molecular
+Function aspect where alignment cues are weakest.
 
-A fundamental challenge for supervised methods is the extreme imbalance and
-hierarchy of the GO label space. The number of proteins annotated with any
-specific GO term decreases rapidly as one descends the ontology DAG; for many
-leaf terms, fewer than ten training examples exist. Hierarchical loss functions
-and ontology-aware evaluation metrics (Fmax, AUPR) have been developed to address
+\textbf{NetGO}~\cite{you2019netgo} and its successor \textbf{NetGO 3}~\cite{you2023netgo3}
+augment sequence-based models with protein--protein interaction network features.
+NetGO 3 incorporates PLM embeddings alongside STRING network context, achieving
+state-of-the-art results in CAFA3 and subsequent benchmarks. The approach
+requires interaction data, which limits applicability for poorly studied
+organisms and environmental metagenomic sequences for which interactomes are
+unavailable.
+
+\textbf{TALE}, \textbf{NetGO 3}, and related methods established the pattern of
+fusing pre-trained \gls{plm} representations with task-specific supervision.
+PROTEA extends this line by decoupling representation (the embedding backend) from
+inference (the \gls{knn} retrieval plus re-ranker), enabling the same pipeline to
+be evaluated across multiple PLM backends without retraining classifiers.
+
+\subsection{Structure-Based Deep Models}
+\label{subsec:related-struct-deep}
+
+The release of \textbf{AlphaFold 2}~\cite{jumper2021alphafold} and the subsequent
+AlphaFold Protein Structure Database~\cite{varadi2022afdb} covering over 200
+million proteins has enabled structure-informed annotation at a scale previously
+impossible. Several groups have exploited these predicted structures as an
+additional evidence channel.
+
+\textbf{DeepFRI}~\cite{gligorijevic2021deepfri} is among the most influential
+structure-based annotation methods. It applies a graph convolutional network over
+protein contact maps derived from either experimental or predicted structures, and
+learns residue-level attention weights that can highlight catalytic and binding
+sites. DeepFRI outperforms sequence-only baselines for enzyme function prediction
+and its residue-level interpretability is a distinct advantage over
+sequence-level classifiers.
+
+\textbf{HoloProt}~\cite{somnath2021holoprot} combines a surface-based molecular
+representation with a hierarchical encoder that captures both global shape and
+local physicochemical patterns. The global surface representation is more
+rotation-equivariant than contact-map GCNs and performs competitively on
+enzyme commission number prediction, though its advantage over \gls{plm}-based methods
+shrinks as model size increases.
+
+\textbf{AlphaFold-informed annotators} more broadly are a growing subfield.
+Approaches range from embedding AlphaFold-predicted structures with Foldseek's
+3Di structural alphabet~\cite{vankempen2024foldseek} for structure-based
+nearest-neighbour retrieval, to fine-tuning structure encoders on \gls{go} labels.
+The core limitation of this line is computational: predicting a structure for
+every query protein incurs the cost of an AlphaFold forward pass, which is
+prohibitive for millions of metagenomic sequences on a modest compute budget.
+PROTEA defers structural integration to the roadmap; ProstT5 (described in
+\cref{sec:related-plm}) offers a partial bridge by encoding structural signals
+implicitly through sequence-to-3Di translation without requiring an explicit
+structure prediction step.
+
+A fundamental challenge shared by all supervised methods, whether sequence-based
+or structure-based, is the extreme imbalance and hierarchy of the \gls{go} label
+space. The number of proteins annotated with any specific \gls{go} term decreases
+rapidly as one descends the ontology \gls{dag}; for many leaf terms, fewer than ten
+training examples exist. Hierarchical loss functions and ontology-aware evaluation
+metrics ($F_{\max}$, AUPR) have been developed to address
 this~\cite{clark2013information}.
 
 % ────────────────────────────────────────────────────────────
-\section{Protein Language Model Embeddings}
+\section{Protein Language Model Representations}
 \label{sec:related-plm}
 
 The advent of large-scale self-supervised \glspl{plm} has opened a qualitatively
@@ -101,18 +200,22 @@ of sequences develop internal representations (embeddings) that capture
 evolutionary relationships, secondary and tertiary structure propensities, and
 functional sites, without any explicit structural or functional supervision.
 
-\textbf{ESM-1b}~\cite{rives2021esm1b} and the \textbf{ESM-2}
-family~\cite{lin2023esm2} (Meta AI) are transformer encoders trained on
-UniRef50/90, scaling from 8M to 15B parameters. The larger variants generate
-embeddings that outperform BLAST-based transfer at low-identity regimes. ESM-2
-embeddings have served as the de-facto baseline representation in the function
-prediction literature since 2023.
+\subsection{ESM Family}
+\label{subsec:related-esm}
 
-\textbf{ProtTrans}~\cite{elnaggar2022prottrans} provides a suite of encoder
-models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on BFD and UniRef100
-using distributed HPC resources. ProtT5-XL achieves the best per-residue and
-per-protein accuracy among the ProtTrans variants.
+\textbf{ESM-1b}~\cite{rives2021esm1b} demonstrated that masked-language
+modelling objectives over 250 million protein sequences yield representations that
+recover contact maps and functional annotations without task-specific supervision.
+The \textbf{ESM-2} family~\cite{lin2023esm2} (Meta AI, published in
+\textit{Science} 2023) substantially extends this scaling study, ranging from 8M
+to 15B parameters, all trained on UniRef50 with a masked-language modelling
+objective. The key finding of Lin et al. is that embedding quality on downstream
+tasks scales near-log-linearly with model size up to 3B parameters, after which
+returns diminish. ESM-2 embeddings have served as the de facto baseline
+representation in the function prediction literature since 2023, and they
+constitute one of PROTEA's primary backends.
 
+<<<<<<< HEAD
 \textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder-decoder model that
 matches or exceeds the ESM-2 3B baseline on multiple downstream tasks while
 using a fraction of the parameters, achieved through aggressive vocabulary
@@ -130,21 +233,189 @@ Third, \textbf{ESM-C}~\cite{esm2024esmc} delivers efficient sequence-only
 encoders distilled from ESM-3, with the 300M and 600M variants reaching
 ESM-2 3B performance at a fraction of the inference cost. PROTEA evaluates all
 of these as plug-in backends within a single benchmarking framework.
+=======
+\textbf{ESM-3}~\cite{hayes2024esm3} (EvolutionaryScale, 2024) unifies sequence,
+structure and function as multi-modal tokens within a single generative model up
+to 98B parameters. For embedding-based downstream applications, the lighter
+component encoder is the practical choice; however, the multi-modal training
+regime means that structural and evolutionary constraints are baked into the
+representation space, providing richer signal than sequence-only ESM-2 at
+comparable parameter counts.
 
-\textbf{Annotation transfer via nearest neighbours} is the inference strategy
-most naturally paired with embeddings. Given a set of reference proteins with
-known annotations and their embeddings, the $k$ nearest reference neighbours of
-a query (by cosine or Euclidean distance) are retrieved and their annotations
-aggregated to form a prediction. This approach was explored in
-\textcite{littmann2021embeddings} and forms the core inference mechanism of
-PROTEA.
+\textbf{ESM-Cambrian / ESM-C}~\cite{esm2024esmc} (EvolutionaryScale, 2024) delivers
+efficient sequence encoders distilled from ESM-3 training, with the 300M and 600M
+variants reaching ESM-2 3B performance at a fraction of the inference cost. The
+distillation approach retains the representational benefits of the larger
+multi-modal model while making inference tractable for large-scale annotation
+pipelines. ESM-C 600M is evaluated as a backend in PROTEA's benchmarking
+framework in \cref{chap:evaluation}.
+>>>>>>> origin/task/thesis-writer-1778546422-5353
+
+\subsection{ProtTrans Family}
+\label{subsec:related-prottrans}
+
+\textbf{ProtTrans}~\cite{elnaggar2022prottrans} (Elnaggar et al., \textit{IEEE
+TPAMI} 2022) provides a suite of encoder models trained on BFD and UniRef100
+using distributed HPC resources. The suite includes ProtBERT (BERT architecture),
+ProtAlbert (ALBERT architecture), ProtXLNet, and \textbf{ProtT5-XL}, the latter
+of which achieves the best per-residue and per-protein accuracy among the
+ProtTrans variants. ProtT5 is an encoder--decoder architecture derived from
+Google's T5 pre-trained on the T5 sequence-to-sequence objective applied to
+protein sequences; the encoder outputs serve as fixed-dimensional embeddings for
+downstream classification. ProtT5-XL-U50 (half-precision) is PROTEA's default
+alignment-free backend and the representation used in the LAFA container
+submission described in \cref{chap:conclusion}.
+
+\textbf{Ankh}~\cite{elnaggar2023ankh} (Elnaggar et al., 2023) is an
+encoder--decoder model that matches or exceeds the ESM-2 3B baseline on multiple
+downstream tasks while using a fraction of the parameters. This efficiency gain is
+achieved through aggressive vocabulary tuning (a compact amino-acid tokeniser
+that reduces sequence length compared to character-level tokenisers) and a
+re-thought training recipe that emphasises biologically meaningful objectives.
+Ankh is an attractive backend for resource-constrained deployments; it is
+evaluated alongside ESM-2 and ProtT5 in \cref{chap:evaluation}.
+
+\subsection{Structure-Aware Sequence Models}
+\label{subsec:related-struct-seq}
+
+\textbf{ProstT5}~\cite{heinzinger2023prostt5} (Heinzinger et al., \textit{NAR
+Genomics and Bioinformatics} 2024) introduces structural awareness without
+requiring explicit 3D input. Starting from the ProtT5-XL encoder, ProstT5 is
+fine-tuned on a sequence-to-3Di translation task, where 3Di is the structural
+alphabet introduced by Foldseek~\cite{vankempen2024foldseek} that encodes the
+local structural context of each residue as one of 20 discrete tokens derived
+from predicted inter-residue geometry. The key result is that ProstT5 embeddings
+carry richer structure-related signal than pure sequence models while remaining
+applicable to any protein that lacks an experimental or predicted structure,
+because the structural signal is distilled into the model weights during
+training rather than requiring structure at inference time. For PROTEA, ProstT5
+constitutes a ``structure-aware at no extra cost'' backend option, evaluated in
+\cref{chap:evaluation}.
+
+% ────────────────────────────────────────────────────────────
+\section{Embedding-Based Nearest-Neighbour Methods}
+\label{sec:related-knn}
+
+Annotation transfer via nearest neighbours is the inference strategy most
+naturally paired with fixed-dimensional embeddings. Given a set of reference
+proteins with known annotations and their embeddings, the $k$ nearest reference
+neighbours of a query (by cosine or Euclidean distance) are retrieved and their
+annotations aggregated to form a prediction.
+
+\textbf{Littmann et al.\ (2021)}~\cite{littmann2021embeddings} provided the first
+systematic demonstration that embedding-based annotation transfer outperforms
+BLAST-based transfer in the twilight zone and for uncharacterised orphan proteins.
+Using ESM-1b and ProtT5 embeddings, they showed that \gls{knn} retrieval from
+Swiss-Prot consistently recovers more correct \gls{go} terms than pairwise alignment
+for sequences below 50\,\% identity. This paper established the empirical
+foundation for the PLM-KNN paradigm that PROTEA operationalises at scale.
+
+\textbf{FANTASIA}~\cite{fantasia2024} (used extensively in the biology domain
+from which PROTEA's evaluation data derives) applies \gls{knn} transfer using
+ESM-2 embeddings for large-scale marine metagenome annotation. Its success in
+annotating proteins with no known homologues motivated the PROTEA project, and
+its design informed the annotation source plugin architecture in PROTEA.
 
 \textbf{Scalability} is the central engineering challenge for embedding-based
 transfer. Swiss-Prot alone contains over 570,000 entries; computing exact cosine
 distances against all of them for a large query set requires $O(NQ)$ dot products,
 which becomes infeasible at scale. Approximate nearest-neighbour libraries such
-as FAISS~\cite{johnson2021faiss} reduce this to $O(Q \sqrt{N})$ with minimal
-accuracy loss for IVFFlat indices.
+as FAISS~\cite{johnson2021faiss} reduce this to $O(Q\sqrt{N})$ with minimal
+accuracy loss for IVFFlat indices. PROTEA uses FAISS with IVFFlat indexing
+(the hard constraint prohibiting pgvector for collections exceeding 500k vectors
+is documented in ADR D10); numpy is used for smaller reference sets to preserve
+exact retrieval.
+
+\textbf{Aggregation strategies} further differentiate PLM-KNN methods. Simple
+majority voting over $k$ neighbours suffers when neighbours have uneven confidence
+or when the query sits equidistant from proteins with conflicting annotations.
+Score-weighted aggregation, where each neighbour's \gls{go} terms are weighted by
+its distance-derived similarity score, generally outperforms majority voting.
+Mean-of-scores aggregation across multiple complementary sources (alignment,
+embedding, domain matching) is an ensemble strategy evaluated in
+\cref{chap:evaluation} and forms the basis of PROTEA's multi-source scoring
+architecture.
+
+% ────────────────────────────────────────────────────────────
+\section{Ensemble Methods and Learning-to-Rank}
+\label{sec:related-ensembles}
+
+The observation that alignment-based, profile-based, and embedding-based signals
+are complementary motivates ensemble approaches that combine multiple scores for
+the same (protein, \gls{go} term) pair.
+
+\textbf{Score fusion} is the simplest ensemble strategy: predictions from
+multiple independent methods are combined by taking the mean (or weighted mean)
+of their confidence scores, using the resulting composite as the final
+prediction. The assumption is that individual methods have uncorrelated errors,
+so averaging reduces variance. This strategy is used by PROTEA's multi-source
+aggregation layer and is the baseline against which the re-ranker is compared in
+\cref{chap:evaluation}.
+
+\textbf{Learning-to-rank with gradient boosted trees} is a natural next step.
+Rather than a fixed weighting scheme, a re-ranker learns from labelled examples
+which feature combinations are most predictive of a correct annotation.
+\textbf{LightGBM}~\cite{ke2017lightgbm} is the dominant gradient boosting
+framework for tabular re-ranking tasks, offering fast training, native handling of
+categorical features, and strong regularisation. PROTEA trains per-aspect
+LightGBM models whose feature set includes: cosine similarity to each neighbour,
+alignment bit-score (when available), ontology-aware GO term embeddings from
+anc2vec~\cite{edera2022anc2vec}, information-content of the predicted term,
+and taxon-distance between query and annotated neighbour. \cref{chap:evaluation}
+reports three successive re-ranker versions (v1 per-aspect, v2 per-category, v3
+full feature set) and their marginal gains over the score-fusion baseline.
+
+\textbf{eggNOG-mapper}~\cite{cantalapiedra2021eggnogmapper} deserves particular
+mention as a widely deployed homology-transfer system that combines DIAMOND
+alignment against clusters of orthologous groups (COGs) with \gls{go} term
+propagation. eggNOG-mapper's output is used as a reference benchmark in the
+CAFA 6 evaluation because it represents state-of-the-art homology transfer
+without \gls{plm} embeddings. PROTEA integrates an eggNOG-mapper annotation source
+plugin, allowing its output to serve as an additional evidence channel in the
+ensemble rather than as a competing system.
+
+\textbf{TALE}~\cite{tale2023} and comparable fine-tuned models implicitly
+perform a form of ensemble by combining PLM backbone representations with
+task-specific classifiers. The distinction between PROTEA's approach and
+fine-tuned classifiers is architectural: PROTEA does not modify the PLM weights
+but instead treats the PLM as a fixed feature extractor, which allows the same
+reference index to be updated (by adding newly annotated proteins) without
+retraining the backbone. This decoupling is central to the versioned-pipeline
+design described in \cref{chap:design}.
+
+% ────────────────────────────────────────────────────────────
+\section{Multiple Instance Learning and Interpretable Prediction}
+\label{sec:related-mil}
+
+A growing body of work addresses interpretability in protein function prediction,
+motivated by the desire to understand not only whether a protein has a given
+function but which regions of the sequence are responsible.
+
+\textbf{OPUS-GO}~\cite{opusgo2024} (Yang et al., 2024, bioRxiv) applies
+multiple instance learning (MIL) to protein function prediction. The key insight
+is that a protein sequence can be viewed as a ``bag'' of residue-level instances,
+and the function of the whole protein is a label on the bag. OPUS-GO uses an
+attention-based MIL aggregator over per-residue ESM-2 embeddings, learning which
+residues contribute most to each predicted \gls{go} term. The attention weights
+serve as a soft annotation of functional sites, producing interpretable
+predictions that localise GO evidence to specific sequence positions.
+
+\textbf{PSALM}~\cite{psalm2024} (MLSB 2024) extends the MIL paradigm with a
+probabilistic formulation that models uncertainty over both residue-level
+membership and bag-level labels. Its evaluation on \gls{cafa} targets showed
+calibration improvements over deterministic classifiers, making PSALM
+particularly relevant for downstream applications that require reliable
+confidence estimates (such as PROTEA's re-ranker, which consumes confidence
+scores as features).
+
+Both OPUS-GO and PSALM are methodologically distinct from PROTEA's current
+pipeline (which performs \gls{knn} retrieval at the whole-sequence level using
+mean-pooled embeddings) but are directly relevant to PROTEA's F-MIL roadmap
+(documented in ADR D24), which plans to replace mean-pooled query representations
+with attention-weighted residue pooling informed by functional motifs. The
+F-MIL pilot would allow PROTEA to produce per-residue functional site predictions
+as a joint output alongside GO annotations, closing the interpretability gap
+relative to DeepFRI and OPUS-GO.
 
 % ────────────────────────────────────────────────────────────
 \section{Ontology-Aware Representations}
@@ -155,18 +426,20 @@ that structure to inject ontology-aware signal into the prediction pipeline,
 rather than treating each \gls{go} term as an independent label.
 
 \textbf{anc2vec}~\cite{edera2022anc2vec} learns a distributed representation of
-each GO term from its ancestor multiset under the \textit{is-a} and
+each \gls{go} term from its ancestor multiset under the \textit{is-a} and
 \textit{part-of} relations. Two terms with overlapping lineage have similar
 anc2vec vectors, providing a feature with which a downstream classifier can
 penalise predictions that contradict the true-path rule. PROTEA uses anc2vec
-features as an input to its re-ranker.
+features as an input to its LightGBM re-ranker, contributing the
+information-theoretic relationships between predicted and known terms as a
+structured feature.
 
-\textbf{GeOKG}~\cite{geokg2025} (Bioinformatics, 2025) extends this idea by
-embedding the GO graph in a multi-curvature space combining hyperbolic and
-Euclidean geometry, motivated by the observation that the GO DAG has both
-tree-like and grid-like substructure that no single-geometry embedding captures
-well. GeOKG-style embeddings are evaluated as a possible replacement for
-anc2vec in \cref{chap:evaluation}.
+\textbf{GeOKG}~\cite{geokg2025} extends this idea by embedding the \gls{go}
+graph in a multi-curvature space combining hyperbolic and Euclidean geometry,
+motivated by the observation that the \gls{go} \gls{dag} has both tree-like and
+grid-like substructure that no single-geometry embedding captures well.
+GeOKG-style embeddings are evaluated as a possible replacement for anc2vec in
+\cref{chap:evaluation}.
 
 \textbf{Graph neural networks over the GO DAG} have been investigated for
 end-to-end prediction~\cite{kulmanov2022deepgozero}. They are an attractive
@@ -178,20 +451,83 @@ PROTEA-DL pilot.
 \section{Benchmarks and Evaluation Standards}
 \label{sec:related-cafa}
 
-\subsection{CAFA}
-\label{subsec:related-cafa}
+\subsection{CAFA: History and Methodology}
+\label{subsec:related-cafa-history}
 
-The Critical Assessment of Functional Annotation (CAFA)~\cite{zhou2019cafa3}
-challenge provides the community standard for evaluating function prediction
-methods. Participants submit predictions for a set of target proteins; ground
-truth is established retrospectively from experimental annotations deposited
-after the submission deadline.
+The Critical Assessment of Protein Function Annotation (CAFA)~\cite{jiang2016cafa2}
+series is the field's longest-running community benchmark. CAFA 1 (2011, published
+2013)~\cite{radivojac2013cafa1} established the core protocol: participants receive
+query sequences before a submission deadline; ground-truth annotations are
+collected from experimental databases in the months following the deadline;
+submitted predictions are evaluated against this prospective ground truth.
+The approach avoids the circularity inherent in benchmarks that train and test on
+the same release of a database.
 
+<<<<<<< HEAD
 The primary metric is $F_{\max}$: the maximum $F_1$ score across all
 prediction confidence thresholds, computed separately for each \gls{go}
 aspect. AUPR (area under the precision-recall curve) and Smin (semantic
 distance) are complementary measures. PROTEA's evaluation in
 \cref{chap:evaluation} follows CAFA conventions.
+=======
+\textbf{CAFA 2} (2013, published 2016)~\cite{jiang2016cafa2} expanded the
+target set and introduced the $S_{\min}$ semantic distance metric alongside
+$F_{\max}$. The winning team used BLAST-based homology transfer with
+phylogenetic weighting, demonstrating that simple methods still dominated when
+applied carefully.
+
+\textbf{CAFA 3} (2017, published 2019)~\cite{zhou2019cafa3} was the largest
+edition to date, with over 100 participating teams. It highlighted the
+difficulty of the \gls{mf} (Molecular Function) aspect and the value of combining
+alignment with \gls{plm}-style learned features, prefiguring the embedding wave
+that followed.
+
+\textbf{CAFA 4} (2020) ran during the COVID-19 disruption and was not fully
+published as a community paper; results were released on Kaggle. Several
+teams incorporated ESM-1b embeddings for the first time, and \gls{knn}-based
+methods began to appear prominently.
+
+\textbf{CAFA 5} (2022, Kaggle competition format)~\cite{cafa5_2023} attracted
+over 1500 teams from the machine learning community, reflecting the broader
+interest in protein machine learning. The top submissions combined PLM embeddings with
+graph neural networks over the \gls{go} \gls{dag} and interaction networks. The
+scale of participation surfaced important questions about data leakage.
+
+\textbf{CAFA 6} (2024)~\cite{cafa6_2024} introduced stricter temporal splits and
+a leakage-controlled evaluation protocol, addressing the criticism that prior
+editions allowed training on sequences that overlapped with evaluation targets via
+intermediate databases. The PROTEA team (with the present author as technical
+lead) participated in CAFA 6, achieving a second-place team result in the
+combined GO track. The leakage question is addressed directly in PROTEA's
+evaluation protocol (\cref{chap:evaluation}) through a temporal snapshot split
+analogous to the CAFA 6 protocol.
+
+\subsection{The Leakage Question and NK/LK/PK Splits}
+\label{subsec:related-leakage}
+
+Leakage in function prediction benchmarks arises when a protein in the evaluation
+set was already annotated (directly or via a known homologue) at the time the
+training data were collected. A method that memorises this annotation at
+training time will appear to ``predict'' it at evaluation time, inflating
+performance metrics. This problem is particularly acute for methods that use the
+full UniProt database (which is updated continuously) as a reference.
+
+The \textbf{NK/LK/PK} (No Knowledge / Limited Knowledge / Prior Knowledge)
+split~\cite{radivojac2013cafa1} addresses leakage by stratifying evaluation
+targets according to how much was known about them at submission time:
+\textbf{NK} targets had no annotation in any database at submission time (the
+hardest case), \textbf{LK} targets had partial annotation in non-\gls{go} sources,
+and \textbf{PK} targets were annotated in some \gls{go} aspects but not others.
+CAFA's official rankings report results across all three strata.
+
+PROTEA's evaluation in \cref{chap:evaluation} adopts a temporal snapshot
+approach: two time-stamped \gls{goa} (Gene Ontology Annotation) database dumps
+are compared, and only proteins that received \textit{new} experimental
+annotations between the two snapshots are included as evaluation targets. This
+strictly excludes any protein visible in the training-time reference database,
+providing a leakage-free evaluation that mirrors the CAFA protocol without
+requiring a community submission cycle.
+>>>>>>> origin/task/thesis-writer-1778546422-5353
 
 \subsection{Live Continuous Benchmarks: LAFA}
 \label{subsec:related-lafa}
@@ -202,9 +538,9 @@ emerged with \textbf{LAFA}~\cite{lafa2024} (Live Assessment of Functional
 Annotation, \texttt{functionbench.net}). Participants submit a Docker
 container that consumes a FASTA file and emits predictions in a standardised
 format; the benchmark host runs the container against a periodically updated
-held-out set and publishes results. LAFA lowers the barrier to public
-evaluation: any laboratory with a working method can submit without joining a
-formal challenge cycle. Three pre-built PROTEA configurations are submitted to
+held-out set and publishes results continuously. LAFA lowers the barrier to
+public evaluation: any laboratory with a working method can submit without joining
+a formal challenge cycle. Three pre-built PROTEA configurations are submitted to
 LAFA in \cref{chap:conclusion}.
 
 % ────────────────────────────────────────────────────────────
@@ -215,45 +551,100 @@ Several platforms have been developed to operationalise function prediction at
 genome scale.
 
 \textbf{Argot2}~\cite{falda2012argot2} combines BLAST and HMMER hits with a
-graph propagation scheme over the GO DAG. It produces confidence scores by
-integrating multiple lines of evidence.
+graph propagation scheme over the \gls{go} \gls{dag}. It produces confidence
+scores by integrating multiple lines of evidence, anticipating the multi-source
+ensemble strategy used in PROTEA.
 
 \textbf{PANNZER2}~\cite{toronen2018pannzer2} is a web server that combines
-BLAST-based nearest-neighbour transfer with a SANS scoring model. It provides
-an interactive interface and supports batch submission.
+BLAST-based nearest-neighbour transfer with a SANS scoring model. It provides an
+interactive interface and supports batch submission, serving as a practical
+baseline for annotation quality in the twilight zone.
 
 \textbf{eggNOG-mapper}~\cite{cantalapiedra2021eggnogmapper} maps sequences
 against clusters of orthologous groups (COGs) and transfers functional
 annotations from the eggNOG database. It is widely used in comparative genomics
-pipelines.
+pipelines and is a top-performing homology method in CAFA evaluations.
+
+\textbf{InterProScan} (the command-line interface to InterPro) is the most widely
+deployed domain-matching pipeline in genome annotation workflows. Its output is
+used as a complementary evidence layer in several CAFA top-10 submissions and in
+PROTEA's domain-annotation source plugin.
 
 None of these platforms provides a reproducible, versioned annotation pipeline
 backed by a relational data model that records which ontology version, reference
-annotation set, and embedding configuration produced each prediction. PROTEA
-addresses this gap directly.
+annotation set, and embedding configuration produced each prediction. The lack of
+versioning is a systemic gap: two runs of the same platform six months apart may
+return different annotations because the underlying database was updated, with no
+way to reconstruct the earlier result from the platform's own logs. PROTEA
+addresses this gap directly through its contracts-first architecture
+(\cref{chap:design}), where every annotation artefact records a
+\texttt{schema\_sha}, \texttt{goa\_snapshot\_date}, and
+\texttt{embedding\_model\_tag} in the relational schema. To the author's
+knowledge, no comparable bioinformatics annotation platform exposes this level of
+provenance as a first-class, schema-enforced property.
 
 % ────────────────────────────────────────────────────────────
-\section{Summary and Positioning of PROTEA}
+\section{PROTEA's Position in the Landscape}
 \label{sec:related-summary}
+
+Having surveyed the field, three positioning axes deserve explicit statement.
+
+\textbf{Platform versus method.} PROTEA is simultaneously a
+\textit{method} (the PLM-KNN+LightGBM re-ranker family that participated in
+CAFA 6) and a \textit{platform} (the versioned, distributed pipeline that
+operationalises any combination of backends, sources, and inference strategies
+through a plugin contract layer). The platform contribution is independent of
+the method contribution: replacing the PLM-KNN backend with a fine-tuned
+classifier would still benefit from the platform's reproducibility
+infrastructure. This separation is novel in the bioinformatics annotation space,
+where platforms are typically tightly coupled to a single inference approach.
+
+\textbf{Leakage-free temporal evaluation.} PROTEA's evaluation protocol, described
+fully in \cref{chap:evaluation}, is one of few in the literature that
+systematically enforces temporal separation between reference data and evaluation
+targets. The NK/LK/PK splits from CAFA are replicated internally using
+\gls{goa} snapshot pairs, allowing comparable leakage-controlled reporting without
+a community benchmark submission. The quantitative contribution of the re-ranker
+over the baseline is reported exclusively on this leakage-free evaluation set.
+
+\textbf{Contracts-first architecture.} The protea-contracts package defines
+abstract base classes and Pydantic payload schemas for every operation the
+pipeline supports. Annotation sources, embedding backends, and runner plugins
+implement these contracts; the core pipeline accepts any conforming
+implementation. This design pattern, borrowed from distributed systems
+engineering, is to the author's knowledge not present in any other published
+protein annotation pipeline. Its operational implications (zero-downtime backend
+swaps, schema-validated artefacts, testable plugin isolation) are discussed in
+\cref{chap:design}.
 
 \Cref{tab:related-comparison} summarises the methods discussed above along four
 axes relevant to this thesis.
 
 \begin{table}[htbp]
   \centering
-  \caption{Comparison of protein function prediction approaches.}
+  \caption{Comparison of protein function prediction approaches along four
+           axes relevant to the PROTEA thesis: ability to annotate proteins
+           below the twilight zone, practical scalability to large query sets,
+           versioned and reproducible outputs, and open-source availability.}
   \label{tab:related-comparison}
   \resizebox{\textwidth}{!}{%
-  \begin{tabular}{lcccc}
+  \begin{tabular}{llcccc}
     \toprule
-    \textbf{Method} & \textbf{Low-identity} & \textbf{Scalable} & \textbf{Versioned} & \textbf{Open source} \\
+    \textbf{Method} & \textbf{Family} & \textbf{Low-identity} & \textbf{Scalable} & \textbf{Versioned} & \textbf{Open source} \\
     \midrule
-    BLAST transfer      & \texttimes & \checkmark & \texttimes & \checkmark \\
-    HMMER/InterPro      & \checkmark & \checkmark & \texttimes & \checkmark \\
-    DeepGO/DeepGOPlus   & \checkmark & \checkmark & \texttimes & \checkmark \\
-    PANNZER2            & \texttimes & \checkmark & \texttimes & \checkmark \\
-    ESM-2 kNN transfer  & \checkmark & $\sim$     & \texttimes & \checkmark \\
-    \textbf{PROTEA}     & \checkmark & \checkmark & \checkmark & \checkmark \\
+    BLAST transfer       & Alignment        & \texttimes & \checkmark & \texttimes & \checkmark \\
+    PSI-BLAST            & Alignment        & $\sim$     & $\sim$     & \texttimes & \checkmark \\
+    HMMER / Pfam         & Profile HMM      & \checkmark & \checkmark & \texttimes & \checkmark \\
+    InterProScan         & Profile HMM      & \checkmark & \checkmark & \texttimes & \checkmark \\
+    DeepGOPlus           & Sequence deep    & \checkmark & \checkmark & \texttimes & \checkmark \\
+    DeepFRI              & Structure deep   & \checkmark & $\sim$     & \texttimes & \checkmark \\
+    TALE                 & PLM fine-tuned   & \checkmark & \checkmark & \texttimes & \checkmark \\
+    NetGO 3              & PLM + network    & \checkmark & $\sim$     & \texttimes & \checkmark \\
+    PANNZER2             & Alignment KNN    & \texttimes & \checkmark & \texttimes & \checkmark \\
+    eggNOG-mapper        & Orthology        & $\sim$     & \checkmark & \texttimes & \checkmark \\
+    ESM-2 KNN transfer   & PLM KNN          & \checkmark & $\sim$     & \texttimes & \checkmark \\
+    OPUS-GO              & MIL PLM          & \checkmark & \checkmark & \texttimes & \checkmark \\
+    \textbf{PROTEA}      & PLM KNN + rerank & \checkmark & \checkmark & \checkmark & \checkmark \\
     \bottomrule
   \end{tabular}
   }
@@ -262,4 +653,5 @@ axes relevant to this thesis.
 PROTEA occupies a niche that none of the surveyed systems fills: an end-to-end
 distributed pipeline that combines \gls{plm} embeddings with optional alignment
 and taxonomy features, records all versioning information in a relational schema,
-and exposes the full pipeline through a REST API and web interface.
+exposes the full pipeline through a REST API and web interface, and supports
+runtime-swappable backends and sources through a typed contract layer.
