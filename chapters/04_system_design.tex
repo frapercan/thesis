@@ -479,10 +479,11 @@ chunking strategy, pooling method, and any other parameters that affect the
 embedding geometry. Its UUID primary key is stable; changing any parameter
 creates a new configuration.
 
-\texttt{SequenceEmbedding} stores one pgvector \texttt{VECTOR} per
-(\texttt{sequence}, \texttt{config}, \texttt{chunk}) triple. Chunking support
-allows sequences that exceed the model's context window to be split into
-overlapping segments.
+\texttt{SequenceEmbedding} stores one pgvector \texttt{HALFVEC} per
+(\texttt{sequence}, \texttt{config}, \texttt{chunk}) triple (migrated from
+\texttt{VECTOR} in April 2026 to halve storage and reduce memory bandwidth during
+bulk load without loss of downstream precision). Chunking support allows sequences
+that exceed the model's context window to be split into overlapping segments.
 
 \subsection{Predictions}
 \label{subsec:dm-predictions}
@@ -659,7 +660,26 @@ independently replaceable without modifying any operation logic.
 \label{sec:api-design}
 
 The API follows REST conventions. Resources are grouped into seventeen routers
-spanning the full operational surface of the platform (ADR D4):
+spanning the full operational surface of the platform (ADR D4). All public
+endpoints are mounted under the \texttt{/v1/} path prefix (T4.1, ADR D4 accepted
+2026-05-06); unprefixed aliases are kept hidden from OpenAPI for a deprecation
+window so that existing clients can migrate without a hard cutover.
+
+\subsection{Services Layer}
+\label{subsec:services-layer}
+
+Each router delegates domain logic to a companion service module in
+\texttt{protea/services/}. The F2D refactor extracted pure helpers (Pydantic
+validation, ORM-to-response mapping, shared dispatch wiring) out of the router
+files so that individual router files stay under 400~LOC and remain free of
+database-session management. A shared helper, \texttt{dispatch\_validated\_job},
+encapsulates the three-step dispatch sequence (Pydantic validate, enqueue job,
+publish to RabbitMQ) used by every queue-job endpoint; domain errors raised by
+service modules (for example \texttt{InvalidJobPayloadError}) are mapped to
+appropriate HTTP status codes at the router boundary, keeping the service modules
+themselves framework-agnostic.
+
+The seventeen routers are:
 
 \begin{description}
   \item[\texttt{/proteins}] Insert proteins from UniProt accession lists or FASTA;
@@ -705,6 +725,25 @@ request handler, keeping router code free of infrastructure imports. The strict
 means that a malformed request body fails at HTTP 422 before any database write
 occurs.
 \end{sloppypar}
+
+\subsection{Security and CORS}
+\label{subsec:security-cors}
+
+CORS policy is configurable at deployment time via the
+\texttt{PROTEA\_ALLOWED\_ORIGINS} environment variable (T5.5, ADR D6 accepted
+2026-05-06). The variable accepts a comma-separated list of origin strings;
+supplying an empty string disables the CORS middleware entirely, which is
+appropriate when a fronting reverse proxy already enforces the policy. If the
+environment variable is absent the application falls back to a YAML
+\texttt{cors.allowed\_origins} list, and then to a built-in development default.
+This three-tier resolution (\texttt{env} $>$ YAML $>$ default) keeps local
+development ergonomic while allowing production deployments to lock origins
+without rebuilding the image.
+
+Supply-chain integrity is enforced in the continuous-integration pipeline: both
+\texttt{pip-audit} and \texttt{bandit} now run in blocking mode on every pull
+request and on a weekly cron schedule (T5.7). Any new dependency advisory or
+HIGH-severity bandit finding fails the build before code reaches the main branch.
 
 % ────────────────────────────────────────────────────────────
 \section{Internal Design Patterns}
@@ -784,6 +823,23 @@ coupling to the surrounding class beyond that shared state. Applying the
 pattern at this granularity keeps classes navigable and avoids prematurely
 freezing the structure of code that is still evolving.
 
+\subsection{File-Size Budget and the T2D Refactor Series}
+\label{subsec:t2d-refactor}
+
+PROTEA enforces a 500-LOC budget on every source file, checked by
+\texttt{scripts/check\_smells.py} on each pull request. The T2D series applied
+this discipline retrospectively to the three heaviest operation files:
+\texttt{run\_cafa\_evaluation}, \texttt{scoring}, and \texttt{embeddings}.
+Extraction proceeded round by round: cohesive helpers were moved into sibling
+modules (\texttt{\_artifact\_io\_helpers}, \texttt{\_scoring\_streaming\_helpers},
+\texttt{\_embeddings\_predictions\_helpers}, and so on), with the caller retaining
+only the orchestration skeleton. The final state of
+\texttt{run\_cafa\_evaluation} after T2D.2 is approximately 200~LOC of pure
+orchestration delegating to purpose-named helper modules, each within budget
+and independently testable. This round-by-round extraction strategy, rather than
+a single large rewrite, kept CI green throughout and gave the test suite time to
+grow coverage alongside the new module boundaries.
+
 % ────────────────────────────────────────────────────────────
 \section{Design Decision Index}
 \label{sec:adr-index}
@@ -842,15 +898,21 @@ most consequential decisions).
   \item[GOPrediction features in JSONB (D3).] The extensible JSONB column on
     \texttt{GOPrediction} that carries per-candidate features without
     schema migrations is specified in D3.
-  \item[API versioning (D4).] The decision not to version the API path (no
-    \texttt{/v1/}) and to use contract stability through strict payload
-    validation instead is recorded in D4.
+  \item[API versioning (D4).] Universal \texttt{/v1/} path prefix on all public
+    routers (accepted 2026-05-06, implemented in T4.1). Future breaking changes
+    branch as \texttt{/v2/} without stranding \texttt{/v1/} consumers; deprecated
+    unprefixed aliases are retained for one release cycle and suppressed from
+    the OpenAPI schema. D4 is recorded here.
   \item[Frontend co-located in core (D5).] The Next.js application lives
     inside the PROTEA monorepo under \texttt{apps/web/} rather than in a
     separate repository (D5, D8, D13).
-  \item[Authentication scope (D6).] Single-instance, researcher-facing
-    deployment does not implement authentication at this stage; the decision
-    and its deferral conditions are in D6.
+  \item[Authentication and CORS (D6).] D6 (accepted 2026-05-06) specifies two
+    complementary mechanisms: Bearer API-key tokens for service-to-service calls
+    (LAFA containers, downstream pipelines) and Authentik-backed OIDC via an
+    \texttt{oauth2-proxy} reverse proxy for human users. Rate limiting is
+    provided by \texttt{slowapi}. The CORS allowlist described in
+    \cref{subsec:security-cors} is the deployment-time companion to D6,
+    configurable without an image rebuild.
   \item[Observability stack (D7).] OpenTelemetry traces, Prometheus metrics,
     Grafana dashboards, and Loki log aggregation are specified in D7.
   \item[\texttt{protea-method} distribution (D15).] The three distribution
