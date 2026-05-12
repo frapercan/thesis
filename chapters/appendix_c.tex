@@ -1,0 +1,280 @@
+\chapter{Architecture Decision Records: Decision Log}
+\label{app:adr-log}
+
+This appendix summarises the most consequential Architectural Decision Records
+(ADRs) for the PROTEA platform. Each record was written autonomously as
+implementation evidence accumulated and confirmed by the author on 2026-05-06.
+The full text of every record lives in \texttt{docs/source/adr/} inside the
+PROTEA repository; this log captures the rationale and the accepted resolution
+for the decisions that most directly shaped the platform's design and
+operational posture.
+
+ADRs are identified by two complementary numbering schemes. The legacy
+three-digit codes (ADR-001 through ADR-008) cover the earliest architectural
+choices and are referenced in Chapter~4. The \textbf{D-series} codes (D1
+onward) cover the post-F2 design decisions discussed in Chapters~4 and~5 and
+throughout this log. Both series are cross-referenced where they overlap.
+
+% ────────────────────────────────────────────────────────────
+\section{D4: API Versioning Strategy}
+\label{app:adr-d4}
+
+\paragraph{Context.}
+PROTEA exposes a REST API consumed by the front-end, by LAFA containers, and
+by downstream pipelines. As the API surface stabilised toward the F4 release,
+breaking changes required a versioning strategy that would not strand existing
+consumers.
+
+\paragraph{Decision accepted 2026-05-06.}
+A universal \texttt{/v1/} path prefix is applied to all routers. Future
+breaking changes branch under \texttt{/v2/} without removing \texttt{/v1/}
+endpoints. \texttt{Accept}-header negotiation is deferred unless a concrete
+need surfaces. Deprecated unprefixed mounts are kept for one release cycle to
+avoid breaking live clients (the \texttt{protea.ngrok.app} deployment and
+existing front-end fetchers) during the transition.
+
+\paragraph{Consequences.}
+Each API version ships its own OpenAPI document. Schemathesis runs against the
+version under test. Front-end and external clients update their base URLs once,
+at the \texttt{/v1/} transition, and are thereafter insulated from internal
+restructuring under the same major version.
+
+% ────────────────────────────────────────────────────────────
+\section{D6: Authentication Strategy}
+\label{app:adr-d6}
+
+\paragraph{Context.}
+Sensitive endpoints (job creation, dataset import, re-ranker model upload,
+evaluation triggers) were unauthenticated in the pre-F5 platform. Public cloud
+exposure, LAFA submission tooling, and external adopters required an
+authentication layer before the F5 phase could be declared open.
+
+\paragraph{Decision accepted 2026-05-06.}
+Two complementary mechanisms are deployed:
+
+\begin{itemize}
+  \item \textbf{API key} for service-to-service calls: an \texttt{ApiKey} ORM
+    table issues opaque tokens; callers present them as
+    \texttt{Authorization: Bearer \textlangle{}token\textrangle{}}.
+  \item \textbf{OIDC via reverse proxy} for human users: \textbf{Authentik}
+    acts as the identity provider behind \texttt{oauth2-proxy}, chosen for
+    its lighter operational footprint and simpler Docker-Compose setup
+    relative to Keycloak.
+\end{itemize}
+
+Rate limiting is enforced via \texttt{slowapi} on a per-endpoint basis.
+A CORS allowlist is maintained in the FastAPI middleware configuration.
+
+\paragraph{Implementation status.}
+Partial as of the thesis writing phase. Tasks T5.6a (API key ORM and
+middleware) and T5.6b (oauth2-proxy integration) carry the outstanding work.
+
+% ────────────────────────────────────────────────────────────
+\section{D7: Observability Stack}
+\label{app:adr-d7}
+
+\paragraph{Context.}
+PROTEA's pre-F-OPS observability relied on per-process log files and ad-hoc
+log statements. Multi-target deployment (cloud, HPC, airgap) and external
+adopters require distributed tracing, metrics with service-level objectives,
+and structured log aggregation.
+
+\paragraph{Decision accepted 2026-05-06.}
+A single canonical observability stack:
+
+\begin{itemize}
+  \item \textbf{Tracing}: OpenTelemetry (OTLP exporter) instrumenting FastAPI,
+    SQLAlchemy, and \texttt{pika}. The \texttt{traceparent} header is
+    propagated HTTP to queue to worker so that a single prediction is
+    visible end-to-end as one OTel trace.
+  \item \textbf{Metrics}: Prometheus client; a \texttt{/metrics} scrape
+    endpoint is exposed by the FastAPI process.
+  \item \textbf{Dashboards}: Grafana, with dashboard JSON committed under
+    \texttt{deploy/grafana/} so dashboards are version-controlled.
+  \item \textbf{Logs}: structured JSON via \texttt{python-json-logger},
+    shipped to Loki via the \texttt{loki-docker-driver} from container
+    stdout (no separate Promtail sidecar in the cloud target). Loki was
+    preferred over the ELK stack because it indexes labels rather than
+    full text, has a smaller memory footprint, and integrates with the
+    same Grafana instance already surfacing Prometheus dashboards.
+\end{itemize}
+
+Three service-level objectives are documented in \texttt{docs/SLOs.md};
+alert rules and per-alert runbooks are committed to the repository.
+
+\paragraph{Implementation status.}
+Tasks T5.1a (OTel instrumentation), T5.1b (Prometheus endpoint), T5.2
+(Grafana dashboards), T5.3 (Loki driver), and T5.4 (alert rules) carry the
+phased rollout; T5.1a and T5.1b are complete.
+
+% ────────────────────────────────────────────────────────────
+\section{D10: \texttt{schema\_sha} v2 Parallel Migration}
+\label{app:adr-d10}
+
+\paragraph{Context.}
+\texttt{schema\_sha} is the load-bearing fingerprint that prevents inference
+from running with a re-ranker booster trained against a different feature
+schema. Two independent definitions of \texttt{compute\_schema\_sha} (one in
+the lab, one in PROTEA) silently drifted until the parity bug surfaced during
+the v9 study on 2026-05-01 and caused a non-reproducible run.
+
+\paragraph{Decision accepted 2026-05-06.}
+A parallel \texttt{schema\_sha\_v2} column is added to both \texttt{Dataset}
+and \texttt{RerankerModel}. The column is backfilled from the canonical
+\texttt{protea\_contracts.compute\_schema\_sha} implementation. The production
+read path switches to \texttt{v2}; the \texttt{v1} column is retained until
+the F3 gate for audit purposes and then dropped. A regression test exposes the
+v1/v2 drift on historical rows rather than retroactively modifying them.
+
+\paragraph{Implementation gate.}
+Task T1.6 carries the Alembic migration and backfill. The migration is
+classified \texttt{requires\_human}: it must be rehearsed in staging (or a
+local-DB dry-run) and the backfill verified before any production rollout.
+This constraint was explicitly confirmed by the author on 2026-05-06.
+
+% ────────────────────────────────────────────────────────────
+\section{D15: \texttt{protea-method} Distribution Channels}
+\label{app:adr-d15}
+
+\paragraph{Context.}
+\texttt{protea-method} is the pure inference path (KNN, feature computation,
+re-ranker application). Because it has no FastAPI or SQLAlchemy dependencies
+it can ship independently of the full platform, addressing audiences that want
+the annotation method without operating the database and messaging
+infrastructure.
+
+\paragraph{Decision accepted.}
+Three distribution channels:
+
+\begin{enumerate}
+  \item \textbf{PyPI} public package (\texttt{pip install protea-method}).
+    The default install is torch-free; the gated-attention MIL head is
+    opt-in via the \texttt{[mil]} Poetry extra (see also D\,no\,extra below).
+  \item \textbf{Docker Hub} minimal image (\texttt{protea-method-runtime},
+    approximately 3 to 4\,GB with one canonical PLM and one default booster;
+    CLI: \texttt{protea-predict input.fasta output.tsv}).
+  \item \textbf{Companion engineering paper} covering the F-OPS pillars
+    (containers, multi-target deployment, observability, secrets management).
+\end{enumerate}
+
+LAFA submission containers (D23) build on top of
+\texttt{protea-method-runtime}, making D15 a prerequisite for the submission
+tooling.
+
+\paragraph{Distribution discipline.}
+The \textbf{opt-in \texttt{[mil]} extra} decision (recorded separately in the
+implementation log) keeps the default \texttt{pip install protea-method}
+torch-free: the gated-attention MIL head is only installed when the caller
+explicitly requests it. This avoids a several-gigabyte PyTorch dependency for
+users who only need the LightGBM re-ranker inference path.
+
+% ────────────────────────────────────────────────────────────
+\section{D25: HPC Operation Mode}
+\label{app:adr-d25}
+
+\paragraph{Context.}
+PROTEA must support HPC environments such as the BSC MareNostrum cluster.
+HPC sites typically forbid privileged Docker, may restrict outbound network
+access, and schedule workloads via SLURM. Two operation modes were
+considered:
+
+\begin{description}
+  \item[Mode B] Stateless PROTEA workers running on HPC nodes connect to a
+    PostgreSQL and RabbitMQ hosted in the cloud (LifeWatch or EOSC). No
+    persistent state on the HPC node itself.
+  \item[Mode C] Fully airgapped batch bundle: an Apptainer \texttt{.sif}
+    image with a snapshot database pre-loaded, the default booster, and a
+    single-node SLURM job requiring no outbound traffic.
+\end{description}
+
+\paragraph{Decision accepted 2026-05-06.}
+\textbf{Mode B is the primary HPC deployment target.} It is closer to the
+cloud architecture, reuses the same Postgres and RabbitMQ services, and
+requires no special airgap provisioning. Mode C (the airgapped \texttt{.sif}
+bundle, T-OPS.9) is \textbf{deferred per D25}: it becomes a post-defense
+item (F9), contingent on concrete engagement with a restricted-access HPC
+site. Mode B is sufficient for the thesis defense scope.
+
+% ────────────────────────────────────────────────────────────
+\section{D27: Image Registry}
+\label{app:adr-d27}
+
+\paragraph{Context.}
+Seven OCI images must be hosted in a registry visible from cloud deployments,
+from HPC tooling that pulls images before converting them to \texttt{.sif}
+(Apptainer), and from external adopters consuming
+\texttt{protea-method-runtime}.
+
+\paragraph{Decision accepted 2026-05-06.}
+\texttt{ghcr.io} (GitHub Container Registry) is the canonical registry.
+GitHub Actions push images on SemVer tag using the repository's own
+\texttt{GITHUB\_TOKEN}; no external registry credentials are required.
+\texttt{protea-method-runtime} is published with public visibility; internal
+images are org-scoped or private. Mirroring to Docker Hub is deferred until
+external pull rates demand it. Task T-OPS.8 implements the \texttt{docker.yml}
+workflow and is complete.
+
+% ────────────────────────────────────────────────────────────
+\section{D28: Secrets Management}
+\label{app:adr-d28}
+
+\paragraph{Context.}
+PostgreSQL credentials, MinIO keys, OIDC client secrets, optional external API
+tokens, and SSH keys cannot live in plaintext in any repository.
+Multi-target deployment (cloud, HPC, airgap) requires a single mechanism that
+works across all environments without per-environment custom solutions.
+
+\paragraph{Decision accepted 2026-05-06.}
+\texttt{sops} with \texttt{age} keys. Encrypted
+\texttt{secrets.\{dev,prod\}.enc.yaml} files are committed to the repository;
+CI decrypts with the age key stored as a \texttt{SOPS\_AGE\_KEY} GitHub
+repository secret. Two reasons capture the choice: (a) age keys are
+post-PGP ed25519, short, and revocation-chain-free; (b) sops is
+file-format-agnostic so the same workflow handles YAML, JSON, and
+\texttt{.env} files uniformly.
+
+\paragraph{Implementation status.}
+The scaffolding was committed alongside this ADR: \texttt{.sops.yaml},
+\texttt{secrets/secrets.dev.example.yaml} (plaintext schema template,
+tracked), and updated \texttt{.gitignore} rules that forbid the plaintext
+\texttt{secrets.\{dev,prod\}.yaml} while keeping encrypted forms and
+the example template tracked. The manual bootstrap step (generating an
+\texttt{age} keypair and populating the recipient placeholder in
+\texttt{.sops.yaml}) is classified \texttt{requires\_human} as task T-OPS.7.
+
+% ────────────────────────────────────────────────────────────
+\section{D29: Release Pipeline}
+\label{app:adr-d29}
+
+\paragraph{Context.}
+Seven repositories need independent SemVer release cadences. Releasing one
+repository must not break another; cross-repository integration testing is
+required on every tag. \texttt{protea-contracts} is the most disruptive
+package: version bumps propagate through all seven consumers.
+
+\paragraph{Decision accepted 2026-05-06.}
+Per-repository SemVer plus a cross-repository integration test on tag:
+
+\begin{itemize}
+  \item A SemVer tag (\texttt{vX.Y.Z}) in any repository dispatches a build,
+    an image push (D27), and an integration test that pulls the new image
+    together with the pinned versions of the other six repositories and runs
+    a smoke pipeline.
+  \item Failures block image promotion; the tag remains but the image is
+    held as a release candidate until the integration test passes.
+  \item A \texttt{protea-contracts} release triggers an automated re-pin PR
+    in all consumers.
+\end{itemize}
+
+\texttt{release-please} is used for version bumps and CHANGELOG generation,
+driven by Conventional Commits: \texttt{feat:} increments the minor version,
+\texttt{fix:} increments the patch, and a \texttt{BREAKING CHANGE:} footer or
+\texttt{feat!:} increments the major version. This differs from the originally
+considered \texttt{python-semantic-release}, which push-commits the version
+bump directly to \texttt{main} and would bypass branch protection.
+\texttt{release-please} instead opens a release PR, preserving the hard project
+rule that nothing lands on \texttt{main} without a passing PR review.
+
+The commit-message convention (Conventional Commits) was already enforced from
+the F2 phase onward, so the CHANGELOG generation requires no retroactive
+reformatting.
