@@ -61,7 +61,16 @@ PROTEA decomposes into four horizontal layers, illustrated in
     interfaces: HTTPS/JSON between the browser and the API, RabbitMQ for task
     dispatch, and PostgreSQL as the single source of truth. GPU inference is
     isolated in dedicated workers so that compute capacity can be scaled
-    independently of API throughput.%
+    independently of API throughput. Domain logic is factored across four plugin
+    packages discovered at startup via Python entry points:
+    \texttt{protea-method} (LAFA inference layer), \texttt{protea-backends}
+    (protein language model backends: ESM-2, ESM-C, ProstT5, ProtT5, Ankh),
+    \texttt{protea-runners} (experiment runners including LightGBM), and
+    \texttt{protea-sources} (annotation sources: GOA, QuickGO, UniProt, InterPro).
+    The offline reranker training laboratory (\texttt{protea-reranker-lab}) is
+    not part of this plugin graph; it consumes frozen datasets published by
+    PROTEA and feeds trained boosters back through the \texttt{/reranker-models}
+    import endpoint.%
   }
   \label{fig:architecture}
 \end{figure}
@@ -118,7 +127,7 @@ inference path likewise consumes the package without paying for the
 worker, queue and ORM machinery. Three direct consequences follow.
 
 First, plugin repositories can be developed, tested and released
-independently of \texttt{protea-core}. The four backends shipped today
+independently of \texttt{protea-core}. The five backend families shipped today
 (ESM-2 in three sizes, ESM-C, ProstT5, ProtT5, Ankh) live in a separate
 repository, are installable as \texttt{pip install
 protea-backends[<extra>]}, and ship per-backend Poetry extras that pull
@@ -165,8 +174,8 @@ fingerprint described below to be stable.
     \toprule
     \textbf{Extension} & \textbf{ABC} & \textbf{Discovery group} & \textbf{Examples} \\
     \midrule
-    Annotation sources    & \texttt{AnnotationSource}  & \texttt{protea.sources}  & GOA, QuickGO, UniProt \\
-    Embedding backends    & \texttt{EmbeddingBackend}  & \texttt{protea.backends} & ESM, T5, Ankh, ESM-C \\
+    Annotation sources    & \texttt{AnnotationSource}  & \texttt{protea.sources}  & GOA, QuickGO, UniProt, InterPro \\
+    Embedding backends    & \texttt{EmbeddingBackend}  & \texttt{protea.backends} & ESM-2, ESM-C, ProstT5, ProtT5, Ankh \\
     Experiment runners    & \texttt{ExperimentRunner}  & \texttt{protea.runners}  & KNN, baseline, LightGBM \\
     Per-candidate features & \texttt{FeatureRegistry}  & in-process registry      & alignment, taxonomy, anc2vec, emb-PCA \\
     \bottomrule
@@ -405,8 +414,9 @@ semantic purpose:
     \texttt{export\_research\_dataset}, which performs the GPU/RAM-intensive
     KNN pass, feature engineering, and artefact-store upload that produces
     the frozen \texttt{train.parquet} / \texttt{eval.parquet} dataset consumed
-    by the reranker lab (ADR D9). Re-ranker training itself no longer runs
-    inside PROTEA.
+    by the offline reranker laboratory. Re-ranker training no longer runs
+    inside PROTEA; the training function has been absorbed into
+    \texttt{protea-runners.lightgbm} as a plugin (ADR D1, D14).
   \item[\texttt{protea.embeddings}] Serialised embedding coordinator queue. At
     most one coordinator runs at a time; if the GPU is busy the coordinator
     raises \texttt{RetryLaterError} and is re-queued with a 60-second delay.
@@ -529,11 +539,15 @@ topology described above:
     for all sequences in the target set that do not yet have an embedding for the
     requested \texttt{EmbeddingConfig}; partitions them into fixed-size batches;
     publishes one operation message per batch to \texttt{protea.embeddings.batch}.
-  \item \textbf{Batch inference} (\texttt{compute\_embeddings\_batch}): loads the
-    protein language model on the configured device; tokenises the sequence
-    batch; runs a forward pass; mean-pools the per-residue representations into
-    a single vector per chunk; publishes the computed vectors to
-    \texttt{protea.embeddings.write}.
+  \item \textbf{Batch inference} (\texttt{compute\_embeddings\_batch}): resolves
+    the \texttt{EmbeddingConfig.model\_backend} key against the
+    \texttt{protea.backends} plugin registry; calls
+    \texttt{plugin.load\_model()} and \texttt{plugin.embed\_batch()} on the
+    discovered backend instance. Each backend plugin (ESM-2, ESM-C, ProstT5,
+    ProtT5, Ankh) owns its own torch/transformers imports and the device and
+    dtype orchestration; the core operation is agnostic of the model family.
+    The resulting float16 matrix is mean-pooled into one vector per chunk and
+    published to \texttt{protea.embeddings.write}.
   \item \textbf{Store} (\texttt{store\_embeddings}): receives the computed vectors
     and performs a bulk upsert into \texttt{SequenceEmbedding}.
 \end{enumerate}
@@ -806,10 +820,15 @@ most consequential decisions).
   \item[Sequence deduplication by MD5 (ADR-006).] The
     \texttt{Sequence}/\texttt{Protein} split described in
     \cref{subsec:dm-sequence} prevents redundant embedding computation.
-  \item[Contract-first lab integration (ADR-007, D9).] The narrow interface
-    between PROTEA and the reranker lab (frozen parquet datasets, booster
-    artefacts, and the shared \texttt{compute\_schema\_sha} helper) is
-    specified in ADR-007 and D9.
+  \item[Contract-first lab integration (ADR-007).] The narrow interface
+    between PROTEA and the offline reranker laboratory (frozen parquet datasets,
+    booster artefacts, and the shared \texttt{compute\_schema\_sha} helper) is
+    specified in ADR-007. ADR D9, which originally proposed shipping the lab as
+    a runtime dependency, has been superseded and declared obsolete: under
+    Structure C (ADR D1) the LightGBM training function lives in
+    \texttt{protea-runners.lightgbm} as a plugin, and the lab's only coupling
+    to the platform is the dataset-publishing contract (Dataset row and artefact
+    store URI).
   \item[cafaeval coverage fix (ADR-008).] An upstream bug in the cafaeval
     library that affected PK coverage reporting is documented here; the fix
     was contributed upstream and backported.

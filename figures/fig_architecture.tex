@@ -10,16 +10,16 @@
   \node[proteablock, minimum width=46mm] (web) {Next.js Web UI\\\footnotesize FASTA upload, job monitor, TSV export};
 
   % ── API layer ───────────────────────────────────────────────
-  \node[proteablock, minimum width=46mm, below=of web] (api) {FastAPI REST API\\\footnotesize 6 routers · session injection};
+  \node[proteablock, minimum width=46mm, below=of web] (api) {FastAPI REST API\\\footnotesize 17 routers · session injection};
 
   % ── Worker layer ────────────────────────────────────────────
   \node[proteablock, minimum width=22mm, below=14mm of api, xshift=-30mm] (qc) {QueueConsumer\\\footnotesize tracked jobs};
   \node[proteablock, minimum width=22mm, right=4mm of qc]                  (oc) {OperationConsumer\\\footnotesize batch sub-tasks};
-  \node[proteablock, minimum width=20mm, right=4mm of oc]                  (gpu) {GPU Inference\\\footnotesize ESMC / ProstT5 / Ankh};
+  \node[proteablock, minimum width=20mm, right=4mm of oc]                  (gpu) {GPU Inference\\\footnotesize ESM-2 / ESM-C / ProstT5 / ProtT5 / Ankh};
 
   % ── Data layer ──────────────────────────────────────────────
   \node[proteastore, below=14mm of qc, xshift=10mm]    (pg)  {PostgreSQL 16\\\footnotesize + pgvector};
-  \node[proteastore, right=14mm of pg]                 (mq)  {RabbitMQ\\\footnotesize 7 queues};
+  \node[proteastore, right=14mm of pg]                 (mq)  {RabbitMQ\\\footnotesize 10 queues};
 
   % ── Layer brackets ──────────────────────────────────────────
   \begin{scope}[on background layer]
