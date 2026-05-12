@@ -8,37 +8,50 @@ yet the ecosystem of tools for doing so is fragmented across notebooks and one-o
 scripts, and most published benchmarks conflate training and test annotations through
 temporal leakage, inflating reported performance.
 
-This doctoral thesis presents \textbf{PROTEA} (\textit{PROtein funcTional annotation
-framEwork and plAtform}), designed and maintained by Francisco Miguel P\'{e}rez
-Canales, an open-source distributed platform that automates the full pipeline from raw
-protein sequence to structured GO predictions. PROTEA couples protein language model
-(PLM) embeddings from eight backends (including ESM-2, ESM-C, ProstT5, ProtT5, Ankh
-and ESM-3) with approximate $k$-nearest-neighbour search over 527,000 reviewed
-UniProt sequences and a contracts-first plugin architecture spanning seven code
-repositories, so that new backends, annotation sources and ranking methods can be
-added without modifying the core platform.
+This doctoral thesis presents \textbf{PROTEA} (\textit{PROtein funcTional Embedding-based
+Annotation}), designed and maintained as author and sole maintainer by Francisco Miguel
+P\'{e}rez Canales, an open-source distributed platform that automates the full pipeline
+from raw protein sequence to structured GO predictions. PROTEA couples protein language
+model (PLM) embeddings from eight backends (including ESM-2, ESM-C, ProstT5, ProtT5,
+Ankh and ESM-3) with approximate $k$-nearest-neighbour search over 527,000 reviewed
+UniProt sequences. A contracts-first plugin architecture spans seven satellite
+repositories (\texttt{protea-contracts}, \texttt{protea-method}, \texttt{protea-sources},
+\texttt{protea-runners}, \texttt{protea-backends}, \texttt{cafaeval-protea}, and
+\texttt{protea-reranker-lab}) wired to the core via Python \texttt{entry\_points}, so
+that new backends, annotation sources and ranking methods can be added without
+modifying the core platform. The platform ships five deployment modes covering
+Docker\,Compose development, Docker\,Compose bundle, Docker Swarm, Helm/Kubernetes, and
+SLURM, and exposes OpenTelemetry-instrumented observability across FastAPI, SQLAlchemy
+and pika.
 
 Prediction quality is improved by a LightGBM re-ranker trained on a 52-feature schema
-combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment
-statistics, NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings
-(anc2vec). Training follows a leakage-free temporal holdout over twelve consecutive
-GOA releases. Under this protocol, the re-ranker raises NK-BPO $F_{\max}$ from 0.431
-to 0.599 relative to the embedding-only baseline, a gain that disappears almost
-entirely when temporal leakage is present, underscoring the importance of rigorous
-evaluation methodology.
+combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment statistics,
+NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings (anc2vec).
+Training follows a leakage-free temporal holdout over twelve consecutive GOA releases.
+Under this protocol a $3^{3}$ hyperparameter grid search on the NK-BPO task yields
+$F_{\max}$ in the range 0.4386--0.4669, and cafaeval re-validation of the v9 study
+(three-seed replication, average lab $F_{\max}$ 0.2881) returns 0.5427, exceeding the
+historical hybrid-picker ceiling of 0.4400. Feature-ablation experiments identify
+\texttt{anc2vec\_query} as the dominant contributor, with a leave-one-family-out mean
+$\Delta F_{\max}$ of $+0.1449$. Bootstrap confidence intervals against the KNN baseline
+show $p < 0.0001$ across all nine ablation cells, with per-cell deltas ranging from
+$+0.03$ to $+0.43$. These gains collapse almost entirely when temporal leakage is
+introduced, underscoring the importance of rigorous evaluation methodology.
 
-The experimental work contributed to a team placement of second in CAFA~6, validating
-the approach in a blinded international benchmark. Three pre-built containers were
+The experimental work was a component of a team placement of second in CAFA~6,
+validating the approach in a blinded international benchmark; PROTEA is the
+post-CAFA productisation, not the submission entrant. Three pre-built containers were
 submitted to the LAFA public benchmark, demonstrating deployment across development,
 cloud, HPC (Apptainer) and airgapped environments.
 
 The doctoral contribution is threefold: (1) PROTEA as a reproducible, operationally
-auditable platform; (2) a leakage-free reranker pipeline that quantifies the true lift
-of feature engineering over PLM embeddings; (3) the LAFA v2 method submission as an
-independently verifiable performance reference.
+auditable platform with a seven-repository plugin ecosystem and five deployment modes;
+(2) a leakage-free reranker pipeline that quantifies the true lift of feature
+engineering over PLM embeddings; (3) the LAFA v2 method submission as an independently
+verifiable performance reference.
 
 \bigskip
 \noindent\textbf{Keywords:} protein function prediction, gene ontology, protein
 language models, sequence embeddings, nearest-neighbour search, learning-to-rank,
 LightGBM, distributed systems, reproducibility, container deployment, bioinformatics
-infrastructure.
+infrastructure, OpenTelemetry.
