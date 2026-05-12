@@ -18,23 +18,32 @@ All endpoints are prefixed with the base URL of the FastAPI server
   \item[\texttt{GET /jobs}] List jobs, optionally filtered by \texttt{status}
     and \texttt{operation} query parameters.
   \item[\texttt{GET /jobs/\{id\}}] Retrieve a single job by UUID.
-  \item[\texttt{GET /jobs/\{id\}/events}] Stream the structured event log for
-    a job as newline-delimited JSON.
+  \item[\texttt{GET /jobs/\{id\}/events}] List the structured event log for a
+    job, ordered by timestamp.
   \item[\texttt{POST /jobs/\{id\}/cancel}] Request cancellation of a queued or
     running job.
+  \item[\texttt{DELETE /jobs/\{id\}}] Delete a finished job and its event log.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
 \section{Proteins and Sequences}
 \label{app:api-proteins}
 
+Protein ingestion and metadata refresh are dispatched through the generic
+\texttt{POST /jobs} endpoint with operation names \texttt{insert\_proteins} or
+\texttt{fetch\_uniprot\_metadata} (\cref{app:api-jobs}); the proteins router
+itself only exposes read endpoints.
+
 \begin{description}
-  \item[\texttt{POST /proteins/insert}] Enqueue an \texttt{insert\_proteins} job
-    for a list of UniProt accessions or a taxonomy query.
-  \item[\texttt{POST /proteins/metadata}] Enqueue a \texttt{fetch\_uniprot\_metadata}
-    job to refresh functional annotation data.
-  \item[\texttt{GET /proteins}] List proteins stored in the database with optional
-    accession filter.
+  \item[\texttt{GET /proteins/stats}] Aggregate protein statistics
+    (totals, reviewed/unreviewed split, taxonomy counts).
+  \item[\texttt{GET /proteins}] List proteins with optional \texttt{search}
+    (substring on accession or entry name) and \texttt{reviewed}
+    (Swiss-Prot vs.\ TrEMBL) query parameters.
+  \item[\texttt{GET /proteins/\{accession\}}] Retrieve a single protein
+    record by UniProt accession.
+  \item[\texttt{GET /proteins/\{accession\}/annotations}] List GO annotations
+    for a protein, optionally scoped to an \texttt{annotation\_set\_id}.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
