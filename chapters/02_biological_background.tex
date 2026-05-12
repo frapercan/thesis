@@ -1,47 +1,111 @@
 \chapter{Biological Background}
 \label{chap:background}
 
-This chapter provides the biological foundation required to understand the
-problem that PROTEA addresses. Readers with a background in molecular biology
-may skip directly to \cref{chap:related}.
+This chapter provides the biological and computational foundation required to
+understand the protein function annotation problem that PROTEA addresses.
+The presentation moves from first principles (proteins, sequences, structure)
+through the formalised vocabulary for function (Gene Ontology), the practical
+bottleneck of curation, classical alignment-based approaches and their limits
+in the twilight zone, and finally to protein language models as the
+embedding substrate that makes large-scale automated annotation feasible.
+Readers with a strong background in structural bioinformatics may skip to
+\cref{sec:gene-ontology}; readers already familiar with the GO may proceed
+to \cref{sec:plm}.
 
 % ────────────────────────────────────────────────────────────
-\section{Proteins: Structure and Function}
+\section{Proteins: Sequence, Structure, and Function}
 \label{sec:proteins}
 
-Proteins are macromolecules composed of chains of amino acids linked by peptide
-bonds. The linear sequence of amino acids, encoded by the genome, is referred
-to as the \textit{primary structure}. This sequence folds, driven by
-thermodynamic forces, into a specific three-dimensional conformation that
-determines the protein's biological activity.
+Proteins are the principal molecular effectors of biology. Every cellular
+process --- catalysis, signal transduction, mechanical support, molecular
+transport, immune defence --- is carried out by proteins acting alone or in
+complexes. Understanding \textit{what a protein does} is therefore
+fundamental to every branch of biology and medicine.
 
-Protein functions are extraordinarily diverse: enzymes catalyse chemical
-reactions, structural proteins provide mechanical support, signalling proteins
-relay information between cells, and transport proteins shuttle molecules across
-membranes. Understanding \textit{what} a protein does (its molecular function,
-the biological process it participates in, and the cellular compartment where it
-operates) is fundamental to biology and medicine.
-
-\subsection{Amino Acids and the Sequence Space}
+\subsection{Chemical Composition}
 \label{subsec:amino-acids}
 
-Twenty standard amino acids, differing in their side-chain chemistry, constitute
-the alphabet of protein sequences. A protein of $n$ residues can in principle
-take $20^n$ distinct sequences, an astronomically large space. Yet the sequences
-that fold into stable, functional structures represent a tiny, structured subset
-of this space, one in which similar sequences tend to adopt similar folds and
-perform similar functions.
+A protein is a linear polymer of \textit{amino acid} residues joined by
+peptide bonds. The twenty standard amino acids share a common backbone
+(an $\alpha$-carbon flanked by an amino group and a carboxyl group) but
+differ in their side-chain chemistry, which ranges from non-polar aliphatic
+(alanine, valine, leucine, isoleucine) through aromatic (phenylalanine,
+tyrosine, tryptophan) to polar (serine, threonine, asparagine, glutamine),
+positively charged (lysine, arginine, histidine), negatively charged
+(aspartate, glutamate), and chemically special (cysteine forms disulphide
+bonds; proline introduces a rigid kink; glycine has no side chain and
+confers flexibility).
 
-\subsection{Sequence Identity and Homology}
-\label{subsec:homology}
+This 20-letter alphabet defines the \textit{primary structure} of a protein:
+its amino acid sequence. A protein of $n$ residues can in principle
+occupy $20^n$ distinct sequences, an astronomically large combinatorial space.
+The sequences that fold into stable, functional structures occupy a tiny and
+geometrically structured subset of this space, one in which local sequence
+patterns constrain the global fold and the functional residues are often
+spatially concentrated in active sites or binding pockets.
 
-Two proteins are said to be \textit{homologous} if they share a common
-evolutionary ancestor. Homology is typically inferred from sequence similarity:
-proteins with high pairwise sequence identity are almost always homologous and
-usually perform the same function. As sequence identity drops below roughly
-30\,\%, however, the relationship between similarity and function becomes
-ambiguous: proteins may be structurally similar yet functionally diverged, or
-functionally convergent with unrelated folds.
+\subsection{From Sequence to Structure}
+\label{subsec:folding}
+
+The primary sequence encodes all the information necessary for a protein to
+adopt its native three-dimensional conformation, a result established by
+Anfinsen's renaturation experiments on ribonuclease~A in the early 1960s
+\cite{anfinsen1973principles}. This \textit{thermodynamic hypothesis} states
+that the native fold corresponds to the global free-energy minimum of the
+polypeptide in its physiological environment, so that the sequence uniquely
+determines the structure under given conditions.
+
+The spatial organisation of a protein is described at four levels:
+
+\begin{description}
+  \item[Primary structure] The amino acid sequence itself.
+  \item[Secondary structure] Local regularities arising from backbone
+    hydrogen bonds: $\alpha$-helices, in which a residue donates a hydrogen
+    bond to the residue four positions ahead, and $\beta$-strands, which
+    associate laterally into sheets. Loops and turns connect these elements.
+  \item[Tertiary structure] The overall three-dimensional fold of a single
+    polypeptide chain, determined by packing of secondary structure elements,
+    hydrophobic collapse of the core, and stabilising interactions (disulphide
+    bonds, salt bridges, van der Waals contacts).
+  \item[Quaternary structure] The assembly of multiple polypeptide chains
+    (subunits) into a functional complex; haemoglobin's four-subunit $\alpha_2
+    \beta_2$ tetramer is a classic example.
+\end{description}
+
+The sequence-structure-function paradigm holds that the sequence determines the
+structure (Anfinsen), and the structure determines the function. This
+chain of causality is the conceptual anchor for all
+computation-based approaches to function prediction: if two proteins share
+similar sequences, they likely share similar folds, which in turn suggests
+similar functions.
+
+\subsection{The AlphaFold Revolution}
+\label{subsec:alphafold}
+
+For decades, determining a protein structure experimentally (by X-ray
+crystallography, NMR, or cryo-electron microscopy) was the rate-limiting step
+in structural biology. In 2021, DeepMind's AlphaFold~2
+\cite{jumper2021alphafold} achieved near-experimental accuracy on the
+Critical Assessment of Protein Structure Prediction (CASP14) benchmark,
+effectively solving the protein structure prediction problem for most
+single-domain proteins. The subsequent AlphaFold Protein Structure Database
+(AFDB) \cite{varadi2022afdb} released predicted structures for over 200
+million proteins from UniProt, providing structural information at a scale
+that experimental determination cannot approach.
+
+AlphaFold~2 uses multiple sequence alignments (MSAs) as evolutionary context,
+feeding coevolution signals into a novel attention mechanism (the Evoformer)
+before iterative structural refinement. The key insight is that correlated
+mutations across homologous sequences encode contact information, and a deep
+network can decode these correlations into accurate 3D coordinates.
+
+For PROTEA the AlphaFold era is relevant for two reasons. First, the
+availability of predicted structures has expanded structure-informed function
+prediction beyond the set of experimentally characterised proteins. Second,
+and more immediately relevant, protein language models trained on sequence
+corpora have been shown to implicitly recapitulate structural signals
+(\cref{sec:plm}), making structure-derived embeddings largely substitutable
+by sequence-only PLM embeddings for the downstream annotation transfer task.
 
 % ────────────────────────────────────────────────────────────
 \section{Protein Databases}
@@ -51,190 +115,516 @@ functionally convergent with unrelated folds.
 \label{subsec:uniprot}
 
 \gls{uniprot} is the central repository for protein sequence and functional
-information~\cite{uniprot2023}. It is divided into two sections:
+information \cite{uniprot2023}. It is divided into two sections:
 
 \begin{description}
-  \item[\gls{swissprot}] A manually curated, high-quality database. Each entry
-    has been reviewed by expert annotators and contains experimental or
-    computationally inferred functional annotations, with explicit evidence codes.
+  \item[\gls{swissprot}] A manually curated, high-quality database. Each
+    entry has been reviewed by expert annotators and contains experimental
+    or computationally inferred functional annotations with explicit evidence
+    codes. As of 2024, Swiss-Prot contains approximately 570,000 entries.
   \item[\gls{trembl}] An automatically annotated, computationally analysed
-    database derived from genome translations. It is several orders of magnitude
-    larger than Swiss-Prot but of lower average annotation quality.
+    database derived from genome translations. TrEMBL is several orders of
+    magnitude larger (over 250 million sequences as of 2024) but of lower
+    average annotation quality; most entries carry only
+    \texttt{IEA} (Inferred from Electronic Annotation) evidence codes.
 \end{description}
 
 Each protein in UniProt is identified by a stable accession number. Canonical
-isoforms are represented by a bare accession (e.g.\ \texttt{P12345}); alternative
-splicing variants are denoted \texttt{P12345-2}, \texttt{P12345-3}, and so on.
+isoforms are represented by a bare accession (e.g.\ \texttt{P12345});
+alternative splicing variants are denoted \texttt{P12345-2},
+\texttt{P12345-3}, and so on.
+
+UniProt-GOA is the annotation dataset derived from UniProt, providing
+the mapping between UniProt accessions and Gene Ontology terms. It is the
+principal source of training labels for supervised function prediction
+systems, including PROTEA. The scale asymmetry between Swiss-Prot and
+TrEMBL is fundamental to the annotation bottleneck discussed in
+\cref{sec:annotation-bottleneck}.
 
 \subsection{Protein Data Bank}
 \label{subsec:pdb}
 
-The \gls{pdb} archives three-dimensional structures of biological macromolecules
-determined experimentally by X-ray crystallography, cryo-electron microscopy, or
-NMR~\cite{berman2000pdb}. Although PROTEA operates primarily on sequences, PDB
-structures are an important source of ground-truth functional information and are
-used indirectly through UniProt cross-references.
+The \gls{pdb} archives three-dimensional structures of biological
+macromolecules determined experimentally by X-ray crystallography,
+cryo-electron microscopy, or NMR \cite{berman2000pdb}. Although PROTEA
+operates primarily on sequences, PDB structures are an important source of
+ground-truth functional information and are used indirectly through UniProt
+cross-references. Structural homologues in the PDB can carry experimental
+annotations that are transferred to uncharacterised queries via either
+alignment-based or embedding-based methods.
 
 % ────────────────────────────────────────────────────────────
 \section{The Gene Ontology}
 \label{sec:gene-ontology}
 
-\subsection{Overview}
+\subsection{Motivation and Overview}
 \label{subsec:go-overview}
 
-The \gls{go} is a standardised, species-independent controlled vocabulary for
-describing gene product attributes~\cite{ashburner2000go,goconsortium2023}.
-It is structured as three independent \glspl{dag}, one for each of the three
-top-level \textit{aspects}:
+Before the Gene Ontology existed, functional annotations were scattered across
+organism-specific databases, each with its own vocabulary. A catalytic
+activity called ``kinase'' in one database might appear as
+``phosphotransferase'' in another; cross-species comparison required manual
+reconciliation. The Gene Ontology Consortium was formed in 1998 to solve
+this problem by providing a single, species-independent, formally structured
+vocabulary for describing gene product attributes
+\cite{ashburner2000go,goconsortium2023}.
+
+The GO is structured as three independent \glspl{dag}, one for each of the
+three top-level \textit{aspects}:
 
 \begin{description}
   \item[\gls{mf} (GO:0003674)] The biochemical activity of the gene product,
     independent of where or when it occurs (e.g.\ \textit{ATP binding},
-    \textit{serine-type endopeptidase activity}).
+    \textit{serine-type endopeptidase activity}). MFO terms describe
+    \textit{what} the protein does at the molecular level.
   \item[\gls{bp} (GO:0008150)] The larger biological programme to which the
-    activity contributes (e.g.\ \textit{apoptotic process},
-    \textit{DNA repair}).
-  \item[\gls{cc} (GO:0005575)] The place in the cell where the gene product
-    is active (e.g.\ \textit{nucleus}, \textit{plasma membrane}).
+    molecular activity contributes (e.g.\ \textit{apoptotic process},
+    \textit{DNA repair}, \textit{carbohydrate metabolic process}). BPO terms
+    are typically more specific to cellular context than MFO terms and often
+    have hundreds of ancestors up to the root.
+  \item[\gls{cc} (GO:0005575)] The location in the cell where the gene
+    product is active or where it can be found (e.g.\ \textit{nucleus},
+    \textit{plasma membrane}, \textit{extracellular matrix}). CCO terms form
+    the shallowest hierarchy of the three aspects.
 \end{description}
 
-Terms within each aspect are connected by \textit{is-a} and \textit{part-of}
-relationships, forming a hierarchy from broad root terms to highly specific
-leaves. A protein annotated with a term is implicitly annotated with all of its
-ancestors up to the root: the \textit{true path rule}.
+The three aspects share no terms and have separate root nodes; a gene product
+is annotated independently in each aspect in which it has known function.
+As of the 2024 release, the ontology contains approximately 43,000 terms
+across the three aspects, with BPO being the largest
+($\approx$29,000 terms), MFO intermediate ($\approx$11,000), and CCO the
+smallest ($\approx$4,000).
+
+\subsection{DAG Structure and the True Path Rule}
+\label{subsec:go-dag}
+
+Within each aspect, GO terms are connected by typed relations. The two most
+common are:
+
+\begin{itemize}
+  \item \textit{is-a}: a term is a more specific case of its parent. For
+    example, \textit{serine-type endopeptidase activity} is-a
+    \textit{endopeptidase activity} is-a \textit{peptidase activity} is-a
+    \textit{hydrolase activity} is-a \textit{catalytic activity}.
+  \item \textit{part-of}: a term represents a component or subprocess of
+    its parent. For example, \textit{G1/S transition of mitotic cell cycle}
+    part-of \textit{mitotic cell cycle}.
+\end{itemize}
+
+Additional relations (\textit{regulates}, \textit{positively regulates},
+\textit{negatively regulates}, \textit{has part}) appear in more recent
+versions of the ontology, primarily in the BPO aspect.
+
+The fundamental consequence of this DAG structure is the
+\textit{true path rule}: if a gene product is annotated with a GO term $t$,
+it is implicitly annotated with all ancestors of $t$ up to the root of the
+corresponding aspect. This propagation rule is universally applied when
+constructing annotation datasets for function prediction experiments and
+when evaluating predicted annotations against ground truth
+\cite{clark2013information}.
+
+The true path rule has important implications for evaluation. Because
+predicting a specific leaf term is strictly harder than predicting its
+ancestor, methods that predict at the leaf level can be rewarded or
+penalised differently depending on how the evaluation metric treats
+the ancestor-descendant hierarchy. The Fmax metric used in CAFA
+\cite{radivojac2013cafa1} aggregates precision and recall over all propagated
+annotations, handling this correctly.
 
 \subsection{Evidence Codes}
 \label{subsec:evidence-codes}
 
-Every GO annotation carries an evidence code that indicates the type of support
-for the association. Codes range from experimental (e.g.\ \texttt{EXP},
-\texttt{IDA}, \texttt{IMP}) to computationally inferred (\texttt{ISS}, \texttt{IEA})
-and author-stated (\texttt{TAS}, \texttt{NAS}). Experimental evidence codes are
-the gold standard; \texttt{IEA} (Inferred from Electronic Annotation) is the most
-common but least reliable.
+Every GO annotation is tagged with an evidence code that indicates the type
+of support for the association. Evidence codes fall into three broad classes:
+
+\paragraph{Experimental evidence codes.} These are the gold standard,
+signifying that the annotation was supported by direct experimental
+observation of the gene product:
+
+\begin{itemize}
+  \item \texttt{EXP}: Inferred from Experiment (general).
+  \item \texttt{IDA}: Inferred from Direct Assay.
+  \item \texttt{IPI}: Inferred from Physical Interaction.
+  \item \texttt{IMP}: Inferred from Mutant Phenotype.
+  \item \texttt{IGI}: Inferred from Genetic Interaction.
+  \item \texttt{IEP}: Inferred from Expression Pattern.
+  \item \texttt{HTP}: Inferred from High Throughput Experiment.
+\end{itemize}
+
+\paragraph{Computational analysis codes.} These codes indicate that the
+annotation was derived computationally rather than from direct experiment:
+
+\begin{itemize}
+  \item \texttt{ISS}: Inferred from Sequence or Structural Similarity.
+  \item \texttt{ISO}: Inferred from Sequence Orthology.
+  \item \texttt{ISA}: Inferred from Sequence Alignment.
+  \item \texttt{ISM}: Inferred from Sequence Model.
+  \item \texttt{IGC}: Inferred from Genomic Context.
+  \item \texttt{IBA}: Inferred from Biological aspect of Ancestor
+    (PANTHER-based phylogenetic annotations).
+  \item \texttt{IEA}: Inferred from Electronic Annotation (see below).
+\end{itemize}
+
+\paragraph{Author-stated codes.} \texttt{TAS} (Traceable Author Statement)
+and \texttt{NAS} (Non-traceable Author Statement) indicate annotations
+extracted from published papers without experimental evidence in the strict
+sense.
+
+\paragraph{The IEA class in depth.}
+\texttt{IEA} (Inferred from Electronic Annotation) deserves particular
+attention because it accounts for the large majority of GO annotations in
+UniProt-GOA. IEA annotations are generated by automated pipelines that
+transfer annotations from characterised homologues without human review. The
+principal sources of IEA annotations include:
+
+\begin{itemize}
+  \item \textbf{UniProt rule-based annotation:} HAMAP, RuleBase, and
+    SAAS systems apply expert-curated rules based on sequence family
+    membership.
+  \item \textbf{InterPro/Pfam mapping:} Domain matches to Pfam
+    \cite{mistry2021pfam} and other InterPro \cite{blum2021interpro} member
+    databases are associated with GO terms via manually curated cross-references.
+  \item \textbf{Ensembl Compara orthology:} GO terms are propagated from
+    experimentally characterised orthologues in model organisms.
+\end{itemize}
+
+Because IEA annotations are not subject to manual review, they are routinely
+excluded from CAFA benchmarks, which restrict ground truth to experimental
+evidence codes. The consequence is a sharp contrast in database coverage:
+while TrEMBL contains over 250 million sequences, only a few million of these
+carry experimental annotations, and the rest are annotated either by IEA
+or not at all.
 
 \subsection{Ontology Versioning}
 \label{subsec:go-versioning}
 
-The GO is actively maintained and released regularly in \gls{obo} format.
-New terms are added, obsolete terms are deprecated, and relationships are
-refined with each release. Reproducible research therefore requires that
-analyses record which ontology version was used. PROTEA stores each imported
-release as an \texttt{OntologySnapshot} and associates all annotation sets
-and predictions with a specific snapshot.
+The GO is actively maintained and released regularly in \gls{obo} and OWL
+format. New terms are added as biological knowledge expands, obsolete terms
+are deprecated and replaced, and relationship types are refined. Reproducible
+research requires recording which ontology version was used. PROTEA stores
+each imported release as an \texttt{OntologySnapshot} entity and associates
+all annotation sets and predictions with a specific snapshot, ensuring that
+evaluation metrics are always computed against the same DAG.
 
 % ────────────────────────────────────────────────────────────
-\section{Sequence Alignment}
+\section{The Annotation Bottleneck}
+\label{sec:annotation-bottleneck}
+
+The gap between the number of known protein sequences and the number of
+experimentally characterised proteins is enormous and widening. High-throughput
+sequencing has made it trivial to identify millions of new protein sequences
+from environmental samples, single-cell transcriptomics, and metagenomics; the
+cost of adding a sequence to a database is effectively zero. The cost of
+determining its function experimentally, by contrast, involves labour-intensive
+biochemical assays, targeted genetic experiments, or X-ray crystallography,
+and scales linearly with the number of proteins to be characterised.
+
+As of 2024, UniProtKB contains over 250 million sequences, but Swiss-Prot
+covers only approximately 570,000 manually reviewed entries. Even within
+Swiss-Prot, the fraction of entries with at least one experimental GO
+annotation in a given aspect is far below 100\,\%: many entries carry only
+ISS or IEA codes. For TrEMBL, the situation is starker: the overwhelming
+majority of entries have no experimentally verified functional annotation.
+
+The bottleneck has direct consequences for biology and medicine:
+
+\begin{itemize}
+  \item \textbf{Metagenomics:} Large-scale environmental sequencing
+    projects (the Ocean Microbiome Project, the Earth Microbiome Project)
+    generate millions of novel protein families, most of which remain
+    functionally unknown.
+  \item \textbf{Drug discovery:} Novel disease targets require functional
+    characterisation before they can be therapeutically exploited. Unannotated
+    proteins from pathogen proteomes or disease-specific expression profiles
+    cannot be prioritised without some functional signal.
+  \item \textbf{Evolutionary biology:} Understanding the functional
+    diversification of protein families requires dense annotation across
+    taxonomic lineages, which experimental methods cannot provide at scale.
+\end{itemize}
+
+Computational function prediction exists to alleviate this bottleneck. The
+CAFA challenges \cite{radivojac2013cafa1,jiang2016cafa2,zhou2019cafa3}
+provide a community benchmarking framework that measures how well automated
+methods predict the experimental annotations that were withheld from
+participating teams. PROTEA's design and evaluation are framed within this
+CAFA context.
+
+% ────────────────────────────────────────────────────────────
+\section{Sequence Alignment and Its Limits}
 \label{sec:alignment}
 
-Pairwise sequence alignment is the classical approach to measuring sequence
-similarity. Two algorithms are central to this thesis:
+The classical approach to inferring function from sequence rests on the
+principle that similar sequences imply shared ancestry (homology), and
+homologous proteins typically perform the same function. Sequence alignment
+algorithms formalise sequence similarity as an optimisation problem.
+
+\subsection{Pairwise Alignment Algorithms}
+\label{subsec:pairwise-alignment}
+
+Two algorithms form the foundation of pairwise alignment:
 
 \begin{description}
   \item[Needleman-Wunsch (\gls{nw})] A global alignment algorithm that aligns
-    two sequences end-to-end, maximising a cumulative substitution score minus
-    gap penalties~\cite{needleman1970general}. It is suitable for comparing
-    proteins of similar length.
+    two sequences end-to-end, maximising a cumulative substitution score
+    minus gap penalties \cite{needleman1970general}. Needleman-Wunsch is
+    appropriate for proteins of similar length where the alignment is expected
+    to span the full sequence.
   \item[Smith-Waterman (\gls{sw})] A local alignment algorithm that finds the
-    highest-scoring contiguous aligned region, ignoring the tails of each
-    sequence~\cite{smith1981identification}. It is more appropriate when one
-    sequence is a domain or fragment of the other.
+    highest-scoring contiguous aligned region without penalising the
+    unaligned tails \cite{smith1981identification}. Smith-Waterman is more
+    appropriate when one sequence is a domain or fragment of the other, or
+    when only one functional domain is conserved.
 \end{description}
 
-Both algorithms use a \textit{substitution matrix} (typically BLOSUM62 for
-protein sequences~\cite{henikoff1992amino}) to score residue substitutions
-based on their observed frequency in alignments of related proteins.
+Both algorithms use a \textit{substitution matrix} to score residue pairs in
+the alignment. BLOSUM62 \cite{henikoff1992amino} is the most widely used
+matrix for protein sequences; it is derived from the observed substitution
+frequencies in conserved blocks (ungapped alignments) across protein families
+with $\le 62$\,\% pairwise identity, capturing the empirical exchangeability
+of amino acids in an evolutionary context.
+
+\subsection{Database Search and Iterative Profile Methods}
+\label{subsec:blast-hmmer}
+
+Direct pairwise alignment of a query against a database of millions of
+sequences is computationally prohibitive. BLAST \cite{altschul1990blast}
+solves this by a heuristic: it first finds short exact matches (seeds) and
+then extends these into high-scoring segment pairs (HSPs), discarding
+sequence pairs with no seed before investing in full alignment. The trade-off
+is a small loss in sensitivity relative to Smith-Waterman.
+
+For more distant homologues, iterative profile methods significantly
+outperform single-sequence queries. PSI-BLAST \cite{altschul1997psiblast}
+constructs a position-specific scoring matrix (PSSM) from the hits of a
+first BLAST round and uses it in subsequent rounds, progressively detecting
+more divergent relatives. Profile Hidden Markov Models (HMMs) as implemented
+in HMMER \cite{eddy2011hmmer} generalise this idea to a full probabilistic
+framework: multiple sequence alignments of known protein families are
+compiled into HMM profiles, and a query is scored against all profiles in a
+database. Profile-vs-profile comparison (HHpred) achieves even greater
+sensitivity. Park et al.\ \cite{park1998sequence} showed that multiple-sequence
+profiles detect roughly three times as many remote homologues as pairwise
+methods.
+
+\subsection{The Twilight Zone of Sequence Similarity}
+\label{subsec:twilight}
+
+Despite their power, alignment-based methods break down at low sequence
+identity. Rost's seminal analysis \cite{rost1999twilight} established that
+below approximately $25$--$30$\,\% pairwise identity the relationship between
+sequence similarity and structural (and functional) similarity becomes
+statistically unreliable: proteins in this range may be structurally similar
+yet functionally diverged (paralogues recruited to new roles), or functionally
+similar yet structurally distinct (convergent evolution). This region is
+known as the \textit{twilight zone} of sequence alignments.
+
+The twilight zone is not merely a theoretical concern. A substantial fraction
+of the proteins targeted by CAFA challenges have best-hit alignment identities
+below $30$\,\% to any Swiss-Prot entry carrying an experimental annotation.
+For these proteins, alignment-based annotation transfer is unreliable, and
+methods that capture higher-order evolutionary and functional signal are
+necessary.
+
+\paragraph{Beyond the twilight zone.}
+At identity below $\approx 20$\,\%, alignment-based methods provide essentially
+no signal; this region is sometimes called the \textit{midnight zone}. In
+practice, tools such as HHpred can detect structural homologues even at
+near-zero sequence identity by comparing profile-to-profile, but at the cost
+of substantial computational effort and with a much higher false-positive rate.
+
+The twilight and midnight zones define the target domain for PROTEA's
+embedding-based approach: if an alignment-based tool cannot reliably transfer
+annotations, but a protein language model embedding places the query close to
+functionally similar proteins in a high-dimensional latent space, then
+embedding-based KNN annotation transfer can recover signal that classical
+methods miss.
 
 % ────────────────────────────────────────────────────────────
 \section{Protein Language Models and Embeddings}
 \label{sec:plm}
 
-\Glspl{plm} are neural networks trained on large corpora of protein sequences
-using self-supervised objectives borrowed from natural language processing.
-Models trained with a masked language modelling objective on hundreds of
-millions of sequences develop internal representations that capture
-evolutionary, structural, and functional information without explicit
-supervision.
+\subsection{The Language Model Analogy}
+\label{subsec:plm-analogy}
 
-A protein sequence can be passed through such a model to obtain a dense vector
-(embedding) that encodes its properties in a continuous latent space. Proteins
-with similar functions tend to cluster together in this space even when their
-sequences have diverged below the homology detection threshold of
-alignment-based tools, which is what makes embeddings attractive for annotation
-transfer.
+Protein sequences can be treated as sentences over a 20-letter alphabet,
+in direct analogy to natural language sentences over a word vocabulary.
+This analogy is not merely superficial: both natural language and protein
+sequences exhibit long-range statistical dependencies (a residue at one end of
+a protein can be constrained by residues hundreds of positions away through
+structural contacts), hierarchical composition (secondary structure elements
+compose into domains, domains compose into multi-domain proteins), and
+generative diversity (a small fraction of the space of possible sequences is
+grammatically or biochemically valid).
 
-\subsection{The 2020 to 2024 Generation: Sequence-Only Encoders}
+Natural language processing models trained with self-supervised objectives
+on large text corpora, particularly the Transformer architecture
+\cite{vaswani2017attention} with masked language modelling (MLM) or autoregressive
+generation, learn rich contextual representations of words. The same
+approach applied to protein sequences yields \glspl{plm}: neural networks
+that learn to predict masked or future residues from context, developing
+internal representations that capture evolutionary, structural, and
+functional signal without explicit supervision on any of these targets.
+
+The critical point is that PLM representations are \textit{emergent}: the
+model is trained only to reconstruct sequences, yet the representations
+it learns encode information about structure and function because this
+information is implicit in the statistical patterns of sequence evolution.
+Proteins that perform similar functions tend to occupy similar regions of
+the PLM embedding space, even when their sequences have diverged beyond the
+twilight zone of alignment-based detection.
+
+\subsection{The 2020--2024 Generation: Sequence-Only Encoders}
 \label{subsec:plm-seq}
 
-The first generation of practical \glspl{plm} for function prediction was based
-on Transformer encoders trained with a masked language modelling objective on
+The first generation of practical \glspl{plm} for function prediction was
+based on Transformer encoders trained with masked language modelling on
 sequence-only corpora.
 
-\textbf{ESM-1b}~\cite{rives2021esm1b} and the \textbf{ESM-2}
-family~\cite{lin2023esm2} (Meta AI) span eight model sizes from 8M to 15B
-parameters, all trained on UniRef50 / UniRef90. Each scale increment is
-accompanied by a measurable gain on structure prediction and remote-homology
-detection benchmarks. PROTEA evaluates ESM-2 at three operating points (650M,
-3B, 15B) to characterise the accuracy/throughput trade-off.
+\textbf{ESM-1b} \cite{rives2021esm1b} (Meta AI) is a 650M-parameter model
+trained on UniRef50 with a MLM objective on 250 million protein sequences.
+Rives et al.\ demonstrated that the representations spontaneously encode
+structural features (contact maps derivable from attention patterns) and
+support downstream function prediction with linear probes. ESM-1b was
+a landmark result showing that biological structure and function emerge
+from unsupervised learning on sequences alone.
 
-\textbf{ProtTrans}~\cite{elnaggar2022prottrans} provides a suite of encoder
+\textbf{ESM-2} \cite{lin2023esm2} expanded this framework to eight model
+sizes from 8M to 15B parameters, trained on UniRef90. Each scale increment
+yields measurable gains on structure prediction (ESMFold uses ESM-2 as its
+trunk) and remote-homology detection. PROTEA evaluates ESM-2 at three
+operating points (650M, 3B, 15B) to characterise the accuracy/throughput
+trade-off relevant to a production annotation system.
+
+\textbf{ProtTrans} \cite{elnaggar2022prottrans} provides a suite of encoder
 models (ProtBERT, ProtAlbert, ProtXLNet, ProtT5) trained on \gls{bfd} and
-UniRef100 using distributed HPC resources. ProtT5-XL achieves the best
-per-residue and per-protein accuracy among the ProtTrans variants.
+UniRef100 using distributed HPC resources. ProtT5-XL-UniRef50 achieves
+the best per-residue and per-protein accuracy among the ProtTrans variants
+and remains a widely used baseline.
 
-\textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder-decoder model trained on
-UniRef50 with a focused objective and aggressive vocabulary tuning. It reports
-state-of-the-art accuracy on several downstream tasks at a fraction of the
-parameter count of the largest ESM-2 variants.
+\textbf{Ankh} \cite{elnaggar2023ankh} is an encoder-decoder model trained
+on UniRef50 with a focused objective and aggressive vocabulary tuning.
+It reports state-of-the-art accuracy on several downstream tasks at a
+fraction of the parameter count of the largest ESM-2 variants, making it
+an attractive operating point when GPU memory is constrained.
 
-\subsection{The 2024 to 2025 Generation: Structure-Aware and Distilled Models}
+\subsection{The 2024--2025 Generation: Structure-Aware and Distilled Models}
 \label{subsec:plm-modern}
 
-Three trends shape the most recent generation: integration of structural
-signal during training, further parameter efficiency, and sequence/structure
-multi-modal representations.
+Three trends shape the most recent generation of PLMs: integration of
+structural signal during training, further parameter efficiency through
+distillation, and multi-modal sequence-plus-structure representations.
 
-\textbf{ProstT5}~\cite{heinzinger2023prostt5} extends ProtT5 with a bilingual
-sequence-to-3Di mapping (3Di is the Foldseek structural alphabet derived from
-predicted three-dimensional structures), letting the model encode structural
-information without an explicit 3D input. The same encoder serves both
-sequence-only and structure-aware downstream tasks.
+\textbf{ProstT5} \cite{heinzinger2023prostt5} extends ProtT5 with a bilingual
+sequence-to-3Di translation objective. The 3Di alphabet is a structural
+discretisation developed for Foldseek \cite{vankempen2024foldseek}, in which
+each residue is assigned one of 20 structural states based on its local
+geometric context. By training on both sequence and 3Di tokens simultaneously,
+ProstT5 produces embeddings that encode structural information without
+requiring an explicit 3D input; the model learns the mapping from sequence
+statistics to structural states, effectively internalising structure-awareness.
 
-\textbf{ESM-3}~\cite{hayes2024esm3} is a multi-modal generative model over
-sequence, structure and function tokens, reaching parameter scales up to 98B.
-For embedding-based downstream applications PROTEA uses the lighter component
-encoder (ESM-3c), which provides per-residue and per-protein embeddings
-comparable in interface to the ESM-2 family.
+\textbf{ESM-3} \cite{hayes2024esm3} is a multi-modal generative model trained
+over sequence, structure, and function tokens jointly, reaching parameter
+scales up to 98B. For embedding-based downstream applications PROTEA uses
+the lighter component encoder (ESM-3c), which provides per-residue and
+per-protein embeddings with an interface compatible with the ESM-2 family.
 
-\textbf{ESM-C}~\cite{esm2024esmc} (released in late 2024 by EvolutionaryScale)
+\textbf{ESM-C} \cite{esm2024esmc} (released in late 2024 by EvolutionaryScale)
 is a family of efficient sequence-only encoders distilled from larger ESM-3
-variants. ESM-C 300M and 600M deliver embeddings competitive with ESM-2 3B at
-a fraction of the inference cost, making it the smallest backend at which
-PROTEA achieves strong CAFA-style performance.
+variants. ESM-C 300M and 600M deliver embeddings that are competitive with
+ESM-2 3B at a fraction of the inference cost, making them the smallest
+backends at which PROTEA achieves strong CAFA-style performance.
+
+\subsection{Embeddings as Biology-Aware Representations}
+\label{subsec:plm-biology}
+
+Littmann et al.\ \cite{littmann2021embeddings} demonstrated empirically that
+ProtT5 embeddings transfer GO annotations beyond the homology detection
+threshold: for proteins with no detectable alignment to any annotated
+sequence, nearest-neighbour transfer in embedding space still achieves
+meaningful precision. This result grounds the core hypothesis of PROTEA's
+annotation engine: embedding proximity is a proxy for functional similarity
+even in the twilight zone, because evolutionary pressure preserves function
+more conservatively than sequence.
+
+The biological justification operates through the \textit{homology continuum}.
+Natural proteins do not fall cleanly into ``homologous'' and
+``non-homologous'' categories; rather, there is a continuous spectrum of
+evolutionary relatedness, and PLM embeddings reflect this continuum. Two
+proteins may share only $15$\,\% sequence identity yet be clearly homologous
+by structural and functional criteria; their embeddings will be closer in
+the PLM space than a random pair at the same identity level, because the
+model has learned to weight evolutionarily constrained positions more heavily.
+
+This line of reasoning justifies PLM-KNN as a biology-coherent approach:
+the K nearest neighbours in embedding space are, on average, more likely
+to be functionally related than the K most sequence-similar proteins retrieved
+by BLAST, particularly in the twilight and midnight zones.
 
 \subsection{Inference Cost and the Operating-Point Question}
 \label{subsec:plm-cost}
 
-Each PLM occupies a distinct operating point on the accuracy/throughput
-trade-off. ESM-2 15B produces the strongest embeddings but requires several
-days on a single A100 to embed 500,000 sequences; ESM-C 300M produces
-embeddings of comparable downstream quality on the same hardware in under a
-day. Choosing a backend is therefore a deployment decision more than a
-modelling one, and a platform that operationalises PLM-based annotation at
-scale must abstract the choice cleanly. \Cref{chap:design} describes how
-PROTEA implements that abstraction through the \texttt{EmbeddingBackend}
-plugin contract.
+Each PLM occupies a distinct point on the accuracy/throughput trade-off
+curve. ESM-2 15B produces the strongest embeddings but requires several
+days on a single A100 GPU to embed 500,000 sequences; ESM-C 300M delivers
+embeddings of comparable downstream quality on the same hardware in under
+a day. Choosing a backend is therefore a deployment decision as much as
+a modelling one, and a platform that operationalises PLM-based annotation
+at scale must abstract this choice cleanly. \Cref{chap:design} describes
+how PROTEA implements that abstraction through the \texttt{EmbeddingBackend}
+plugin contract, allowing the backend to be swapped without modifying the
+annotation pipeline.
+
+This chapter does not compare PLM architectures in depth; that comparison,
+together with an analysis of competing methods (DeepGO, NetGO, PANNZER2,
+etc.), is deferred to \cref{chap:related}.
 
 % ────────────────────────────────────────────────────────────
 \section{Taxonomic Classification}
 \label{sec:taxonomy}
 
-Biological organisms are classified into a hierarchy (the NCBI taxonomy) that
-reflects their evolutionary relationships~\cite{schoch2020ncbi}. Each node is
-assigned a numeric \textit{taxon ID}. The distance between two organisms can be
-defined operationally as the number of edges between them through their
-\gls{lca} in the taxonomy tree.
+Biological organisms are classified into a hierarchy (the NCBI taxonomy)
+that reflects their evolutionary relationships \cite{schoch2020ncbi}.
+Each node is assigned a numeric \textit{taxon ID}. The distance between two
+organisms can be defined operationally as the number of edges between them
+through their \gls{lca} in the taxonomy tree.
 
-Taxonomic distance is a useful co-variate for function prediction: a protein from
-a closely related organism is more likely to perform the same function than one
-from a distant lineage, even when embedding similarity is comparable.
+Taxonomic distance is a useful covariate for function prediction: a protein
+from a closely related organism is more likely to perform the same function
+as the query than one from a distant lineage, even when embedding similarity
+is comparable. PROTEA incorporates taxonomy as a soft scoring factor in its
+KNN ranking, downweighting neighbours from taxonomically distant species for
+query proteins whose taxon is well represented in the reference database.
+
+% ────────────────────────────────────────────────────────────
+\section{Chapter Summary}
+\label{sec:background-summary}
+
+This chapter has laid the conceptual foundation for the rest of the thesis:
+
+\begin{itemize}
+  \item Proteins are polymers whose sequence (primary structure) determines
+    their three-dimensional fold (Anfinsen's thermodynamic hypothesis), which
+    in turn determines their biological function.
+  \item The Gene Ontology provides a species-independent formal vocabulary
+    for protein function, organised as three DAG aspects (BPO, MFO, CCO)
+    with evidence codes that distinguish experimental from computational
+    annotations.
+  \item The annotation bottleneck arises because the number of known
+    sequences far exceeds the number experimentally characterised; this gap
+    motivates computational function prediction at scale.
+  \item Classical sequence alignment works well when pairwise identity is
+    above approximately $30$\,\%, but enters the twilight zone below this
+    threshold, where homology inference becomes statistically unreliable.
+  \item Protein language models trained on large sequence corpora develop
+    emergent representations that encode structural and functional signal;
+    nearest-neighbour transfer in this embedding space recovers functional
+    information that alignment cannot, providing the biological justification
+    for PROTEA's core approach.
+  \item Taxonomic classification provides additional context for annotation
+    confidence and is used as a secondary scoring factor in PROTEA.
+\end{itemize}
+
+With this background in place, \cref{chap:related} reviews the landscape of
+automated protein function prediction methods that PROTEA builds upon and
+distinguishes itself from.
