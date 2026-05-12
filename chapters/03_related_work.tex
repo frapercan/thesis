@@ -22,7 +22,7 @@ with a characterised protein, one can transfer the known annotations to the quer
 
 \textbf{BLAST}~\cite{altschul1990blast} remains the most widely deployed tool for
 this purpose. It uses a heuristic seed-and-extend strategy to find local
-alignments in sublinear time. \texttt{BLASTP} (protein-protein) identifies
+alignments in sublinear time. \texttt{BLASTP} (protein-to-protein) identifies
 homologues in Swiss-Prot and transfers their \gls{go} terms to the query. This simple
 approach is accurate when identity exceeds roughly 50\,\% and degrades
 progressively as identity falls. Below the ``twilight zone'' of $\approx$30\,\%
@@ -435,6 +435,12 @@ submitted predictions are evaluated against this prospective ground truth.
 The approach avoids the circularity inherent in benchmarks that train and test on
 the same release of a database.
 
+The primary metric is $F_{\max}$: the maximum $F_1$ score across all
+prediction confidence thresholds, computed separately for each \gls{go}
+aspect. AUPR (area under the precision-recall curve) and $S_{\min}$ (semantic
+distance) are complementary measures. PROTEA's evaluation in
+\cref{chap:evaluation} follows CAFA conventions.
+
 \textbf{CAFA 2} (2013, published 2016)~\cite{jiang2016cafa2} expanded the
 target set and introduced the $S_{\min}$ semantic distance metric alongside
 $F_{\max}$. The winning team used BLAST-based homology transfer with
@@ -444,8 +450,7 @@ applied carefully.
 \textbf{CAFA 3} (2017, published 2019)~\cite{zhou2019cafa3} was the largest
 edition to date, with over 100 participating teams. It highlighted the
 difficulty of the \gls{mf} (Molecular Function) aspect and the value of combining
-alignment with \gls{plm}-style learned features, prefiguring the embedding wave
-that followed.
+alignment with learned features, prefiguring the embedding wave that followed.
 
 \textbf{CAFA 4} (2020) ran during the COVID-19 disruption and was not fully
 published as a community paper; results were released on Kaggle. Several

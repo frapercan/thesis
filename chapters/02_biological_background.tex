@@ -66,6 +66,43 @@ Each protein in UniProt is identified by a stable accession number. Canonical
 isoforms are represented by a bare accession (e.g.\ \texttt{P12345}); alternative
 splicing variants are denoted \texttt{P12345-2}, \texttt{P12345-3}, and so on.
 
+\subsection{The Annotation Bottleneck}
+\label{subsec:annotation-bottleneck}
+
+The asymmetry between Swiss-Prot and TrEMBL defines the central problem that
+computational annotation methods attempt to solve. As of the 2023 release, UniProt
+contains approximately 250 million sequences in TrEMBL against fewer than 600,000
+manually reviewed entries in Swiss-Prot~\cite{uniprot2023}. Experimental
+characterisation of a single protein can require years of biochemical work;
+sequencing a genome is now routine. The result is that the vast majority of known
+protein sequences carry no experimentally validated functional annotation
+whatsoever, and the gap widens with every large-scale sequencing project.
+
+Automated function prediction methods exist precisely to bridge this gap. Their
+practical value is measured by how reliably they can annotate TrEMBL proteins
+at Swiss-Prot quality, using the experimentally annotated proteins as a labelled
+reference. This framing, inference from a characterised reference set to an
+uncharacterised query, is the operational setting throughout this thesis.
+
+\subsection{Gene Ontology Annotation Database}
+\label{subsec:goa}
+
+The \gls{goa} database aggregates \gls{go} annotations for UniProt proteins from
+multiple contributing databases (UniProt-KB, IntAct, Ensembl, and others) and
+releases them as versioned flat files~\cite{goconsortium2023}. Each release is
+timestamped and carries a release number; releases are published at regular intervals
+(roughly monthly). The versioned structure is operationally important: PROTEA
+imports GOA releases as immutable \texttt{OntologySnapshot} objects and associates
+every annotation set and evaluation target with a specific release pair, enabling
+reproducible leakage-free evaluation (\cref{chap:evaluation}).
+
+IEA annotations make up the large majority of records in any GOA release. By
+convention, benchmark evaluations (including CAFA) exclude IEA annotations from
+the ground-truth set and treat only experimentally supported codes as valid
+prediction targets. PROTEA follows this convention: the training reference set
+and the evaluation target set both filter to experimental evidence codes, and the
+\texttt{EvidenceFilter} component enforces this policy at ingestion time.
+
 \subsection{Protein Data Bank}
 \label{subsec:pdb}
 
@@ -103,15 +140,51 @@ relationships, forming a hierarchy from broad root terms to highly specific
 leaves. A protein annotated with a term is implicitly annotated with all of its
 ancestors up to the root: the \textit{true path rule}.
 
+The depth and specificity of terms vary substantially across the ontology. Root
+nodes such as GO:0003674 (Molecular Function) are trivially true for every protein
+and carry no discriminative information; deep leaf terms such as
+GO:0004364 (glutathione transferase activity) are experimentally supported for
+only a handful of well-characterised proteins. This specificity gradient is
+captured by the \textit{information content} (IC) of a term, defined as the
+negative log of the fraction of annotated proteins that carry it. Prediction
+quality metrics that weight by IC (such as $S_{\min}$, used in CAFA) reward
+correct prediction of specific terms more than generic ones. PROTEA's nearest-neighbour
+transfer propagates annotations at all specificity levels and reports predictions
+over the full ontology; the re-ranker described in \cref{chap:design} operates
+per-term and per-aspect, allowing it to learn specificity-dependent calibration.
+
 \subsection{Evidence Codes}
 \label{subsec:evidence-codes}
 
 Every GO annotation carries an evidence code that indicates the type of support
-for the association. Codes range from experimental (e.g.\ \texttt{EXP},
-\texttt{IDA}, \texttt{IMP}) to computationally inferred (\texttt{ISS}, \texttt{IEA})
-and author-stated (\texttt{TAS}, \texttt{NAS}). Experimental evidence codes are
-the gold standard; \texttt{IEA} (Inferred from Electronic Annotation) is the most
-common but least reliable.
+for the association. The GO Consortium defines three broad categories:
+
+\begin{description}
+  \item[Experimental] Annotations derived from direct experimental assays.
+    Representative codes: \texttt{EXP} (Experiment), \texttt{IDA} (Inferred from
+    Direct Assay), \texttt{IMP} (Inferred from Mutant Phenotype), \texttt{IGI}
+    (Inferred from Genetic Interaction), and \texttt{IPI} (Inferred from Physical
+    Interaction). These constitute the gold-standard ground truth for benchmark
+    evaluation.
+  \item[Computational] Annotations generated without direct experimental support.
+    \texttt{ISS} (Inferred from Sequence or Structural Similarity) and
+    \texttt{IEA} (Inferred from Electronic Annotation) are the most prevalent.
+    \texttt{IEA} annotations are produced automatically by tools such as
+    UniProt rule-based systems and InterPro domain mappings; they are numerous
+    but carry no experimental validation.
+  \item[Author-stated] Annotations from author statements in publications without
+    direct assay evidence: \texttt{TAS} (Traceable Author Statement) and
+    \texttt{NAS} (Non-traceable Author Statement).
+\end{description}
+
+The distinction between experimental and computational codes is operationally
+consequential for function prediction benchmarks. The CAFA protocol, and PROTEA's
+evaluation design, treat only experimental-evidence annotations as valid prediction
+targets. \texttt{IEA} annotations are excluded from both the training reference set
+and the evaluation ground truth: including them would allow a method to ``predict''
+machine-generated labels with machine-generated features, which does not constitute
+meaningful generalisation. The \texttt{EvidenceFilter} component in PROTEA's
+ingestion pipeline enforces this boundary at import time.
 
 \subsection{Ontology Versioning}
 \label{subsec:go-versioning}
@@ -237,4 +310,10 @@ defined operationally as the number of edges between them through their
 
 Taxonomic distance is a useful co-variate for function prediction: a protein from
 a closely related organism is more likely to perform the same function than one
-from a distant lineage, even when embedding similarity is comparable.
+from a distant lineage, even when embedding similarity is comparable. UniProt
+records the source organism for every sequence, so taxon IDs are available for
+all reference and query proteins. PROTEA computes taxonomic LCA distance between
+each query and every candidate neighbour as one of the features supplied to the
+re-ranking model (\cref{sec:feature-engineering}), allowing the re-ranker to
+discount hits whose embedding similarity is high but whose evolutionary distance
+suggests the function may have diverged.

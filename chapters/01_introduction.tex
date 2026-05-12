@@ -45,7 +45,7 @@ signal well beyond what classical alignment can detect. The key insight is that 
 large transformer trained on a protein sequence corpus with a masked-language
 objective learns, in its internal representations, a compressed model of protein
 physics that correlates with structure, evolutionary distance, and function.
-ESM-2~\cite{esm2} and its successors, ProtT5~\cite{prottT5}, Ankh~\cite{ankh}, and
+ESM-2~\cite{lin2023esm2} and its successors, ProtT5~\cite{elnaggar2022prottrans}, Ankh~\cite{elnaggar2023ankh}, and
 ESM-C have demonstrated that a single forward pass through such a model produces
 embeddings whose nearest neighbours in the representation space correlate strongly
 with functional similarity. A generation of structure-conditioned models (ESM-3,
@@ -100,7 +100,7 @@ Fmax numbers are substantially higher than numbers obtained under a rigorous hol
 and the delta is large enough that it matters to how one ranks and compares methods.
 
 A meaningful benchmark must follow the temporal holdout protocol established by the
-Critical Assessment of Protein Function Annotation (CAFA)~\cite{cafa5}: fix a
+Critical Assessment of Protein Function Annotation (CAFA)~\cite{cafa5_2023}: fix a
 reference annotation set at time $t_0$, make predictions for sequences with no or
 limited annotations at that date, and evaluate only against annotations that accrued
 between $t_0$ and $t_1$. This protocol isolates the genuine predictive power of the
