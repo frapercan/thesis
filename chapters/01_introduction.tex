@@ -76,7 +76,7 @@ constructed ground truth, and log the provenance of every intermediate artefact.
 The feature-engineering question adds a further layer of complexity. Raw embedding
 distance is a useful but noisy signal: two sequences may be close in the PLM embedding
 space for reasons that do not translate into shared GO annotations. Pairwise alignment
-scores (Needleman--Wunsch global alignment, Smith--Waterman local alignment)
+scores (Needleman-Wunsch global alignment, Smith-Waterman local alignment)
 complement the embedding distance with a signal grounded in evolutionary substitution
 models. Taxonomic distance, computed from the NCBI taxonomy tree, captures the
 evolutionary relatedness of the source organism, which is predictive of how well
@@ -350,8 +350,7 @@ The main contributions of this work are:
         releases.
 
   \item A \textbf{feature engineering layer} that augments embedding similarity with
-<<<<<<< HEAD
-        Needleman--Wunsch / Smith--Waterman alignment scores,
+        Needleman-Wunsch / Smith-Waterman alignment scores,
         NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
         (anc2vec), and per-PLM PCA projections, organised as a registry of
         approximately 52 features. The feature schema fingerprint ensures that
@@ -366,15 +365,6 @@ The main contributions of this work are:
         when temporal leakage is introduced, underscoring the importance of the
         evaluation methodology.
 
-=======
-        Needleman-Wunsch / Smith-Waterman alignment scores,
-        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings, and
-        per-PLM PCA projections, organised as a registry of approximately 52
-        features.
-  \item A \textbf{selective learning-to-rank re-ranker} trained per category and per
-        aspect, that falls back to the embedding-only baseline whenever re-ranking
-        would degrade performance for the current cell.
->>>>>>> origin/feat/tx1-em-dash-sweep
   \item A \textbf{multi-target deployment story} (development \texttt{docker
         compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
         the same canonical pipeline without code branching. The deployment matrix
@@ -385,7 +375,7 @@ The main contributions of this work are:
         \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why
         of every run and provides the audit trace from which the evaluation chapter
         is distilled. Complementing this, an index of 31 Architecture Decision
-        Records (D1--D31) in \texttt{protea-core/docs/source/adr/} provides a
+        Records (D1 to D31) in \texttt{protea-core/docs/source/adr/} provides a
         curated history of non-obvious design choices.
 
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
@@ -433,7 +423,7 @@ abstraction and the OperationRegistry, the plugin contract system and the
 contracts-first split across seven repositories, the job lifecycle and the ten-queue
 RabbitMQ topology, the versioned data model, the embedding and prediction pipelines,
 the ArtifactStore, and the public REST API with its seventeen routers. The ADR index
-D1--D31 cross-references the major design decisions to this narrative.
+D1 to D31 cross-references the major design decisions to this narrative.
 
 \Cref{chap:implementation} describes how the design materialises across the seven
 repositories. It covers the technology stack, the database schema and Alembic

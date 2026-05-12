@@ -22,13 +22,8 @@ with a characterised protein, one can transfer the known annotations to the quer
 
 \textbf{BLAST}~\cite{altschul1990blast} remains the most widely deployed tool for
 this purpose. It uses a heuristic seed-and-extend strategy to find local
-<<<<<<< HEAD
 alignments in sublinear time. \texttt{BLASTP} (protein-protein) identifies
-homologues in Swiss-Prot and transfers their GO terms to the query. This simple
-=======
-alignments in sublinear time. \texttt{BLASTP} (protein--protein) identifies
 homologues in Swiss-Prot and transfers their \gls{go} terms to the query. This simple
->>>>>>> origin/task/thesis-writer-1778546422-5353
 approach is accurate when identity exceeds roughly 50\,\% and degrades
 progressively as identity falls. Below the ``twilight zone'' of $\approx$30\,\%
 identity, alignment scores lose statistical power and functional inference becomes
@@ -99,13 +94,8 @@ profile transfer.
 \section{Supervised Deep Learning Approaches}
 \label{sec:related-ml}
 
-<<<<<<< HEAD
-Supervised methods learn classifiers, one per GO term of interest, from
-labelled protein-function pairs. Early approaches used \glspl{hmm} or support
-=======
 Supervised methods learn classifiers, one per \gls{go} term of interest, from
-labelled protein--function pairs. Early approaches used \glspl{hmm} or support
->>>>>>> origin/task/thesis-writer-1778546422-5353
+labelled protein-function pairs. Early approaches used \glspl{hmm} or support
 vector machines on curated feature sets (amino acid composition, physicochemical
 properties, secondary structure predictions). More recent work uses deep neural
 networks applied directly to sequences or structures.
@@ -133,7 +123,7 @@ stronger results than using frozen embeddings, particularly for the Molecular
 Function aspect where alignment cues are weakest.
 
 \textbf{NetGO}~\cite{you2019netgo} and its successor \textbf{NetGO 3}~\cite{you2023netgo3}
-augment sequence-based models with protein--protein interaction network features.
+augment sequence-based models with protein-protein interaction network features.
 NetGO 3 incorporates PLM embeddings alongside STRING network context, achieving
 state-of-the-art results in CAFA3 and subsequent benchmarks. The approach
 requires interaction data, which limits applicability for poorly studied
@@ -215,7 +205,6 @@ returns diminish. ESM-2 embeddings have served as the de facto baseline
 representation in the function prediction literature since 2023, and they
 constitute one of PROTEA's primary backends.
 
-<<<<<<< HEAD
 \textbf{Ankh}~\cite{elnaggar2023ankh} is an encoder-decoder model that
 matches or exceeds the ESM-2 3B baseline on multiple downstream tasks while
 using a fraction of the parameters, achieved through aggressive vocabulary
@@ -233,23 +222,6 @@ Third, \textbf{ESM-C}~\cite{esm2024esmc} delivers efficient sequence-only
 encoders distilled from ESM-3, with the 300M and 600M variants reaching
 ESM-2 3B performance at a fraction of the inference cost. PROTEA evaluates all
 of these as plug-in backends within a single benchmarking framework.
-=======
-\textbf{ESM-3}~\cite{hayes2024esm3} (EvolutionaryScale, 2024) unifies sequence,
-structure and function as multi-modal tokens within a single generative model up
-to 98B parameters. For embedding-based downstream applications, the lighter
-component encoder is the practical choice; however, the multi-modal training
-regime means that structural and evolutionary constraints are baked into the
-representation space, providing richer signal than sequence-only ESM-2 at
-comparable parameter counts.
-
-\textbf{ESM-Cambrian / ESM-C}~\cite{esm2024esmc} (EvolutionaryScale, 2024) delivers
-efficient sequence encoders distilled from ESM-3 training, with the 300M and 600M
-variants reaching ESM-2 3B performance at a fraction of the inference cost. The
-distillation approach retains the representational benefits of the larger
-multi-modal model while making inference tractable for large-scale annotation
-pipelines. ESM-C 600M is evaluated as a backend in PROTEA's benchmarking
-framework in \cref{chap:evaluation}.
->>>>>>> origin/task/thesis-writer-1778546422-5353
 
 \subsection{ProtTrans Family}
 \label{subsec:related-prottrans}
@@ -259,7 +231,7 @@ TPAMI} 2022) provides a suite of encoder models trained on BFD and UniRef100
 using distributed HPC resources. The suite includes ProtBERT (BERT architecture),
 ProtAlbert (ALBERT architecture), ProtXLNet, and \textbf{ProtT5-XL}, the latter
 of which achieves the best per-residue and per-protein accuracy among the
-ProtTrans variants. ProtT5 is an encoder--decoder architecture derived from
+ProtTrans variants. ProtT5 is an encoder-decoder architecture derived from
 Google's T5 pre-trained on the T5 sequence-to-sequence objective applied to
 protein sequences; the encoder outputs serve as fixed-dimensional embeddings for
 downstream classification. ProtT5-XL-U50 (half-precision) is PROTEA's default
@@ -267,7 +239,7 @@ alignment-free backend and the representation used in the LAFA container
 submission described in \cref{chap:conclusion}.
 
 \textbf{Ankh}~\cite{elnaggar2023ankh} (Elnaggar et al., 2023) is an
-encoder--decoder model that matches or exceeds the ESM-2 3B baseline on multiple
+encoder-decoder model that matches or exceeds the ESM-2 3B baseline on multiple
 downstream tasks while using a fraction of the parameters. This efficiency gain is
 achieved through aggressive vocabulary tuning (a compact amino-acid tokeniser
 that reduces sequence length compared to character-level tokenisers) and a
@@ -463,13 +435,6 @@ submitted predictions are evaluated against this prospective ground truth.
 The approach avoids the circularity inherent in benchmarks that train and test on
 the same release of a database.
 
-<<<<<<< HEAD
-The primary metric is $F_{\max}$: the maximum $F_1$ score across all
-prediction confidence thresholds, computed separately for each \gls{go}
-aspect. AUPR (area under the precision-recall curve) and Smin (semantic
-distance) are complementary measures. PROTEA's evaluation in
-\cref{chap:evaluation} follows CAFA conventions.
-=======
 \textbf{CAFA 2} (2013, published 2016)~\cite{jiang2016cafa2} expanded the
 target set and introduced the $S_{\min}$ semantic distance metric alongside
 $F_{\max}$. The winning team used BLAST-based homology transfer with
@@ -527,7 +492,6 @@ annotations between the two snapshots are included as evaluation targets. This
 strictly excludes any protein visible in the training-time reference database,
 providing a leakage-free evaluation that mirrors the CAFA protocol without
 requiring a community submission cycle.
->>>>>>> origin/task/thesis-writer-1778546422-5353
 
 \subsection{Live Continuous Benchmarks: LAFA}
 \label{subsec:related-lafa}
