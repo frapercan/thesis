@@ -372,7 +372,7 @@ partition to \texttt{protea.predictions.batch}.
 
 \paragraph{Batch worker: \texttt{PredictGOTermsBatchOperation}.}
 After a refactor guided by ADR D31, the operation's execute method was reduced
-to 49--52 lines of orchestration code; the heavy logic was extracted into
+to roughly 50 lines of orchestration code; the heavy logic was extracted into
 \texttt{\_AspectSeparatedKnnRunner} (347~LOC, 10 methods all within the 60~LOC
 budget). The runner encapsulates:
 
