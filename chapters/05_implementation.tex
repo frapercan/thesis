@@ -2,41 +2,64 @@
 \label{chap:implementation}
 
 This chapter describes the concrete technology choices and key implementation
-details behind the design presented in \cref{chap:design}.
+details behind the design presented in \cref{chap:design}. Where decisions are
+recorded in a numbered ADR, the identifier is cited in-text so the decision
+can be traced back to its rationale.
 
 % ────────────────────────────────────────────────────────────
-\section{Project Structure}
+\section{Multi-Repository Project Structure}
 \label{sec:project-structure}
 
-The PROTEA codebase is organised into three top-level packages that mirror the
-architectural layers described in \cref{chap:design}:
+PROTEA is realised as a family of seven code repositories plus the thesis
+manuscript (ADR D1). This \emph{Structure C} arrangement allows each
+functional group to evolve, release, and be installed independently while
+still composing into a coherent platform at runtime.
+
+\begin{description}
+  \item[\texttt{PROTEA}] The platform core: FastAPI application, worker
+    processes, SQLAlchemy ORM, RabbitMQ consumers, and the operation
+    registry. All operational entry points live here.
+  \item[\texttt{protea-contracts}] Abstract base classes and shared payload
+    schemas that decouple the platform from its plugins. Only light
+    dependencies (Pydantic, NumPy); no torch or ORM imports.
+  \item[\texttt{protea-backends}] Protein language model inference plugins
+    (ESM-2, T5/ProstT5, Ankh, ESM3c). Described in detail in
+    \cref{sec:backend-plugins}.
+  \item[\texttt{protea-method}] Pure inference library: kNN search, feature
+    enrichment, reranker apply, and PCA cache. No FastAPI or SQLAlchemy
+    dependencies, enabling standalone installation via
+    \texttt{pip install protea-method} (ADR D15).
+  \item[\texttt{protea-sources}] Annotation-source plugins (QuickGO, GAF
+    streams) discovered via the \texttt{protea.sources} entry-points group.
+  \item[\texttt{protea-runners}] Experiment-runner plugins, including the
+    LightGBM training runner (\texttt{protea-runners.lightgbm}) that replaces
+    the former inline \texttt{TrainRerankerOperation} (ADR D9, now obsolete).
+  \item[\texttt{cafaeval-protea}] A maintained fork of the
+    \texttt{cafaeval} evaluation library used by \texttt{run\_cafa\_evaluation}.
+\end{description}
+
+Within the \texttt{PROTEA} repository the internal layout mirrors the
+architectural layers:
 
 \begin{description}
   \item[\texttt{protea/api/}] FastAPI application and seventeen routers
-    spanning the full operational surface of the platform. The routers are
-    described in \cref{sec:api-design}.
+    spanning the full operational surface of the platform.
   \item[\texttt{protea/core/}] Pure domain logic: the \texttt{Operation}
-    protocol and \texttt{OperationRegistry} contracts, all registered
-    operations, the kNN search backends, feature engineering utilities, and
-    shared HTTP helpers.
+    protocol, \texttt{OperationRegistry}, all registered operations, the
+    kNN search shim, feature engineering, and shared HTTP helpers.
   \item[\texttt{protea/infrastructure/}] SQLAlchemy ORM models,
     RabbitMQ consumer and publisher, the session context manager, and the
     configuration loader.
-\end{description}
-
-Two additional directories complete the repository:
-
-\begin{description}
-  \item[\texttt{apps/web/}] The Next.js frontend application.
+  \item[\texttt{apps/web/}] The Next.js 16 frontend application.
   \item[\texttt{scripts/}] Operational tooling: \texttt{manage.sh} (process
-    manager), \texttt{worker.py} (worker entry point that registers all
-    operations), \texttt{init\_db.py} (schema initialisation), and
-    \texttt{run\_one\_job.py} (manual job runner for debugging).
+    manager), \texttt{worker.py} (worker entry point), \texttt{init\_db.py}
+    (schema initialisation), and \texttt{run\_one\_job.py} (manual job
+    runner for debugging).
 \end{description}
 
-This layout enforces the dependency direction: \texttt{api} and \texttt{workers}
-depend on \texttt{core} and \texttt{infrastructure}; \texttt{core} has no
-dependency on either of the other two.
+Dependency direction is enforced: \texttt{api} and workers depend on
+\texttt{core} and \texttt{infrastructure}; \texttt{core} has no dependency
+on either of the other two.
 
 % ────────────────────────────────────────────────────────────
 \section{Technology Stack}
@@ -88,13 +111,14 @@ The pgvector extension is enabled at database initialisation time:
 CREATE EXTENSION IF NOT EXISTS vector;
 \end{lstlisting}
 
-\texttt{SequenceEmbedding} columns are declared as \texttt{VECTOR(n)} where $n$
-is determined by the embedding model (e.g.\ 1280 for ESM-2 650M, 2560 for
-ESM-2 3B). Although pgvector supports index types for nearest-neighbour queries
-(HNSW, IVFFlat), PROTEA intentionally does not use them for kNN search:
-querying through pgvector at the scale of hundreds of thousands of vectors
-introduces unacceptable latency. Instead, reference embeddings are loaded into
-Python (NumPy or FAISS) at prediction time.
+\texttt{SequenceEmbedding} columns are declared as \texttt{HALFVEC(n)} (migrated
+from \texttt{VECTOR} in April~2026) where $n$ is the embedding dimension
+(e.g.\ 1280 for ESM-2 650M, 1024 for ProtT5-XL). Although pgvector supports
+index types for nearest-neighbour queries (HNSW, IVFFlat), PROTEA
+intentionally does not use them for kNN search: querying through pgvector at
+the scale of hundreds of thousands of vectors introduces unacceptable latency
+(ADR 001). Instead, reference embeddings are loaded into Python (NumPy or
+FAISS via \texttt{protea-method}) at prediction time.
 
 \subsection{Session Management}
 \label{subsec:sessions}
@@ -118,7 +142,117 @@ def session_scope(factory):
 
 The two-session pattern in \texttt{BaseWorker} (claim session, execute session)
 relies on this primitive: the claim commits independently of the execute, so a
-crash during execution never rolls back the \texttt{RUNNING} state transition.
+crash during execution never rolls back the \texttt{RUNNING} state transition
+(ADR 002).
+
+% ────────────────────────────────────────────────────────────
+\section{Backend Plugin System}
+\label{sec:backend-plugins}
+
+Protein language model inference is provided by the \texttt{protea-backends}
+package, a separate repository that ships plugins conforming to the
+\texttt{EmbeddingBackend} abstract base class defined in
+\texttt{protea-contracts}. This separation keeps heavy ML dependencies (torch,
+transformers, the ESM SDK) out of the PROTEA core image: the platform
+discovers and loads backend plugins lazily via Python entry points, paying no
+import cost for a backend that is not used in a given deployment.
+
+\subsection{The \texttt{EmbeddingBackend} Contract}
+\label{subsec:embedding-backend-contract}
+
+The ABC mandates two methods:
+
+\begin{lstlisting}[language=Python, caption={EmbeddingBackend interface (protea-contracts).}]
+class EmbeddingBackend(ABC):
+    name: str  # matched against EmbeddingConfig.model_backend
+
+    def load_model(self, model_name: str, device: str, emit: Any
+                   ) -> tuple[Any, Any]: ...
+
+    def embed_batch(self, model, tokenizer, sequences: list[str],
+                    *, emit, layers=None, layer_agg="mean",
+                    pooling="mean") -> np.ndarray: ...
+\end{lstlisting}
+
+\texttt{load\_model} returns a \texttt{(model, tokenizer)} pair (the tokenizer
+slot is \texttt{None} for ESM3c which uses its own SDK encoder).
+\texttt{embed\_batch} returns a \texttt{(batch\_size, dim)} float16 NumPy
+matrix. Torch imports are deferred inside these methods so that the plugin
+module is cheap to import at entry-point discovery time.
+
+\subsection{Plugin Discovery}
+\label{subsec:plugin-discovery}
+
+The platform discovers installed backends through the
+\texttt{protea.backends} entry-points group. The discovery logic in
+\texttt{protea/core/plugins.py} calls
+\texttt{importlib.metadata.entry\_points(group="protea.backends")} once per
+process, verifies that each loaded plugin's \texttt{name} attribute matches
+the entry-point key (a mismatch raises \texttt{RuntimeError} immediately), and
+caches the resulting name-to-plugin map for the lifetime of the process:
+
+\begin{lstlisting}[language=Python, caption={Plugin discovery (protea.core.plugins).}]
+def discover_plugins(group: str) -> dict[str, Any]:
+    cache = _PLUGIN_CACHES.get(group)
+    if cache is None:
+        new_cache = {}
+        for ep in entry_points(group=group):
+            plugin = ep.load()
+            if getattr(plugin, "name", None) != ep.name:
+                raise RuntimeError(f"Plugin name mismatch: {ep.name!r}")
+            new_cache[ep.name] = plugin
+        _PLUGIN_CACHES[group] = new_cache
+        cache = new_cache
+    return cache
+\end{lstlisting}
+
+The \texttt{protea-backends} package declares four entry points in its
+\texttt{pyproject.toml}:
+
+\begin{lstlisting}[caption={Backend entry-point declarations (pyproject.toml).}]
+[tool.poetry.plugins."protea.backends"]
+esm   = "protea_backends.esm:plugin"
+t5    = "protea_backends.t5:plugin"
+ankh  = "protea_backends.ankh:plugin"
+esm3c = "protea_backends.esm3c:plugin"
+\end{lstlisting}
+
+Adding a new backend requires only implementing \texttt{EmbeddingBackend},
+declaring one entry point, and publishing the package; the platform requires
+no code change.
+
+\subsection{Implemented Backends}
+\label{subsec:implemented-backends}
+
+\begin{description}
+  \item[\texttt{esm} / \texttt{auto}] HuggingFace \texttt{EsmModel}
+    checkpoints (ESM-2 family: 8M to 3B parameters). Sequences are processed
+    one at a time to avoid variable-length padding memory waste. The CLS token
+    (position 0) and EOS token (last valid position) are stripped before
+    residue-level pooling.
+
+  \item[\texttt{t5}] HuggingFace \texttt{T5EncoderModel} (ProtT5-XL,
+    ProstT5). Sequences are processed as a padded batch. Ambiguous amino acids
+    (\texttt{U}/\texttt{Z}/\texttt{O}/\texttt{B}) are replaced with \texttt{X}
+    before SentencePiece tokenisation. ProstT5 mode (prepending the
+    \texttt{<AA2fold>} prefix) is auto-detected from the model name; the prefix
+    residue is stripped from the output so that \texttt{residues[0]}
+    corresponds to amino acid~0 in both the \texttt{esm} and \texttt{t5}
+    backends.
+
+  \item[\texttt{ankh}] Ankh-base and Ankh-large. Uses the same batched T5
+    pipeline as \texttt{t5} but with two deviations: no \texttt{<AA2fold>}
+    prefix, and per-residue character list tokenisation
+    (\texttt{is\_split\_into\_words=True}) because Ankh's SentencePiece
+    tokeniser maps a literal space to \texttt{<unk>}, rendering the
+    space-joined path of ProtT5 unsuitable.
+
+  \item[\texttt{esm3c}] ESM3c (ESMC family) via the ESM SDK rather than
+    HuggingFace Transformers. No external tokenizer; the SDK's
+    \texttt{ESMProtein} API and \texttt{LogitsConfig(return\_hidden\_states=True)}
+    are used. Hidden states are returned as a single stacked tensor; BOS and
+    EOS tokens are stripped identically to the ESM-2 path.
+\end{description}
 
 % ────────────────────────────────────────────────────────────
 \section{Operations}
@@ -151,28 +285,126 @@ The user-facing operations are:
     Annotations are filtered against canonical accessions present in the
     database, avoiding orphaned foreign keys.
   \item[\texttt{load\_quickgo\_annotations}] Streams GO annotations from the
-    QuickGO bulk download API (paginated TSV). Supports optional ECO→GO evidence
+    QuickGO bulk download API (paginated TSV). Supports optional ECO evidence
     code mapping and per-page commits to bound transaction size.
   \item[\texttt{generate\_evaluation\_set}] Materialises an \texttt{EvaluationSet}
     by snapshotting ground-truth annotations for a target ontology snapshot and
     accession set; consumed downstream by \texttt{run\_cafa\_evaluation}.
-  \item[\texttt{run\_cafa\_evaluation}] Runs the standalone \texttt{cafaeval} fork
-    against a \texttt{PredictionSet} and persists \texttt{EvaluationResult} rows
-    (Fmax, AuPRC, coverage, per-aspect breakdowns). Isolated on its own queue so
-    long evaluations do not block the general jobs queue.
+  \item[\texttt{run\_cafa\_evaluation}] Runs the standalone \texttt{cafaeval}
+    fork against a \texttt{PredictionSet} and persists \texttt{EvaluationResult}
+    rows (Fmax, AuPRC, coverage, per-aspect breakdowns). Isolated on its own
+    queue so long evaluations do not block the general jobs queue.
   \item[\texttt{compute\_embeddings}] Coordinator operation described in
-    \cref{sec:embedding-pipeline}.
+    \cref{sec:impl-embedding-pipeline}.
   \item[\texttt{predict\_go\_terms}] Coordinator operation described in
-    \cref{sec:prediction-pipeline}.
+    \cref{sec:impl-prediction-pipeline}.
   \item[\texttt{export\_research\_dataset}] Writes the frozen train/eval
     parquet dataset and its \texttt{manifest.json} used by the external
     research sandbox described in \cref{sec:reranker-promotion}. The operation
-    runs the same KNN and feature-generation pipeline as the internal
+    runs the same kNN and feature-generation pipeline as the internal
     \texttt{training\_dump\_helpers} module, skips the LightGBM training stage,
-    and publishes the resulting artefacts through the storage abstraction
-    (\cref{subsec:dm-reranker}).
+    and publishes the resulting artefacts through the storage abstraction.
 \end{description}
 \endgroup
+
+% ────────────────────────────────────────────────────────────
+\section{Embedding Pipeline Implementation}
+\label{sec:impl-embedding-pipeline}
+
+Embedding computation is split across two operation classes that communicate
+through the RabbitMQ message broker rather than sharing a process.
+
+\paragraph{Coordinator: \texttt{ComputeEmbeddingsOperation}.}
+Running on the \texttt{protea.embeddings} queue (serialised: one coordinator
+at a time), this operation resolves the \texttt{EmbeddingConfig}, queries the
+database for sequences that do not yet have a stored embedding for that
+configuration (when \texttt{skip\_existing=true}), and partitions the results
+into batches of \texttt{sequences\_per\_job} identifiers. For each batch it
+publishes a \texttt{ComputeEmbeddingsBatchPayload} message to the
+\texttt{protea.embeddings.batch} queue. No child \texttt{Job} rows are created
+in the database for batch messages; progress is tracked by the coordinator
+via \texttt{update\_parent\_progress}.
+
+\paragraph{Batch worker: \texttt{ComputeEmbeddingsBatchOperation}.}
+Running on \texttt{protea.embeddings.batch} workers (one or more, GPU-bound),
+this operation receives a list of sequence primary keys and a device string.
+Control flow:
+
+\begin{enumerate}
+  \item Resolve the \texttt{EmbeddingConfig} and load the appropriate backend
+    via \texttt{discover\_plugins("protea.backends")} (see
+    \cref{sec:backend-plugins}). A backend is loaded at most once per process.
+  \item Load model and tokenizer from the backend's \texttt{load\_model} method.
+  \item Run the backend's \texttt{embed\_batch} per-sequence or per-batch
+    depending on backend type. ESM backends iterate one sequence at a time;
+    T5 and Ankh backends process a padded batch; ESM3c uses the ESM SDK.
+  \item Each backend returns a \texttt{list[list[ChunkEmbedding]]} where
+    the inner list holds one \texttt{ChunkEmbedding} per residue span when
+    chunking is enabled, or a single element covering the full sequence
+    otherwise. The \texttt{ChunkEmbedding} dataclass carries
+    \texttt{chunk\_index\_s}, \texttt{chunk\_index\_e} (0-based, exclusive),
+    and a float32 \texttt{vector}.
+  \item Build \texttt{SequenceEmbedding} ORM rows from the chunk list and
+    publish them to \texttt{protea.embeddings.write} for bulk upsert by a
+    dedicated write worker.
+\end{enumerate}
+
+Layer selection and aggregation are controlled by \texttt{EmbeddingConfig}
+fields. The reverse-index convention (\texttt{layer\_indices=[0]} means the
+last layer) matches the convention used by the predecessor FANTASIA system.
+Optional per-residue L2 normalisation (\texttt{normalize\_residues}) and
+final embedding L2 normalisation (\texttt{normalize}) can be toggled per
+configuration.
+
+% ────────────────────────────────────────────────────────────
+\section{Prediction Pipeline Implementation}
+\label{sec:impl-prediction-pipeline}
+
+GO term prediction mirrors the embedding pipeline's coordinator-batch
+split.
+
+\paragraph{Coordinator: \texttt{PredictGOTermsOperation}.}
+Running on \texttt{protea.predictions} (serialised), this operation creates a
+\texttt{PredictionSet} row, resolves any requested \texttt{RerankerModel},
+snapshots the artefact URI and feature-schema fingerprint onto each batch
+message, and dispatches one \texttt{PredictGOTermsBatchPayload} per query
+partition to \texttt{protea.predictions.batch}.
+
+\paragraph{Batch worker: \texttt{PredictGOTermsBatchOperation}.}
+After a refactor guided by ADR D31, the operation's execute method was reduced
+to 49--52 lines of orchestration code; the heavy logic was extracted into
+\texttt{\_AspectSeparatedKnnRunner} (347~LOC, 10 methods all within the 60~LOC
+budget). The runner encapsulates:
+
+\begin{enumerate}
+  \item Loading reference embeddings from PostgreSQL into a process-level cache
+    (float16, one array per GO aspect) using \texttt{protea.core.disk\_cache}.
+  \item Calling \texttt{search\_knn} from \texttt{protea.core.knn\_search}
+    (a backwards-compatible shim over \texttt{protea\_method.knn\_search})
+    with the configured backend (\texttt{numpy} or \texttt{faiss}) and distance
+    metric.
+  \item Transferring GO annotations from the $k$ nearest reference proteins
+    to the query, filtered by evidence code and GO aspect.
+  \item Optionally enriching each (query, reference) pair with alignment and
+    taxonomy features (\cref{sec:feature-engineering}).
+  \item Optionally applying the registered \texttt{RerankerModel} booster to
+    re-score the candidate set before persisting predictions.
+\end{enumerate}
+
+Results are published to \texttt{protea.predictions.write} for bulk insert
+of \texttt{GOPrediction} rows.
+
+\subsection{KNN Search Shim and \texttt{protea-method}}
+\label{subsec:knn-shim}
+
+During the F2C extraction phase the kNN backend code was moved into the
+standalone \texttt{protea-method} library, which ships without FastAPI or
+SQLAlchemy dependencies and can be installed independently (ADR D15). The
+module \texttt{protea/core/knn\_search.py} is a thin shim that re-exports
+\texttt{protea\_method.knn\_search.search\_knn} and forwards the
+\texttt{OperationTuning.numpy\_query\_chunk} configuration knob via the
+\texttt{PROTEA\_METHOD\_NUMPY\_QUERY\_CHUNK} environment variable on first
+call, preserving backwards compatibility for all PROTEA call sites.
 
 % ────────────────────────────────────────────────────────────
 \section{Feature Engineering}
@@ -226,25 +458,30 @@ redundant tree traversals across a batch.
 \label{sec:ann-search}
 
 The kNN search backend is configurable per prediction job via the
-\texttt{search\_backend} payload field. Two backends are supported:
+\texttt{search\_backend} payload field. Two backends are supported in
+\texttt{protea\_method.knn\_search}:
 
 \begin{description}
   \item[\texttt{numpy}] Computes exact cosine distances as a matrix product
     followed by L2 normalisation. This is $O(NQ)$ in both time and memory, but
     is acceptable for reference sets up to $\sim$100k proteins when the reference
-    embeddings fit in RAM as float16 (approximately 250 MB for 100k × 1280
-    dimensions).
+    embeddings fit in RAM as float16 (approximately 250~MB for 100k $\times$ 1280
+    dimensions). Per-chunk query batching (default 500 queries per chunk,
+    overridable via \texttt{PROTEA\_METHOD\_NUMPY\_QUERY\_CHUNK}) keeps peak
+    memory under~1~GB even for 500k-vector reference banks.
   \item[\texttt{faiss}] Uses the FAISS library~\cite{johnson2021faiss} with a
     configurable index type. \texttt{IVFFlat} partitions the vector space into
     Voronoi cells and restricts the search to the \texttt{nprobe} nearest cells,
     reducing query time from $O(N)$ to approximately $O(\sqrt{N})$ with
-    negligible recall loss for typical parameter settings.
+    negligible recall loss for typical parameter settings. The index is built
+    on CPU via SIMD multithreading without touching the GPU, so kNN and
+    embedding inference run concurrently without CUDA contention (ADR~001).
 \end{description}
 
-The pgvector \texttt{VECTOR} type is used solely for storage and retrieval;
+The pgvector \texttt{HALFVEC} type is used solely for storage and retrieval;
 nearest-neighbour queries are never issued via SQL, as pgvector's index
 performance degrades at the scale of hundreds of thousands of vectors under
-concurrent load.
+concurrent load (ADR~001).
 
 % ────────────────────────────────────────────────────────────
 \section{Prediction Export}
@@ -293,12 +530,11 @@ restarting the rest of the stack.
 \section{Reranker Promotion Pipeline}
 \label{sec:reranker-promotion}
 
-The learning-to-rank reranker component is developed in a companion repository,
-\texttt{protea-reranker-lab}, kept deliberately separate from PROTEA to protect
-the production image from the research dependency tree (LightGBM, Pandas, the
-training runtime). The two repositories exchange information through a narrow
-contract rather than direct imports, so that a regression in the research
-sandbox can never degrade serving behaviour.
+The learning-to-rank reranker component is developed in the
+\texttt{protea-runners.lightgbm} plugin (ADR D9), kept separate from the
+PROTEA platform to protect the production image from the research dependency
+tree (LightGBM, Pandas, the training runtime). The two sides exchange
+information through a narrow contract rather than direct imports.
 
 The contract consists of three artefacts:
 
@@ -310,8 +546,8 @@ The contract consists of three artefacts:
   \item[\texttt{train.parquet} / \texttt{eval.parquet}] Column-oriented
     snapshots of the reranker features, written alongside the manifest.
   \item[\texttt{run.json} + \texttt{model.txt} + \texttt{spec.yaml}] Produced
-    by the lab after training: the serialised LightGBM booster, the hyper-
-    parameter specification, and an execution manifest recording the run
+    by the lab after training: the serialised LightGBM booster, the
+    hyper-parameter specification, and an execution manifest recording the run
     identifier, git SHA, and realised metrics.
 \end{description}
 
@@ -344,10 +580,10 @@ fingerprint onto each batch message.
 \section{Frontend}
 \label{sec:frontend}
 
-The web interface is a Next.js 16 application using Tailwind CSS v4 for styling.
-It communicates with the FastAPI backend exclusively through the REST API,
-enabling the two layers to be deployed independently. The primary workflows
-exposed by the frontend are:
+The web interface is a Next.js 16 application using Tailwind CSS v4 for
+styling. It communicates with the FastAPI backend exclusively through the REST
+API, enabling the two layers to be deployed independently. The primary
+workflows exposed by the frontend are:
 
 \begin{itemize}
   \item Uploading FASTA files to create query sets.
@@ -370,7 +606,8 @@ The test suite is split into two categories:
   \item[Integration tests] Run with \texttt{pytest --with-postgres}. The
     \texttt{conftest.py} fixture pulls a \texttt{pgvector/pgvector:pg16} Docker
     image, initialises the schema, and tears down the container after the session.
-    These tests exercise the full round-trip from job submission to database state.
+    These tests exercise the full round-trip from job submission to database
+    state.
 \end{description}
 
 Coverage is enforced at 70\,\% by \texttt{pytest-cov}.
