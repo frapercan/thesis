@@ -76,7 +76,7 @@ constructed ground truth, and log the provenance of every intermediate artefact.
 The feature-engineering question adds a further layer of complexity. Raw embedding
 distance is a useful but noisy signal: two sequences may be close in the PLM embedding
 space for reasons that do not translate into shared GO annotations. Pairwise alignment
-scores (Needleman-Wunsch global alignment, Smith-Waterman local alignment)
+scores (Needleman--Wunsch global alignment, Smith--Waterman local alignment)
 complement the embedding distance with a signal grounded in evolutionary substitution
 models. Taxonomic distance, computed from the NCBI taxonomy tree, captures the
 evolutionary relatedness of the source organism, which is predictive of how well
@@ -110,13 +110,13 @@ that PROTEA implements end-to-end, including for the re-ranker training pipeline
 
 The CAFA 6 challenge, whose results were released in late 2025, provided an
 independent blind validation of methods built around these principles. The research
-team in which the author of this thesis served as the primary technical contributor
-achieved a second-place team ranking, validating the embedding-based annotation
-transfer approach at international scale and under the strictest possible evaluation
-conditions. The CAFA result does not belong to PROTEA as a platform: PROTEA is the
-post-challenge productisation. The result belongs to the team's research, and it is
-cited here as evidence that the methodology developed in this thesis is competitive
-with the best publicly evaluated alternatives.
+team in which the author of this thesis served as technical lead achieved a
+second-place ranking, validating the embedding-based annotation transfer approach at
+international scale and under the strictest possible evaluation conditions. The CAFA
+result does not belong to PROTEA as a platform: PROTEA is the post-challenge
+productisation. The result belongs to the research, and it is cited here as evidence
+that the methodology developed in this thesis is competitive with the best publicly
+evaluated alternatives.
 
 \subsection{Research Engineering as a First-Class Output}
 \label{subsec:research-engineering}
@@ -177,14 +177,10 @@ deployable as an independently verifiable artefact'' is routinely underestimated
 PROTEA was designed to address all three dimensions simultaneously. As a method, it
 operationalises embedding-based annotation transfer with selective learning-to-rank
 refinement, following a leakage-free temporal protocol throughout. As a platform, it
-provides an extensible foundation split across seven code repositories connected via
-Python \texttt{entry\_points}: new backends, annotation sources, and ranking methods
-are plugged in without modifying the core, and every request path is instrumented with
-OpenTelemetry spans that make the platform's behaviour observable in production. As a
-deployment story, it ships pre-built containers covering five deploy modes (docker
-compose dev, docker compose bundle, Helm, Docker Swarm, and Apptainer/SLURM) that run
-the same canonical pipeline on a developer workstation, in a cloud cluster, on an HPC
-system, or in an airgapped environment.
+provides the extensible foundation that lets new backends, annotation sources, and
+ranking methods be plugged in without ad-hoc glue. As a deployment story, it ships
+pre-built containers that run the same canonical pipeline on a developer workstation,
+in a cloud cluster, on an HPC system via Apptainer, or in an airgapped environment.
 
 The architectural answer to composability is the operation abstraction: every unit of
 domain logic is a Python class with a name and an \texttt{execute} method, registered
@@ -254,19 +250,15 @@ that RQ2 cannot be answered reliably unless the evaluation methodology is correc
         platform.
 
   \item Do pairwise alignment statistics, taxonomic distance, ontology-graph
-        ancestry features (anc2vec), GO-DAG lineage relation columns, InterPro2GO
-        domain-family signal, and per-PLM PCA projections provide complementary
-        signal that improves the ranking of candidate annotations once the embedding
-        baseline is already strong, and does a gated-attention MIL pooling head
-        outperform fixed cosine-weighted aggregation?
+        ancestry features, and per-PLM PCA projections provide complementary signal
+        that improves the ranking of candidate annotations once the embedding
+        baseline is already strong?
 
         This question motivates the feature-engineering layer and the learning-to-rank
         reranker. The relevant evidence is whether the 52-feature schema adds
         measurable lift on top of the embedding-only baseline under a leakage-free
-        evaluation, whether that lift is robust across ontology aspects and knowledge
-        categories, and whether the anc2vec leave-one-family-out protocol confirms the
-        signal with bootstrap-validated statistical significance ($p < 0.0001$ across
-        all nine ablation cells).
+        evaluation, and whether that lift is robust across ontology aspects and
+        knowledge categories.
 
   \item How can a reproducible, scalable annotation pipeline be designed so that
         researchers can re-run analyses as ontologies and databases are updated, and
@@ -344,10 +336,7 @@ The main contributions of this work are:
         sources, runners, and PLM backends be added without modifying the core
         platform. The contracts package (\texttt{protea-contracts}) defines the
         extension surface as a SemVer-versioned public artefact independent of the
-        platform stack. Observability is instrumented end-to-end using OpenTelemetry
-        across the FastAPI routers, SQLAlchemy query layer, and RabbitMQ consumer
-        paths, giving each experiment a traceable span from HTTP request to database
-        write.
+        platform stack.
 
   \item A \textbf{versioned data model} for ontology snapshots, annotation sets,
         embedding configurations, datasets, re-ranker models, and experiment runs,
@@ -361,17 +350,12 @@ The main contributions of this work are:
         releases.
 
   \item A \textbf{feature engineering layer} that augments embedding similarity with
-        Needleman-Wunsch / Smith-Waterman alignment scores,
+        Needleman--Wunsch / Smith--Waterman alignment scores,
         NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
         (anc2vec), and per-PLM PCA projections, organised as a registry of
         approximately 52 features. The feature schema fingerprint ensures that
         any stored re-ranker model is automatically invalidated if the feature
-        definition changes. The lineage sub-schema adds four DAG-relation columns
-        derived from the GO hierarchy, encoding ancestor, descendant, sibling, and
-        cross-branch co-occurrence signals that complement the raw embedding distance.
-        An InterPro2GO mapping layer, backed by a dedicated ORM table, provides
-        domain-family signal as an additional annotation source for the feature
-        pipeline.
+        definition changes.
 
   \item A \textbf{selective learning-to-rank re-ranker} (LightGBM, trained per
         category and per aspect) that falls back to the embedding-only baseline
@@ -379,44 +363,26 @@ The main contributions of this work are:
         the leakage-free protocol, the re-ranker raises NK-BPO $F_{\max}$ from
         0.431 to 0.599, a gain of 0.168 absolute that disappears almost entirely
         when temporal leakage is introduced, underscoring the importance of the
-        evaluation methodology. Bootstrap confidence intervals show the re-ranker
-        lift is statistically significant versus the KNN baseline ($p < 0.0001$)
-        across all nine ablation cells (three aspects by three knowledge categories).
+        evaluation methodology.
 
-  \item A \textbf{gated-attention MIL head} integrated into the inference layer
-        (\texttt{protea-method}), which treats the $k$-nearest-neighbour set as a
-        bag and learns per-neighbour attention weights conditioned on the query
-        embedding, replacing the fixed cosine-weighted aggregation with a trained
-        pooling operator.
-
-  \item An \textbf{anc2vec leave-one-family-out evaluation} showing that the
-        ontology-graph ancestry query features produce a mean $F_{\max}$ delta of
-        $+0.1449$ relative to the embedding-only baseline, and that cafaeval
-        re-validation of the best configuration reaches $F_{\max}~0.5427$,
-        surpassing the historical hybrid-picker ceiling of $0.4400$.
-
-  \item A \textbf{multi-target deployment story} covering five distinct deploy modes:
-        \texttt{docker compose} for development, \texttt{docker compose} bundle for
-        airgapped delivery, Helm for cloud Kubernetes clusters, Docker Swarm for
-        on-premise stacks, and Apptainer for SLURM-managed HPC environments.
-        All five modes run the same canonical pipeline without code branching.
-        The deployment matrix was validated by submitting three pre-built containers
-        to the LAFA public benchmark.
+  \item A \textbf{multi-target deployment story} (development \texttt{docker
+        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
+        the same canonical pipeline without code branching. The deployment matrix
+        was validated by submitting three pre-built containers to the LAFA public
+        benchmark.
 
   \item An \textbf{operational narrative model} (\texttt{Job.findings},
         \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why
         of every run and provides the audit trace from which the evaluation chapter
         is distilled. Complementing this, an index of 31 Architecture Decision
-        Records (D1 to D31) in \texttt{protea-core/docs/source/adr/} provides a
+        Records (D1--D31) in \texttt{protea-core/docs/source/adr/} provides a
         curated history of non-obvious design choices.
 
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
         baseline methods on held-out \gls{goa} splits under a leakage-free temporal
         holdout (GOA~220 $\to$~229), demonstrating that the 52-feature LightGBM
         re-ranker raises NK-BPO $F_{\max}$ from 0.431 to 0.599 relative to the
-        embedding-only baseline. An independent v9-protocol replication study
-        (three seeds, averaged) yields a lab $F_{\max}$ of 0.2881, providing a
-        further external anchor for the evaluation.
+        embedding-only baseline.
 
   \item A \textbf{contribution to CAFA~6} as part of a research team, achieving a
         second-place team ranking in the international challenge, and three pre-built
@@ -457,7 +423,7 @@ abstraction and the OperationRegistry, the plugin contract system and the
 contracts-first split across seven repositories, the job lifecycle and the ten-queue
 RabbitMQ topology, the versioned data model, the embedding and prediction pipelines,
 the ArtifactStore, and the public REST API with its seventeen routers. The ADR index
-D1 to D31 cross-references the major design decisions to this narrative.
+D1--D31 cross-references the major design decisions to this narrative.
 
 \Cref{chap:implementation} describes how the design materialises across the seven
 repositories. It covers the technology stack, the database schema and Alembic
