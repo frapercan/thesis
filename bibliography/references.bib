@@ -152,7 +152,7 @@
 
 @article{blum2021interpro,
   author  = {Blum, Matthias and others},
-  title   = {{InterPro} in 2021 -- improving sequence-based predictions and integrating AlphaFold2 structures},
+  title   = {{InterPro} in 2021: improved sequence-based predictions and integration of {AlphaFold2} structures},
   journal = {Nucleic Acids Research},
   year    = {2021},
   volume  = {49},
@@ -549,15 +549,27 @@
 
 % ── Sequence-based deep models ───────────────────────────────
 
-% TODO: verify metadata
-% The cite key tale2023 is used in chapter 3 for a paper described as
-% "TALE (Transformer-based Annotation Learning and Extraction)" using ESM-1b
-% with a multi-label head and GO-DAG consistency loss, evaluated on CAFA3.
-% The entry below is the ProteinBERT paper (Brandes et al. 2022), which does
-% NOT match that description. Either (a) replace this entry with the real TALE
-% citation once the paper is identified, or (b) if no standalone TALE paper
-% exists, update chapter 3 to cite the correct ProteinBERT entry and rename the
-% key. The ProteinBERT metadata is preserved below pending resolution.
+% TB.1 OPEN ISSUE — tale2023 key mismatch (priority: resolve before deposit)
+%
+% The cite key `tale2023` is used in chapter 3 (sections 3.3.2 and 3.4) for a
+% system described as "TALE (Transformer-based Annotation Learning and Extraction)"
+% that fine-tunes ESM-1b with a multi-label head and a true-path consistency loss,
+% evaluated on CAFA3 targets.
+%
+% The entry below is the ProteinBERT paper (Brandes et al., Bioinformatics 2022),
+% which does NOT match that description. ProteinBERT pre-dates ESM-1b and does not
+% apply a DAG consistency loss.
+%
+% Resolution required (pick one):
+%   (a) Identify the real TALE paper (likely a CAFA5 or CAFA6 workshop submission
+%       or preprint circa 2022-2023) and replace this entry, renaming the key if
+%       necessary.
+%   (b) If no standalone TALE paper exists, remove "TALE" framing from chapter 3
+%       and replace the description with the ProteinBERT paper (renaming key to
+%       proteinbert2022). Then chapter 3 can discuss ProteinBERT plus cite a
+%       separate system that performs DAG-consistent fine-tuning (e.g., NetGO 3).
+%
+% The ProteinBERT metadata is preserved below unchanged pending resolution.
 @article{tale2023,
   author  = {Brandes, Nadav and Ofer, Dan and Peleg, Yam and Rappoport, Nadav and
              Linial, Michal},
@@ -587,7 +599,7 @@
 
 @inproceedings{ilse2018attention,
   author    = {Ilse, Maximilian and Tomczak, Jakub M. and Welling, Max},
-  title     = {Attention-based Deep Multiple Instance Learning},
+  title     = {Attention-Based Deep Multiple Instance Learning},
   booktitle = {Proceedings of the 35th International Conference on Machine Learning
                ({ICML})},
   year      = {2018},
@@ -596,6 +608,7 @@
   pages     = {2127--2136},
   publisher = {PMLR},
   url       = {https://proceedings.mlr.press/v80/ilse18a.html},
+  note      = {arXiv:1802.04712},
 }
 
 % Resolved via bioRxiv API (10.1101/2024.12.17.629067). Note: the method
