@@ -171,7 +171,8 @@ $k{=}5$.
     category and GO aspect. Performance degrades monotonically as $k$ grows,
     confirming that functional signal is concentrated in the very nearest
     neighbours and that aggregating over more candidates merely dilutes the vote.
-    Note the log-scale on the $x$ axis.%
+    Note the log-scale on the $x$ axis.
+    Source: \texttt{figures/fig\_fmax\_vs\_k.py} (data: \texttt{figures/data/fmax\_vs\_k.csv}).%
   }
   \label{fig:fmax-vs-k}
 \end{figure}
@@ -404,7 +405,9 @@ rows is not valid; a full leakage-free re-run of the earlier methods is pending
     dataset (52 features, mean of 3 seeds); all other bars use the
     pre-leakage-fix \texttt{bench-v1-K5} dataset and are included for
     directional reference only. A full leakage-free re-run of earlier methods
-    is pending (lab-runner LB.2).%
+    is pending (lab-runner LB.2).
+    Source: \texttt{figures/fig\_reranker\_progression.py}
+    (data: \texttt{figures/data/reranker\_progression.csv}).%
   }
   \label{fig:reranker-progression}
 \end{figure}
@@ -454,7 +457,9 @@ seed 42, leakage-free dataset.
     \texttt{anc2vec\_query\_known\_maxcos}) contributes prominently in LK and PK.
     Raw embedding distance (\texttt{distance}) does not appear in the top-10
     for any category, confirming that the model uses embedding similarity
-    primarily as a candidate-generation filter.%
+    primarily as a candidate-generation filter.
+    Source: \texttt{figures/fig\_feature\_importance.py}
+    (data: \texttt{figures/data/feature\_importance\_v3.csv}).%
   }
   \label{fig:feature-importance}
 \end{figure}
@@ -570,7 +575,9 @@ provided in \cref{app:external-comparison}.
     set. The v3 and baseline rows use different datasets; direct cell-by-cell
     comparisons are indicative only. NK and LK show large margins over
     eggNOG-mapper across all methods. PK-BPO shows lower v3 performance
-    due to the leakage-fix recategorisation tightening the positive set.%
+    due to the leakage-fix recategorisation tightening the positive set.
+    Source: \texttt{figures/fig\_protea\_vs\_emapper.py}
+    (data: \texttt{figures/data/protea\_vs\_emapper.csv}).%
   }
   \label{fig:protea-vs-emapper}
 \end{figure}
