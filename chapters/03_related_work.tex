@@ -403,7 +403,9 @@ propagation. eggNOG-mapper's output is used as a reference benchmark in the
 CAFA 6 evaluation because it represents state-of-the-art homology transfer
 without \gls{plm} embeddings. PROTEA integrates an eggNOG-mapper annotation source
 plugin, allowing its output to serve as an additional evidence channel in the
-ensemble rather than as a competing system.
+ensemble rather than as a competing system. A controlled head-to-head
+evaluation on PROTEA's leakage-free test set, with full reproduction
+instructions, is provided in \cref{app:external-comparison}.
 
 \textbf{TALE}~\cite{tale2023} and comparable fine-tuned models implicitly
 perform a form of ensemble by combining PLM backbone representations with
@@ -692,6 +694,8 @@ baseline for annotation quality in the twilight zone.
 against clusters of orthologous groups (COGs) and transfers functional
 annotations from the eggNOG database. It is widely used in comparative genomics
 pipelines and is a top-performing homology method in CAFA evaluations.
+The full setup used to compare eggNOG-mapper against PROTEA on the same
+leakage-free evaluation set is documented in \cref{app:external-comparison}.
 
 \textbf{InterProScan} (the command-line interface to InterPro) is the most widely
 deployed domain-matching pipeline in genome annotation workflows. Its output is
