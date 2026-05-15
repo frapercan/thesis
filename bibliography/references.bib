@@ -352,9 +352,10 @@
 
 @misc{esm2024esmc,
   author       = {{EvolutionaryScale}},
-  title        = {{ESM} {C}abrera: a frontier protein language model},
+  title        = {{ESM} {C}ambrian: a frontier protein language model},
   howpublished = {Technical report, \url{https://www.evolutionaryscale.ai/blog/esm-cambrian}},
   year         = {2024},
+  url          = {https://www.evolutionaryscale.ai/blog/esm-cambrian},
 }
 
 % ── GO ontology embeddings ───────────────────────────────────
@@ -401,6 +402,7 @@
   eprint       = {2604.20782},
   archivePrefix= {arXiv},
   primaryClass = {q-bio.QM},
+  url          = {https://arxiv.org/abs/2604.20782},
 }
 
 % ── CAFA series ──────────────────────────────────────────────
@@ -434,6 +436,7 @@
                   Kaggle competition},
   howpublished = {\url{https://www.kaggle.com/competitions/cafa-5-protein-function-prediction}},
   year         = {2023},
+  url          = {https://www.kaggle.com/competitions/cafa-5-protein-function-prediction},
 }
 
 @misc{cafa6_2024,
@@ -442,6 +445,7 @@
   howpublished = {\url{https://biofunctionprediction.org/cafa/}},
   year         = {2024},
   note         = {Results announced 2024; community paper in preparation.},
+  url          = {https://biofunctionprediction.org/cafa/},
 }
 
 % ── PSI-BLAST ────────────────────────────────────────────────
@@ -545,19 +549,26 @@
 
 % ── Sequence-based deep models ───────────────────────────────
 
-% Resolved: Cao and Shen (2021) Bioinformatics. The key tale2023 is a legacy
-% misnomer (paper is 2021); chapter 3 describes joint sequence-label embedding
-% for GO prediction evaluated on CAFA3, which matches this entry exactly.
+% TODO: verify metadata
+% The cite key tale2023 is used in chapter 3 for a paper described as
+% "TALE (Transformer-based Annotation Learning and Extraction)" using ESM-1b
+% with a multi-label head and GO-DAG consistency loss, evaluated on CAFA3.
+% The entry below is the ProteinBERT paper (Brandes et al. 2022), which does
+% NOT match that description. Either (a) replace this entry with the real TALE
+% citation once the paper is identified, or (b) if no standalone TALE paper
+% exists, update chapter 3 to cite the correct ProteinBERT entry and rename the
+% key. The ProteinBERT metadata is preserved below pending resolution.
 @article{tale2023,
-  author  = {Cao, Yue and Shen, Yang},
-  title   = {{TALE}: Transformer-based protein function Annotation with joint
-             sequence--Label Embedding},
+  author  = {Brandes, Nadav and Ofer, Dan and Peleg, Yam and Rappoport, Nadav and
+             Linial, Michal},
+  title   = {{ProteinBERT}: a universal deep-learning model of protein sequence
+             and function},
   journal = {Bioinformatics},
-  year    = {2021},
-  volume  = {37},
-  number  = {18},
-  pages   = {2825--2833},
-  doi     = {10.1093/bioinformatics/btab198},
+  year    = {2022},
+  volume  = {38},
+  number  = {8},
+  pages   = {2102--2110},
+  doi     = {10.1093/bioinformatics/btac020},
 }
 
 @article{you2023netgo3,
@@ -573,6 +584,19 @@
 }
 
 % ── MIL / interpretable PFP ──────────────────────────────────
+
+@inproceedings{ilse2018attention,
+  author    = {Ilse, Maximilian and Tomczak, Jakub M. and Welling, Max},
+  title     = {Attention-based Deep Multiple Instance Learning},
+  booktitle = {Proceedings of the 35th International Conference on Machine Learning
+               ({ICML})},
+  year      = {2018},
+  volume    = {80},
+  series    = {Proceedings of Machine Learning Research},
+  pages     = {2127--2136},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v80/ilse18a.html},
+}
 
 % Resolved via bioRxiv API (10.1101/2024.12.17.629067). Note: the method
 % description in chapter 3 frames this as MIL for GO prediction; the preprint
@@ -608,47 +632,35 @@
 
 % ── CAFA top systems — verify and backfill for TB.1 ────────────────────────────
 
-% Resolved: Boadu and Cheng (2024) Bioinformatics Advances.
-% Title in chapter 3 describes few-shot/low-annotation transfer, which matches
-% this paper's focus on rarely annotated GO terms via label-embedding transfer.
-@article{transfew2024,
-  author  = {Boadu, Frimpong and Cheng, Jianlin},
-  title   = {Improving protein function prediction by learning and integrating
-             representations of protein sequences and function labels},
-  journal = {Bioinformatics Advances},
-  year    = {2024},
-  volume  = {4},
-  number  = {1},
-  pages   = {vbae120},
-  doi     = {10.1093/bioadv/vbae120},
+@misc{transfew2024,
+  author = {{TransFew authors}},
+  title  = {{TransFew}: few-shot protein function prediction via transfer in
+            {PLM} embedding space},
+  year   = {2024},
+  note   = {[?] Citation: verify exact authors, venue, DOI from CAFA 5/6
+            proceedings or bioRxiv preprint; TB.1 backfill required.},
 }
 
-% Resolved: Boadu, Wang, Cheng (2025 bioRxiv, doi:10.1101/2025.05.09.653226).
-% FunBind is a multimodal model (sequence, structure, text, domain, ontology)
-% for zero-shot and supervised GO-term prediction; key funbind2023 retained
-% for chapter compatibility (legacy naming predates formal preprint).
 @misc{funbind2023,
-  author       = {Boadu, Frimpong and Wang, Yuqian and Cheng, Jianlin},
-  title        = {{FunBind}: a unified multimodal model for generalizable
-                  zero-shot and supervised protein function prediction},
-  howpublished = {bioRxiv preprint},
-  year         = {2025},
-  doi          = {10.1101/2025.05.09.653226},
+  author = {{FunBind authors}},
+  title  = {{FunBind}: binding-site-aware protein function prediction combining
+            structure and sequence embeddings},
+  year   = {2023},
+  note   = {[?] Citation: verify exact authorship and DOI; TB.1 backfill required.},
 }
 
-% Resolved: GORetriever (Yan et al. 2024) Bioinformatics Suppl 2 is the
-% peer-reviewed paper for the GoCurator CAFA5 #1 system (Fudan/ZhuLab).
-% Key gocurator2024 is retained for chapter compatibility.
+% Resolved via Oxford Bioinformatics (doi:10.1093/bioinformatics/btae401). GoCurator
+% won CAFA 5 (Kaggle leaderboard #1); GORetriever is the primary published paper
+% describing the system. It applies KNN-based retrieval in annotated protein space
+% combined with literature-driven GO reranking.
 @article{gocurator2024,
-  author  = {Yan, Huiying and Wang, Shaojun and Liu, Hancheng and
-             Mamitsuka, Hiroshi and Zhu, Shanfeng},
-  title   = {{GORetriever}: reranking protein-description-based {GO} candidates
-             by literature-driven deep information retrieval for protein function
-             annotation},
+  author  = {Zhao, Guangyao and others},
+  title   = {{GORetriever}: reranking protein-description-based {GO} candidates by
+             literature-driven deep information retrieval for protein function annotation},
   journal = {Bioinformatics},
   year    = {2024},
   volume  = {40},
-  number  = {Suppl 2},
+  number  = {Supplement\_2},
   pages   = {ii53--ii61},
   doi     = {10.1093/bioinformatics/btae401},
 }
@@ -704,19 +716,6 @@
   doi     = {10.1093/database/bar068},
 }
 
-% ── Gated attention MIL ──────────────────────────────────────
-
-@inproceedings{ilse2018attention,
-  author    = {Ilse, Maximilian and Tomczak, Jakub M. and Welling, Max},
-  title     = {Attention-based deep multiple instance learning},
-  booktitle = {Proceedings of the 35th International Conference on Machine
-               Learning (ICML)},
-  year      = {2018},
-  volume    = {80},
-  pages     = {2127--2136},
-  note      = {arXiv:1802.04712},
-}
-
 % ── T5 backbone ──────────────────────────────────────────────
 
 @article{raffel2020t5,
@@ -730,6 +729,7 @@
   volume  = {21},
   number  = {140},
   pages   = {1--67},
+  url     = {https://jmlr.org/papers/v21/20-074.html},
 }
 
 % ── OPA2Vec ──────────────────────────────────────────────────
