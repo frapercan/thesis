@@ -293,7 +293,10 @@ The user-facing operations are:
   \item[\texttt{run\_cafa\_evaluation}] Runs the standalone \texttt{cafaeval}
     fork against a \texttt{PredictionSet} and persists \texttt{EvaluationResult}
     rows (Fmax, AuPRC, coverage, per-aspect breakdowns). Isolated on its own
-    queue so long evaluations do not block the general jobs queue.
+    queue so long evaluations do not block the general jobs queue. The same
+    evaluation protocol is applied to external tools via the companion
+    \texttt{scripts/evaluate\_external\_tool.py} helper; the concrete
+    procedure for eggNOG-mapper is documented in \cref{app:external-comparison}.
   \item[\texttt{compute\_embeddings}] Coordinator operation described in
     \cref{sec:impl-embedding-pipeline}.
   \item[\texttt{predict\_go\_terms}] Coordinator operation described in
