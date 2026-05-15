@@ -1,5 +1,9 @@
 % ============================================================
 %  Figure: PROTEA high-level architecture (four layers)
+%  Source: figures/fig_architecture.tex @ 57fa4d4
+%  Static TikZ diagram. Verify fidelity against:
+%    protea/api/app.py (_ROUTER_MODULES), protea/infrastructure/queue/,
+%    protea/workers/, repositories/protea-backends/pyproject.toml
 % ============================================================
 \begin{tikzpicture}[
   node distance=6mm and 8mm,
@@ -10,7 +14,7 @@
   \node[proteablock, minimum width=46mm] (web) {Next.js Web UI\\\footnotesize FASTA upload, job monitor, TSV export};
 
   % ── API layer ───────────────────────────────────────────────
-  \node[proteablock, minimum width=46mm, below=of web] (api) {FastAPI REST API\\\footnotesize 17 routers · session injection};
+  \node[proteablock, minimum width=46mm, below=of web] (api) {FastAPI REST API\\\footnotesize 19 routers · session injection};
 
   % ── Worker layer ────────────────────────────────────────────
   \node[proteablock, minimum width=22mm, below=14mm of api, xshift=-30mm] (qc) {QueueConsumer\\\footnotesize tracked jobs};

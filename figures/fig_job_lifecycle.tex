@@ -1,5 +1,11 @@
 % ============================================================
 %  Figure: Job lifecycle and queue topology
+%  Source: figures/fig_job_lifecycle.tex @ 57fa4d4
+%  Static TikZ diagram. Verify fidelity against:
+%    protea/api/app.py, protea/workers/base_worker.py,
+%    scripts/manage.sh (10 queues: ping, jobs, training, embeddings,
+%    embeddings.batch, embeddings.write, predictions, predictions.batch,
+%    predictions.write, evaluations)
 % ============================================================
 \begin{tikzpicture}[
   node distance=6mm and 8mm,
@@ -37,11 +43,14 @@
   \node[proteaqueue, below=2mm of qewrite]                    (qpbatch)  {protea.predictions.batch};
   \node[proteaqueue, below=2mm of qpbatch]                    (qpwrite)  {protea.predictions.write};
   \node[proteaqueue, below=2mm of qpwrite]                    (qping)    {protea.ping};
+  \node[proteaqueue, below=2mm of qping]                      (qpred)    {protea.predictions};
+  \node[proteaqueue, below=2mm of qpred]                      (qtrain)   {protea.training};
+  \node[proteaqueue, below=2mm of qtrain]                     (qeval)    {protea.evaluations};
 
   \node[draw=BurntOrange!40, dashed, rounded corners=3pt,
-        fit=(coord)(qjobs)(qping),
+        fit=(coord)(qjobs)(qeval),
         inner sep=4mm,
-        label={[font=\footnotesize\itshape, text=BurntOrange!70!black]above:RabbitMQ topology (7 queues)}] (qg) {};
+        label={[font=\footnotesize\itshape, text=BurntOrange!70!black]above:RabbitMQ topology (10 queues)}] (qg) {};
 
   % Coordinator → fan-out
   \draw[proteaarrow] (coord.south) -- ++(0,-1mm) -| (qebatch.north);

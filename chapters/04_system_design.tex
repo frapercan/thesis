@@ -70,7 +70,8 @@ PROTEA decomposes into four horizontal layers, illustrated in
     The offline reranker training laboratory (\texttt{protea-reranker-lab}) is
     not part of this plugin graph; it consumes frozen datasets published by
     PROTEA and feeds trained boosters back through the \texttt{/reranker-models}
-    import endpoint.%
+    import endpoint.
+    Source: \texttt{figures/fig\_architecture.tex} @ \texttt{57fa4d4}.%
   }
   \label{fig:architecture}
 \end{figure}
@@ -392,7 +393,8 @@ frontend reflects the cancelled state regardless of how the worker exits.
     \texttt{*.batch}~$\to$~\texttt{*.write} chains, where every write worker
     atomically increments \texttt{progress\_current} on the parent job. The
     last write closes the parent as \texttt{SUCCEEDED}, avoiding write
-    contention from hundreds of concurrent batches.%
+    contention from hundreds of concurrent batches.
+    Source: \texttt{figures/fig\_job\_lifecycle.tex} @ \texttt{57fa4d4}.%
   }
   \label{fig:job-lifecycle}
 \end{figure}
