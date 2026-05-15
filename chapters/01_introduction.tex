@@ -62,7 +62,7 @@ its simplicity, this approach is competitive with methods that incorporate struc
 priors, GO-DAG graph convolutions, or hand-crafted sequence features.
 
 Each new PLM unlocks new predictive power, but also introduces a new dependency, a
-new tokeniser, a new GPU memory footprint, and a new failure mode. Comparing PLMs at
+new tokeniser, a new \gls{gpu} memory footprint, and a new failure mode. Comparing PLMs at
 scale, on a fair benchmark, with reproducible numbers, is itself a research
 engineering problem. It is not sufficient to test a single model on a single snapshot
 of the annotation database: the useful questions involve how performance varies across
@@ -141,7 +141,7 @@ This thesis takes the position that building such a system is itself a scientifi
 contribution. PROTEA is not merely a vehicle for producing numbers: it is a platform
 whose design embodies a set of commitments about reproducibility, auditability, and
 extensibility that have consequences for how protein function prediction research can
-be conducted going forward. The ADR model, the versioned data schema, the plugin
+be conducted going forward. The \gls{adr} model, the versioned data schema, the plugin
 contracts, and the leakage-free evaluation pipeline are not implementation details.
 They are the mechanism by which the scientific claims of the thesis are made
 independently verifiable.
@@ -170,7 +170,7 @@ decisions. Reproducing the result six months later requires either perfect memor
 trail of ad-hoc log files. Neither is reliable.
 
 Third, it does not deploy. A notebook is not a method that can be submitted to a
-public benchmark, run in an HPC cluster, or handed to a collaborator without
+public benchmark, run in an \gls{hpc} cluster, or handed to a collaborator without
 significant additional work. The gap between ``it runs on my machine'' and ``it is
 deployable as an independently verifiable artefact'' is routinely underestimated.
 
@@ -297,7 +297,7 @@ and evaluation at full UniProt scale are out of scope. The reference set of
 approximately 527,000 Swiss-Prot sequences covers the reviewed, experimentally
 curated portion of UniProt. Extending PROTEA to TrEMBL-scale (hundreds of millions of
 sequences) would require replacing the NumPy-based exact nearest-neighbour search with
-a distributed approximate search backend; FAISS provides the first step in that
+a distributed approximate search backend; \gls{faiss} provides the first step in that
 direction, and the platform is designed to accommodate it.
 
 The thesis covers three LAFA benchmark submissions, which establish the deployability
@@ -401,7 +401,7 @@ system does and why it was designed that way.
 
 \Cref{chap:background} introduces the biological concepts underpinning the work.
 It covers the Gene Ontology in depth (aspects, DAG structure, evidence codes, the
-role of IEA (Inferred from Electronic Annotation) evidence codes and why IEA annotations are excluded from the
+role of \gls{iea} evidence codes and why IEA annotations are excluded from the
 evaluation ground truth), surveys the modern landscape of protein language models from
 ProtBERT and ProtT5 through ESM-2 to ESM-C and ESM-3, and situates PLM-based
 annotation transfer within the broader landscape of embedding-based machine learning.

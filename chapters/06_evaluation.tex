@@ -12,7 +12,7 @@ $t_0$ and evaluated against annotations that appeared by time $t_1$.
 
 \subsection{Hardware and Software}
 
-All experiments run on a single workstation equipped with an NVIDIA GPU
+All experiments run on a single workstation equipped with an NVIDIA \gls{gpu}
 (16\,GB VRAM), 64\,GB system RAM, and a PostgreSQL~16 instance with the
 \texttt{pgvector} extension. Embeddings are computed with ESMC~300M
 (\texttt{esmc\_300m}, 960-dimensional output) using mean pooling over residue
@@ -203,8 +203,8 @@ well-represented namespaces.
   }
 \end{table}
 
-Differences are minimal ($\leq 0.011$). The unified index slightly favours MFO
-while the separated index slightly favours BPO. We retain
+Differences are minimal ($\leq 0.011$). The unified index slightly favours \gls{mfo}
+while the separated index slightly favours \gls{bpo}. We retain
 \texttt{aspect\_separated=true} for all subsequent experiments as it provides
 uniform aspect coverage without measurable degradation.
 
@@ -847,7 +847,7 @@ structure provides information not captured by the protein sequence alone.
   \item ESMC~300M was chosen for computational tractability; larger variants
     would likely improve embedding quality at higher GPU cost.
   \item The evaluation considers only annotation transfer from Swiss-Prot
-    experimental annotations; IEA annotations are excluded because they are
+    experimental annotations; \gls{iea} annotations are excluded because they are
     themselves computationally derived.
   \item The IA file used (\texttt{IA\_cafa6.tsv}) was computed for the CAFA6
     challenge and may not perfectly reflect the information content of the

@@ -29,7 +29,7 @@ progressively as identity falls. Below the ``twilight zone'' of $\approx$30\,\%
 identity, alignment scores lose statistical power and functional inference becomes
 unreliable~\cite{rost1999twilight}.
 
-\textbf{DIAMOND}~\cite{buchfels2021diamond} offers BLAST-comparable sensitivity
+\textbf{\gls{diamond}}~\cite{buchfels2021diamond} offers BLAST-comparable sensitivity
 at orders-of-magnitude higher throughput, making it practical for genome-scale
 annotation. Its speed advantage comes from reduced-alphabet seeds and better
 SIMD utilisation; the fundamental twilight-zone limitation remains.
@@ -276,7 +276,7 @@ of these as plug-in backends within a single benchmarking framework.
 
 \textbf{ProtTrans}~\cite{elnaggar2022prottrans} (Elnaggar et al., \textit{IEEE
 TPAMI} 2022) provides a suite of encoder models trained on BFD and UniRef100
-using distributed HPC resources. The suite includes ProtBERT (BERT architecture),
+using distributed \gls{hpc} resources. The suite includes ProtBERT (BERT architecture),
 ProtAlbert (ALBERT architecture), ProtXLNet, and \textbf{ProtT5-XL}, the latter
 of which achieves the best per-residue and per-protein accuracy among the
 ProtTrans variants. ProtT5 is an encoder-decoder architecture derived from
@@ -340,10 +340,10 @@ its design informed the annotation source plugin architecture in PROTEA.
 transfer. Swiss-Prot alone contains over 570,000 entries; computing exact cosine
 distances against all of them for a large query set requires $O(NQ)$ dot products,
 which becomes infeasible at scale. Approximate nearest-neighbour libraries such
-as FAISS~\cite{johnson2021faiss} reduce this to $O(Q\sqrt{N})$ with minimal
+as \gls{faiss}~\cite{johnson2021faiss} reduce this to $O(Q\sqrt{N})$ with minimal
 accuracy loss for IVFFlat indices. PROTEA uses FAISS with IVFFlat indexing
 (the hard constraint prohibiting pgvector for collections exceeding 500k vectors
-is documented in ADR D10); numpy is used for smaller reference sets to preserve
+is documented in \gls{adr} D10); numpy is used for smaller reference sets to preserve
 exact retrieval.
 
 \textbf{Aggregation strategies} further differentiate PLM-KNN methods. Simple

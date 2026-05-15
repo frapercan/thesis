@@ -59,7 +59,7 @@ PROTEA decomposes into four horizontal layers, illustrated in
     High-level architecture of PROTEA. The four horizontal layers
     (presentation, API, workers, data) communicate exclusively through well-defined
     interfaces: HTTPS/JSON between the browser and the API, RabbitMQ for task
-    dispatch, and PostgreSQL as the single source of truth. GPU inference is
+    dispatch, and PostgreSQL as the single source of truth. \gls{gpu} inference is
     isolated in dedicated workers so that compute capacity can be scaled
     independently of API throughput. Domain logic is factored across four plugin
     packages discovered at startup via Python entry points:
@@ -148,7 +148,7 @@ inference logic, without the platform's worker, queue, or ORM machinery
 as transitive dependencies.
 
 Third, the contracts themselves become a SemVer-versioned public artefact.
-Adding a feature to the canonical schema bumps a minor; renaming an ABC
+Adding a feature to the canonical schema bumps a minor; renaming an \gls{abc}
 method bumps a major. Consumers pin a known-good range and the platform
 team controls the breakage budget.
 
@@ -260,7 +260,7 @@ parallel column \texttt{feature\_schema\_sha\_v2} on the
 backfill script that recomputed each row's digest using the canonical
 helper. The legacy column is retained until the audit window closes; new
 registrations write only the v2 column. The episode is recorded in
-ADR D10.
+\gls{adr} D10.
 
 \subsection{Why a Separate Package, Not Just a Module}
 \label{subsec:contracts-rationale}
@@ -294,7 +294,7 @@ computing embeddings, predicting GO terms) are submitted through the API as
 
 \begin{enumerate}
   \item The API creates a \texttt{Job} row in state \texttt{QUEUED} and publishes
-    the job UUID to the appropriate RabbitMQ queue.
+    the job \gls{uuid} to the appropriate RabbitMQ queue.
   \item A \texttt{QueueConsumer} worker receives the UUID, opens a
     \textit{claim session}, transitions the job to \texttt{RUNNING}, and flushes
     the \texttt{started\_at} timestamp. The claim session is committed and closed
@@ -499,7 +499,7 @@ feature-engineering columns described in \cref{sec:feature-engineering}.
 
 \texttt{RerankerModel} records a trained LightGBM booster promoted from the
 research sandbox described in \cref{sec:reranker-promotion}. The row carries
-the artefact URI resolved by PROTEA's storage abstraction
+the artefact \gls{uri} resolved by PROTEA's storage abstraction
 (\texttt{file:///\ldots} for local filesystem or \texttt{s3://\ldots} for
 MinIO), the \texttt{feature\_schema\_sha} fingerprint used to validate
 feature-set alignment at inference time, the originating embedding
@@ -920,7 +920,7 @@ most consequential decisions as a decision log).
     for the standalone inference path are specified in D15.
   \item[Container runtime (D26).] OCI multi-stage Dockerfiles as the source
     of truth; Apptainer \texttt{.sif} images generated as release artefacts
-    for HPC environments.
+    for \gls{hpc} environments.
   \item[HPC operation mode (D25).] Mode B (stateless workers on HPC nodes
     connecting to cloud-hosted Postgres and RabbitMQ) is the primary HPC
     deployment target; mode C (airgapped \texttt{.sif} bundle) is deferred
