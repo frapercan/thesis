@@ -29,8 +29,9 @@ combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment stat
 NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings (anc2vec).
 Training follows a leakage-free temporal holdout over twelve consecutive GOA releases.
 Under this protocol a $3^{3}$ hyperparameter grid search on the NK-BPO task yields
-$F_{\max}$ in the range 0.4386--0.4669, and cafaeval re-validation of the v9 study
-(three-seed replication, average lab $F_{\max}$ 0.2881) returns 0.5427, exceeding the
+$F_{\max}$ in the range 0.4386--0.4669, and cafaeval re-validation of the 56-feature
+re-ranker (three-seed replication, average lab $F_{\max}$ 0.2881) returns 0.5427,
+exceeding the
 historical hybrid-picker ceiling of 0.4400. Feature-ablation experiments identify
 \texttt{anc2vec\_query} as the dominant contributor, with a leave-one-family-out mean
 $\Delta F_{\max}$ of $+0.1449$. Bootstrap confidence intervals against the KNN baseline
@@ -47,7 +48,7 @@ cloud, HPC (Apptainer) and airgapped environments.
 The doctoral contribution is threefold: (1) PROTEA as a reproducible, operationally
 auditable platform with a seven-repository plugin ecosystem and five deployment modes;
 (2) a leakage-free reranker pipeline that quantifies the true lift of feature
-engineering over PLM embeddings; (3) the LAFA v2 method submission as an independently
+engineering over PLM embeddings; (3) the LAFA second-round method submission as an independently
 verifiable performance reference.
 
 \bigskip
