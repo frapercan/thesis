@@ -26,18 +26,19 @@ breaking changes required a versioning strategy that would not strand existing
 consumers.
 
 \paragraph{Decision accepted 2026-05-06.}
-A universal \texttt{/v1/} path prefix is applied to all routers. Future
-breaking changes branch under \texttt{/v2/} without removing \texttt{/v1/}
-endpoints. \texttt{Accept}-header negotiation is deferred unless a concrete
-need surfaces. Deprecated unprefixed mounts are kept for one release cycle to
-avoid breaking live clients (the \texttt{protea.ngrok.app} deployment and
-existing front-end fetchers) during the transition.
+A universal versioned path prefix is applied to all routers (currently
+\texttt{/v}\emph{N}\texttt{/}). Future breaking changes introduce a new major
+version without removing existing endpoints. \texttt{Accept}-header negotiation
+is deferred unless a concrete need surfaces. Deprecated unprefixed mounts are
+kept for one release cycle to avoid breaking live clients (the
+\texttt{protea.ngrok.app} deployment and existing front-end fetchers) during
+the transition.
 
 \paragraph{Consequences.}
 Each API version ships its own OpenAPI document. Schemathesis runs against the
 version under test. Front-end and external clients update their base URLs once,
-at the \texttt{/v1/} transition, and are thereafter insulated from internal
-restructuring under the same major version.
+at the initial versioned-prefix transition, and are thereafter insulated from
+internal restructuring under the same major version.
 
 % ────────────────────────────────────────────────────────────
 \section{D6: Authentication Strategy}
@@ -108,7 +109,7 @@ Tasks T5.1a (OTel instrumentation), T5.1b (Prometheus endpoint), T5.2
 phased rollout; T5.1a and T5.1b are complete.
 
 % ────────────────────────────────────────────────────────────
-\section{D10: \texttt{schema\_sha} v2 Parallel Migration}
+\section{D10: \texttt{schema\_sha} Parallel Column Migration}
 \label{app:adr-d10}
 
 \paragraph{Context.}
@@ -116,15 +117,16 @@ phased rollout; T5.1a and T5.1b are complete.
 from running with a re-ranker booster trained against a different feature
 schema. Two independent definitions of \texttt{compute\_schema\_sha} (one in
 the lab, one in PROTEA) silently drifted until the parity bug surfaced during
-the v9 study on 2026-05-01 and caused a non-reproducible run.
+the 56-feature re-ranker study on 2026-05-01 and caused a non-reproducible run.
 
 \paragraph{Decision accepted 2026-05-06.}
 A parallel \texttt{schema\_sha\_v2} column is added to both \texttt{Dataset}
 and \texttt{RerankerModel}. The column is backfilled from the canonical
 \texttt{protea\_contracts.compute\_schema\_sha} implementation. The production
-read path switches to \texttt{v2}; the \texttt{v1} column is retained until
-the F3 gate for audit purposes and then dropped. A regression test exposes the
-v1/v2 drift on historical rows rather than retroactively modifying them.
+read path switches to the new \texttt{schema\_sha\_v2} column; the legacy column
+is retained until the F3 gate for audit purposes and then dropped. A regression
+test exposes the parity drift on historical rows rather than retroactively
+modifying them.
 
 \paragraph{Implementation gate.}
 Task T1.6 carries the Alembic migration and backfill. The migration is

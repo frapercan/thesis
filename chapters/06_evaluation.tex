@@ -250,8 +250,8 @@ statistics provide a genuinely complementary signal to embedding distance
 (addressing \textbf{RQ2}).
 
 % ── Experiment 4 ──────────────────────────────────────────────
-\subsection{Experiment~4: LightGBM Re-Ranker v1 (Per-Aspect Models)}
-\label{subsec:exp4-reranker-v1}
+\subsection{Experiment~4: LightGBM Re-Ranker, Per-Aspect Models}
+\label{subsec:exp4-reranker-pa}
 
 A LightGBM binary classifier is trained on 12 temporal holdout splits
 (GOA~160$\to$165 through GOA~215$\to$220) and evaluated on the test split
@@ -261,8 +261,8 @@ Two variants are tested: no class balancing, and subsampling negatives to a
 
 \begin{table}[htbp]
   \centering
-  \caption[Fmax: LightGBM v1 re-ranker]{$F_{\max}$: LightGBM v1 re-ranker (per-aspect models).}
-  \label{tab:results-reranker-v1}
+  \caption[Fmax: LightGBM per-aspect re-ranker]{$F_{\max}$: LightGBM per-aspect re-ranker (Exp.~4).}
+  \label{tab:results-reranker-pa}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{l ccc ccc ccc}
     \toprule
@@ -272,25 +272,25 @@ Two variants are tested: no class balancing, and subsampling negatives to a
     \midrule
     Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
     Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
-    v1 (no balance)    & 0.384 & 0.584 & \textbf{0.695} & 0.447 & 0.482 & \textbf{0.713} & 0.201 & 0.284 & 0.335 \\
-    v1 (balanced)      & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    PA (no balance)    & 0.384 & 0.584 & \textbf{0.695} & 0.447 & 0.482 & \textbf{0.713} & 0.201 & 0.284 & 0.335 \\
+    PA (balanced)      & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
-The v1 re-ranker improves CCO substantially (+2 to 4\% over baseline) but
-\emph{degrades} MFO by 3 to 9\% relative to the heuristic. Six of nine per-aspect
-models suffer from early stopping at iteration~1 due to extreme class imbalance
+The per-aspect re-ranker improves CCO substantially (+2 to 4\% over baseline) but
+\emph{degrades} MFO by 3 to 9\% relative to the heuristic. Six of nine models
+suffer from early stopping at iteration~1 due to extreme class imbalance
 (positive rate $<0.2\%$). Class balancing corrects the BPO collapse but
 introduces a different trade-off. Neither variant surpasses the heuristic
 overall.
 
 % ── Experiment 5 ──────────────────────────────────────────────
-\subsection{Experiment~5: LightGBM Re-Ranker v2 (Per-Category + IA Weighting)}
-\label{subsec:exp5-reranker-v2}
+\subsection{Experiment~5: LightGBM Re-Ranker, Per-Category Models with IA Weighting}
+\label{subsec:exp5-reranker-pc}
 
-Experiment~5 addresses three weaknesses of v1:
+Experiment~5 addresses three weaknesses of the per-aspect re-ranker (Exp.~4):
 \begin{enumerate}
   \item \textbf{Per-category models} (NK, LK, PK) instead of per-aspect
     (NK-BPO, NK-MFO, \ldots), giving each model ${\sim}3{\times}$ more training data.
@@ -302,8 +302,8 @@ Experiment~5 addresses three weaknesses of v1:
 
 \begin{table}[htbp]
   \centering
-  \caption[Fmax: LightGBM v2 re-ranker]{$F_{\max}$: LightGBM v2 re-ranker (per-category + IA weighting).}
-  \label{tab:results-reranker-v2}
+  \caption[Fmax: LightGBM per-category re-ranker]{$F_{\max}$: LightGBM per-category re-ranker with IA weighting (Exp.~5).}
+  \label{tab:results-reranker-pc}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{l ccc ccc ccc}
     \toprule
@@ -313,25 +313,26 @@ Experiment~5 addresses three weaknesses of v1:
     \midrule
     Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
     Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
-    v2 (full)          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    PC (full)          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
-The v2 re-ranker is substantially more robust than v1: MFO no longer
-collapses (0.607 vs.\ 0.577) and performance is consistent across all cells.
-However, \texttt{alignment\_weighted} still leads in BPO and MFO. Post-hoc
-analysis of feature importance revealed that alignment and taxonomy features
-had \textbf{zero importance} in all three models: these features were set to
-\texttt{NULL} during training data generation, meaning the model could only
-learn from embedding distance, aggregation features, and categorical signals.
+The per-category re-ranker is substantially more robust than the per-aspect
+configuration: MFO no longer collapses (0.607 vs.\ 0.577) and performance is
+consistent across all cells. However, \texttt{alignment\_weighted} still leads
+in BPO and MFO. Post-hoc analysis of feature importance revealed that alignment
+and taxonomy features had \textbf{zero importance} in all three models: these
+features were set to \texttt{NULL} during training data generation, meaning the
+model could only learn from embedding distance, aggregation features, and
+categorical signals.
 
 % ── Experiment 6 ──────────────────────────────────────────────
-\subsection{Experiment~6: LightGBM Re-Ranker v3 (Full Feature Set)}
-\label{subsec:exp6-reranker-v3}
+\subsection{Experiment~6: LightGBM Re-Ranker, Full Feature Set}
+\label{subsec:exp6-reranker-ff}
 
-Experiment~6 addresses the missing-feature problem identified in v2 by
+Experiment~6 addresses the missing-feature problem identified in Exp.~5 by
 computing pairwise alignment (Needleman-Wunsch and Smith-Waterman via
 parasail/BLOSUM62), taxonomic distance (via the NCBI taxonomy tree), and
 anc2vec GO-embedding cosine similarities
@@ -343,10 +344,10 @@ model access to all 52 features, the same set available at inference time.
 (\texttt{lineage\_is\_ancestor\_of\_known}, \texttt{lineage\_is\_descendant\_of\_known},
 \texttt{lineage\_ancestor\_of\_count}, \texttt{lineage\_descendant\_of\_count}) to
 the canonical \texttt{FeatureRegistry}, bringing the schema from 52 to 56 columns.
-The v9 study described in Experiment~8 (\cref{subsec:exp8-reranker-v9}) was run
+The 56-feature study described in Experiment~8 (\cref{subsec:exp8-reranker-56f}) was run
 against the current 56-column schema.
 
-Training uses the same 12 temporal holdout splits as v2, with identical
+Training uses the same 12 temporal holdout splits as Exp.~5, with identical
 hyperparameters. The feature dataset is the leakage-free
 \texttt{bench-v1-K5-filtered} snapshot (evaluation pair GOA~220$\to$230),
 which removes anc2vec look-up leakage present in the original
@@ -358,8 +359,8 @@ random seeds (42, 7, 137) are run and averaged.
 \begin{quote}
 \textbf{Note.} The preceding experiments (Exp.~1 to 5) were run on the
 pre-leakage-fix \texttt{bench-v1-K5} dataset with the older 22-feature schema.
-Their absolute $F_{\max}$ values are not directly comparable to the v3 numbers
-reported here. A full leakage-free re-run of the baseline and heuristic
+Their absolute $F_{\max}$ values are not directly comparable to the full-feature
+re-ranker numbers reported here. A full leakage-free re-run of the baseline and heuristic
 experiments is pending (lab-runner slice LB.2).
 \end{quote}
 
@@ -376,9 +377,9 @@ experiments is pending (lab-runner slice LB.2).
     \midrule
     Baseline (emb.\ only)$^\dagger$ & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
     Alignment weighted$^\dagger$    & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
-    Re-ranker v1 (bal.)$^\dagger$   & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
-    Re-ranker v2$^\dagger$          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
-    \textbf{Re-ranker v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
+    Per-aspect (bal.)$^\dagger$     & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    Per-category$^\dagger$          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \textbf{Full-feature} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
     \bottomrule
   \end{tabular}
   }
@@ -386,10 +387,10 @@ experiments is pending (lab-runner slice LB.2).
 
 \noindent$^\dagger$~Numbers from pre-leakage-fix \texttt{bench-v1-K5} dataset
 (22-feature schema, GOA~220$\to$229 eval split); not directly comparable with
-the v3 row, which uses \texttt{bench-v1-K5-filtered}
+the full-feature row, which uses \texttt{bench-v1-K5-filtered}
 (52-feature schema, GOA~220$\to$230 eval split, mean of 3 seeds).
 
-The v3 re-ranker trained on the leakage-free feature set achieves strong
+The full-feature re-ranker trained on the leakage-free feature set achieves strong
 $F_{\max}$ across all nine category-aspect cells. The GOA~220$\to$230
 evaluation window (versus 220$\to$229 for earlier rows) adds one additional
 GOA release to the test delta; this difference is expected to be small relative
@@ -402,7 +403,7 @@ rows is not valid; a full leakage-free re-run of the earlier methods is pending
   \input{figures/fig_reranker_progression}
   \caption[Re-ranker progression across methods]{%
     Method progression faceted by category (NK / LK / PK) with one bar per GO
-    aspect. The v3 bar reflects the leakage-free \texttt{bench-v1-K5-filtered}
+    aspect. The full-feature bar reflects the leakage-free \texttt{bench-v1-K5-filtered}
     dataset (52 features, mean of 3 seeds); all other bars use the
     pre-leakage-fix \texttt{bench-v1-K5} dataset and are included for
     directional reference only. A full leakage-free re-run of earlier methods
@@ -421,7 +422,7 @@ seed 42, leakage-free dataset.
 
 \begin{table}[htbp]
   \centering
-  \caption{Top-10 features by LightGBM gain for v3 per-cell models (seed~42,
+  \caption{Top-10 features by LightGBM gain for full-feature per-cell models (seed~42,
     aggregated across BPO + MFO + CCO within each category).}
   \label{tab:feature-importance}
   \resizebox{\textwidth}{!}{%
@@ -449,7 +450,7 @@ seed 42, leakage-free dataset.
 \begin{figure}[htbp]
   \centering
   \input{figures/fig_feature_importance}
-  \caption[Top-10 LightGBM feature importances per category (v3, leakage-free)]{%
+  \caption[Top-10 LightGBM feature importances per category (full-feature, leakage-free)]{%
     Top-10 features by LightGBM gain aggregated over the three per-aspect
     models per category (NK, LK, PK), seed~42, \texttt{bench-v1-K5-filtered}.
     Aggregation features (\texttt{neighbor\_vote\_fraction},
@@ -480,19 +481,19 @@ Three observations stand out:
     filter rather than a final ranking signal.
 \end{itemize}
 
-\subsubsection{Improvement Over v2 (Indicative)}
+\subsubsection{Improvement Over Per-Category Configuration (Indicative)}
 
 \Cref{tab:improvement} summarises the absolute $F_{\max}$ change of the
-leakage-free v3 re-ranker relative to the pre-leakage-fix v2 baseline. These
-deltas are not clean apples-to-apples comparisons because the datasets and
-feature schemas differ; they are reported as an indicative reference pending
-the full leakage-free ablation (lab-runner LB.2).
+leakage-free full-feature re-ranker relative to the pre-leakage-fix per-category
+baseline. These deltas are not clean apples-to-apples comparisons because the
+datasets and feature schemas differ; they are reported as an indicative reference
+pending the full leakage-free ablation (lab-runner LB.2).
 
 \begin{table}[htbp]
   \centering
-  \caption[Indicative Fmax delta: v3 (leakage-free) vs.\ v2 (pre-leakage-fix)]{%
-    Indicative $F_{\max}$ delta: v3 (leakage-free, \texttt{bench-v1-K5-filtered})
-    vs.\ v2 (pre-leakage-fix, \texttt{bench-v1-K5}). Datasets and feature
+  \caption[Indicative Fmax delta: full-feature (leakage-free) vs.\ per-category (pre-leakage-fix)]{%
+    Indicative $F_{\max}$ delta: full-feature leakage-free (\texttt{bench-v1-K5-filtered})
+    vs.\ per-category pre-leakage-fix (\texttt{bench-v1-K5}). Datasets and feature
     schemas differ; these figures are not a controlled ablation.}
   \label{tab:improvement}
   \begin{tabular}{lccc}
@@ -510,7 +511,8 @@ The large positive deltas in NK-BPO and LK-BPO reflect both the
 leakage-fix correction and the expanded feature set (anc2vec). The negative
 PK-BPO delta is consistent with the leakage fix tightening the category
 criterion, reducing over-optimistic positive rates in PK. A controlled
-leakage-free re-run of v2 is required to isolate the net feature contribution.
+leakage-free re-run of the per-category configuration is required to isolate the
+net feature contribution.
 
 % ── Experiment 7 ──────────────────────────────────────────────
 \subsection{Experiment~7: Comparison with eggNOG-mapper}
@@ -536,7 +538,7 @@ reproduction instructions are given in \cref{app:external-comparison}.
     \midrule
     eggNOG-mapper 2.1.13$^\ddagger$ & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
     PROTEA baseline$^\dagger$      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
-    \textbf{PROTEA re-ranker v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
+    \textbf{PROTEA full-feature} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
     \bottomrule
   \end{tabular}
   }
@@ -546,10 +548,10 @@ reproduction instructions are given in \cref{app:external-comparison}.
 $^\ddagger$~eggNOG-mapper evaluated on the same pre-leakage-fix evaluation set
 as the baseline; a re-evaluation against the updated split is pending.
 
-The PROTEA re-ranker v3 outperforms both eggNOG-mapper and the pre-leakage-fix
+The full-feature re-ranker outperforms both eggNOG-mapper and the pre-leakage-fix
 baseline in NK and LK across all aspects. In PK-BPO the leakage-fix
-recategorisation reduces the positive rate, leading to a lower absolute
-$F_{\max}$ for v3 compared to the pre-leakage-fix baseline and eggNOG-mapper;
+recategorisation reduces the positive rate, leading to lower absolute
+$F_{\max}$ compared to the pre-leakage-fix baseline and eggNOG-mapper;
 this is expected, as the leakage-free criterion is stricter. A side-by-side
 comparison on a shared leakage-free eval set (including a re-run of
 eggNOG-mapper) is pending (lab-runner LB.2).
@@ -559,7 +561,7 @@ numbers), consistent with the earlier finding that protein language model
 embeddings provide a stronger retrieval signal than DIAMOND-based orthology
 transfer for NK and LK proteins.
 
-Three caveats apply: (i)~the v3 and baseline rows use different evaluation
+Three caveats apply: (i)~the full-feature and baseline rows use different evaluation
 splits and feature schemas and cannot be directly compared;
 (ii)~eggNOG-mapper assigns uniform confidence (no threshold optimisation),
 which disadvantages it under $F_{\max}$; and (iii)~the eggNOG database
@@ -572,11 +574,11 @@ provided in \cref{app:external-comparison}.
   \caption[PROTEA vs eggNOG-mapper across NK/LK/PK and aspects]{%
     Head-to-head $F_{\max}$ comparison between eggNOG-mapper~v2.1.13,
     PROTEA's pre-leakage-fix embedding-only baseline ($^\dagger$), and
-    PROTEA's leakage-free re-ranker~v3 on the GOA~220$\to$230 evaluation
-    set. The v3 and baseline rows use different datasets; direct cell-by-cell
-    comparisons are indicative only. NK and LK show large margins over
-    eggNOG-mapper across all methods. PK-BPO shows lower v3 performance
-    due to the leakage-fix recategorisation tightening the positive set.
+    PROTEA's leakage-free full-feature re-ranker on the GOA~220$\to$230
+    evaluation set. The full-feature and baseline rows use different datasets;
+    direct cell-by-cell comparisons are indicative only. NK and LK show large
+    margins over eggNOG-mapper across all methods. PK-BPO shows lower full-feature
+    performance due to the leakage-fix recategorisation tightening the positive set.
     Source: \texttt{figures/fig\_protea\_vs\_emapper.py} @ \texttt{21d74f7}
     (data: \texttt{figures/data/protea\_vs\_emapper.csv}).%
   }
@@ -584,10 +586,10 @@ provided in \cref{app:external-comparison}.
 \end{figure}
 
 % ── Experiment 8 ──────────────────────────────────────────────
-\subsection{Experiment~8: Re-Ranker v9 Study (cafaeval Validation + Ablation)}
-\label{subsec:exp8-reranker-v9}
+\subsection{Experiment~8: Re-Ranker, 56-Feature Schema (cafaeval Validation + Ablation)}
+\label{subsec:exp8-reranker-56f}
 
-Experiment~8 reports the study\_v9 campaign (2026-05-01), which trains the
+Experiment~8 reports the 56-feature re-ranker study (2026-05-01), which trains the
 re-ranker on the current 56-feature schema and validates results with the
 \texttt{cafaeval} tool rather than the lab-internal protein-averaged
 $F_{\max}$ metric used in experiments~4 to~6. The distinction is important:
@@ -599,13 +601,13 @@ are therefore higher and more directly comparable to reported CAFA scores.
 \subsubsection{Replication across seeds}
 
 Three random seeds (42, 7, 137) are run for each of the nine cells to
-assess variance. \Cref{tab:v9-replication} shows per-cell results and
+assess variance. \Cref{tab:exp8-replication} shows per-cell results and
 means.
 
 \begin{table}[htbp]
   \centering
-  \caption[Re-ranker v9 replication: lab Fmax (3 seeds)]{Re-ranker v9 replication: lab $F_{\max}$ (3 seeds, 56-feature schema).}
-  \label{tab:v9-replication}
+  \caption[Re-ranker (56-feature) replication: lab Fmax (3 seeds)]{Re-ranker 56-feature schema replication: lab $F_{\max}$ (3 seeds).}
+  \label{tab:exp8-replication}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{l rrrr r}
     \toprule
@@ -634,13 +636,13 @@ nine cells is 0.2881.
 \subsubsection{Cafaeval re-validation}
 
 The winning model per cell (best lab $F_{\max}$ seed) is re-evaluated with
-cafaeval (\texttt{prop=fill, norm=cafa}). \Cref{tab:v9-cafaeval} shows lab
+cafaeval (\texttt{prop=fill, norm=cafa}). \Cref{tab:exp8-cafaeval} shows lab
 and cafaeval $F_{\max}$ side by side with the ratio and absolute delta.
 
 \begin{table}[htbp]
   \centering
-  \caption[Re-ranker v9: lab vs cafaeval Fmax (winner per cell)]{Re-ranker v9: lab $F_{\max}$ vs cafaeval $F_{\max}$ for the winner per cell.}
-  \label{tab:v9-cafaeval}
+  \caption[Re-ranker (56-feature): lab vs cafaeval Fmax (winner per cell)]{Re-ranker 56-feature: lab $F_{\max}$ vs cafaeval $F_{\max}$ for the winner per cell.}
+  \label{tab:exp8-cafaeval}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{l rr r r}
     \toprule
@@ -674,19 +676,19 @@ be specific (PK) or where the MFO namespace has deep ontology chains (MFO).
 \subsubsection{Bootstrap confidence intervals vs KNN baseline}
 
 Paired bootstrap CIs (2000 resamples of the protein-level $F_{\max}$
-distribution) confirm that the v9 re-ranker significantly outperforms the
+distribution) confirm that the 56-feature re-ranker significantly outperforms the
 raw KNN baseline in all nine cells (all $p < 0.0001$,
-\cref{tab:v9-bootstrap}).
+\cref{tab:exp8-bootstrap}).
 
 \begin{table}[htbp]
   \centering
-  \caption[Re-ranker v9 bootstrap CIs vs KNN baseline (lab Fmax)]{Paired bootstrap: v9 vs KNN baseline (lab $F_{\max}$, seed 137 winner where applicable).}
-  \label{tab:v9-bootstrap}
+  \caption[Re-ranker (56-feature) bootstrap CIs vs KNN baseline (lab Fmax)]{Paired bootstrap: 56-feature re-ranker vs KNN baseline (lab $F_{\max}$, seed 137 winner where applicable).}
+  \label{tab:exp8-bootstrap}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{l rr rr r r}
     \toprule
     \textbf{Cell}
-      & \textbf{$F_{\max}$ v9} & \textbf{CI v9}
+      & \textbf{$F_{\max}$ (56F)} & \textbf{CI (56F)}
       & \textbf{$F_{\max}$ baseline} & \textbf{CI baseline}
       & $\boldsymbol{\Delta}$ & \textbf{$p$} \\
     \midrule
@@ -708,14 +710,14 @@ raw KNN baseline in all nine cells (all $p < 0.0001$,
 
 A leave-one-family-out ablation was run on three representative cells
 (NK-BPO, LK-CCO, PK-MFO) to measure how much each feature family contributes
-to $F_{\max}$. \Cref{tab:v9-ablation} reports $\Delta F_{\max} =
+to $F_{\max}$. \Cref{tab:exp8-ablation} reports $\Delta F_{\max} =
 F_{\max}(\text{full}) - F_{\max}(\text{drop family})$; a larger positive value
 means the family carries more signal.
 
 \begin{table}[htbp]
   \centering
-  \caption[Re-ranker v9 leave-one-family-out ablation]{Leave-one-family-out $\Delta F_{\max}$ ablation (v9, 56-feature schema).}
-  \label{tab:v9-ablation}
+  \caption[Re-ranker (56-feature) leave-one-family-out ablation]{Leave-one-family-out $\Delta F_{\max}$ ablation (56-feature schema, Exp.~8).}
+  \label{tab:exp8-ablation}
   \begin{tabular}{lrrr r}
     \toprule
     \textbf{Feature family} & \textbf{NK-BPO} & \textbf{LK-CCO} & \textbf{PK-MFO} & \textbf{Mean $\Delta$} \\
@@ -774,9 +776,9 @@ a consistent 1.5 to 4\% improvement, indicating that embeddings and alignments
 capture partially orthogonal signals. The comparison with eggNOG-mapper
 (Exp.~7, pre-leakage-fix baseline) provides directional evidence: the
 embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells and
-PROTEA's leakage-free v3 re-ranker substantially exceeds both in NK and LK.
+PROTEA's leakage-free full-feature re-ranker substantially exceeds both in NK and LK.
 These comparisons are on different evaluation sets; a controlled comparison
-on a shared leakage-free split is pending (lab-runner LB.2). The v9
+on a shared leakage-free split is pending (lab-runner LB.2). The 56-feature
 re-ranker (Exp.~8) achieves an average cafaeval $F_{\max}$ of \textbf{0.5427}
 across all nine category-aspect cells, versus the historical hybrid-picker
 ceiling of 0.4400 (2026-04-20, lab-internal evaluator), confirming that the
@@ -786,13 +788,13 @@ cafaeval protocol.
 \textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
 
-Yes. The feature importance analysis for the leakage-free v3 re-ranker
+Yes. The feature importance analysis for the leakage-free full-feature re-ranker
 (Tab.~\ref{tab:feature-importance}) confirms that GO-embedding similarity
 (\texttt{anc2vec\_neighbor\_cos}, \texttt{anc2vec\_query\_known\_maxcos}) and
 aggregation features (\texttt{neighbor\_vote\_fraction}) are the dominant
 signals, while raw embedding distance does not appear in the top-10 for any
-category. The v9 leave-one-family-out ablation (Exp.~8,
-\cref{tab:v9-ablation}) quantifies this: the \texttt{anc2vec\_query} family
+category. The leave-one-family-out ablation (Exp.~8,
+\cref{tab:exp8-ablation}) quantifies this: the \texttt{anc2vec\_query} family
 alone contributes a mean $\Delta F_{\max}$ of +0.1449 across the three
 representative cells (+0.2565 on NK-BPO), whereas every other family
 contributes at most $\pm 0.01$ on average. This confirms that ontology-derived
@@ -837,11 +839,11 @@ to combine multiple complementary signals:
     protein.
 \end{itemize}
 
-The v3 leakage-free feature importance analysis (Tab.~\ref{tab:feature-importance})
-and the v9 family ablation (Tab.~\ref{tab:v9-ablation}) together show that
+The full-feature leakage-free importance analysis (Tab.~\ref{tab:feature-importance})
+and the family ablation (Tab.~\ref{tab:exp8-ablation}) together show that
 GO-embedding features (\texttt{anc2vec\_query} family) and vote-aggregation
 signals dominate, while raw protein-embedding distance ranks outside the
-top-10 in the v3 analysis. This confirms that feature engineering remains
+top-10 in the full-feature analysis. This confirms that feature engineering remains
 valuable even when powerful embeddings are available, and that the ontology
 structure provides information not captured by the protein sequence alone.
 
@@ -866,7 +868,7 @@ structure provides information not captured by the protein sequence alone.
   \item The LK-BPO cell consistently favours the heuristic over the re-ranker,
     suggesting that the learned model may underperform for specific
     category-aspect combinations with limited positive examples.
-  \item The v9 hyperparameter grid reveals a 0.0283 spread on NK-BPO
+  \item The Exp.~8 hyperparameter grid reveals a 0.0283 spread on NK-BPO
     (0.4386 to 0.4669), exceeding the informal robustness threshold of 0.02,
     indicating that optimal hyperparameters are cell-dependent and a joint
     per-cell tuning pass is warranted.
