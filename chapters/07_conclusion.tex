@@ -88,12 +88,13 @@ The benchmark of eight \gls{plm} backends (ESM-2 in three sizes, ESM-C,
 ProstT5, ProtT5, Ankh, and the ESM-3 component encoder) on a common
 evaluation surface yielded an average lab $F_{\max}$ of \textbf{0.2881}
 (3-seed replication, 56-feature schema) and a cafaeval score of
-\textbf{0.5427} on the GOA~220~$\to$~229 temporal split. The v9 re-ranker
-significantly outperforms the raw KNN baseline in all nine category-aspect
-cells (paired bootstrap, all $p < 0.0001$). A comparison with eggNOG-mapper
-v2.1.13 demonstrates that the PROTEA embedding-only baseline surpasses
-DIAMOND-based orthology transfer in eight of nine cells, and the leakage-free
-v3 re-ranker substantially exceeds both in the NK and LK categories.
+\textbf{0.5427} on the GOA~220~$\to$~229 temporal split. The 56-feature
+re-ranker significantly outperforms the raw KNN baseline in all nine
+category-aspect cells (paired bootstrap, all $p < 0.0001$). A comparison with
+eggNOG-mapper v2.1.13 demonstrates that the PROTEA embedding-only baseline
+surpasses DIAMOND-based orthology transfer in eight of nine cells, and the
+leakage-free full-feature re-ranker substantially exceeds both in the NK and LK
+categories.
 
 The CAFA~6 challenge provided an independent blind validation: the research
 team in which the author of this thesis served as technical lead achieved a
@@ -128,14 +129,15 @@ complementary signal that improves the ranking of candidate annotations once
 the embedding baseline is already strong?}
 
 Yes, though the dominant signal comes from ontology-derived features rather
-than classical alignment. The v9 leave-one-family-out ablation
-(\cref{tab:v9-ablation}) shows that the \texttt{anc2vec\_query} family
+than classical alignment. The leave-one-family-out ablation (Exp.~8,
+\cref{tab:exp8-ablation}) shows that the \texttt{anc2vec\_query} family
 contributes a mean $\Delta F_{\max}$ of $+0.1449$ across three representative
 cells ($+0.2565$ on NK-BPO alone), while every other family contributes at
 most $\pm 0.01$ on average. Alignment and taxonomy features were confirmed to
-carry signal in the progression from re-ranker v2 (where they were absent and
-the model failed to surpass the heuristic) to re-ranker v3 (where their
-inclusion stabilised training and enabled large NK and LK gains), but the
+carry signal in the progression from the per-category re-ranker (where they were
+absent and the model failed to surpass the heuristic) to the full-feature
+re-ranker (where their inclusion stabilised training and enabled large NK and LK
+gains), but the
 dominant marginal contribution comes from ontology structure, not sequence
 similarity. Raw embedding distance does not appear in the top-10 features for
 any category, confirming that the re-ranker treats PLM similarity as a
@@ -172,9 +174,10 @@ written during execution are attached as structured observations. Complementing
 this, an index of 31 Architecture Decision Records (D1 through D31) in
 \texttt{protea-core/docs/source/adr/} provides a curated history of
 non-obvious design choices, including decisions later reversed (D09, D13,
-D17). The progression from re-ranker v1 through v9 is fully traceable through
-experiment run records, not reconstructed from memory: the evaluation chapter
-is distilled from the database, not from notes.
+D17). The progression from the per-aspect through the 56-feature re-ranker
+(Experiments~4 to~8) is fully traceable through experiment run records, not
+reconstructed from memory: the evaluation chapter is distilled from the database,
+not from notes.
 
 % ────────────────────────────────────────────────────────────
 \section{Limitations}
@@ -229,9 +232,9 @@ architectural decisions described in earlier chapters.
 \paragraph{PROTEA-DL: Relational Graph Convolution over the GO DAG.}
 \label{para:future-protea-dl}
 
-The v9 leave-one-family-out ablation established that the \texttt{anc2vec\_query}
+The leave-one-family-out ablation (Exp.~8) established that the \texttt{anc2vec\_query}
 family is the single most valuable feature family by a large margin (mean
-$\Delta F_{\max} = +0.1449$, Section~\ref{subsec:exp8-reranker-v9}). The
+$\Delta F_{\max} = +0.1449$, Section~\ref{subsec:exp8-reranker-56f}). The
 underlying mechanism is that GO-DAG-derived embeddings supply ontology
 structural information that protein sequence embeddings do not encode. This
 observation motivates a dedicated deep-learning pilot: training a Relational
@@ -273,8 +276,9 @@ anc2vec in a controlled ablation on the NK-BPO cell (where
 the canonical feature set. A full integration would: (i)~train GeOKG on the
 same GO ontology snapshot used for the evaluation (\texttt{releases/2026-01-23});
 (ii)~register the resulting embeddings in the \texttt{FeatureRegistry} as a
-new family; (iii)~run the v9 leave-one-family-out ablation with GeOKG
-replacing anc2vec to produce a clean head-to-head delta under the leakage-free
+new family; (iii)~run the leave-one-family-out ablation (following Exp.~8) with
+GeOKG replacing anc2vec to produce a clean head-to-head delta under the
+leakage-free
 protocol. If GeOKG generalises beyond the specific GO snapshot it was trained
 on, it also opens the path to cross-ontology transfer where the same embedding
 model covers GO, HPO, and ChEBI simultaneously.
@@ -298,7 +302,7 @@ strategy without architectural changes to the pipeline: each K sweep is a
 separate \texttt{Job}, and their outputs are combined by an additional
 aggregation operation registered in the \texttt{OperationRegistry}.
 
-The $3^3$ hyperparameter sensitivity study on NK-BPO (\cref{subsec:exp8-reranker-v9})
+The $3^3$ hyperparameter sensitivity study on NK-BPO (\cref{subsec:exp8-reranker-56f})
 showed a 0.0283 spread across configurations, bounding the expected gain from
 search-strategy optimisation. A multi-K ensemble represents a complementary
 axis of improvement and is distinct from backend ensembling: it exploits
