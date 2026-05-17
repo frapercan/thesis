@@ -2,38 +2,47 @@
 \label{chap:conclusion}
 
 % ────────────────────────────────────────────────────────────
-\section{Summary}
-\label{sec:summary}
+\section{Summary of Contributions}
+\label{sec:conclusion-summary}
 
-This thesis presented PROTEA (PROtein functional Embedding-based Annotation),
-a distributed platform for scalable, reproducible protein functional annotation
-using Gene Ontology terms. The work was motivated by the widening gap between
-the rate of protein sequence discovery and the capacity of experimental
-characterisation, and by the lack of existing platforms that combine modern
-protein language model embeddings with reproducible versioned pipelines.
+This thesis set out to demonstrate that a contracts-first, plugin-driven
+platform for protein function annotation can simultaneously deliver a
+reproducible and leakage-free evaluation methodology, quantifiable gains
+from feature-engineered re-ranking over PLM-embedding baselines, and
+independently verifiable deployment as a public benchmark submission.
+PROTEA (PROtein functional Embedding-based Annotation) is the system that
+validates this claim.
+
+The annotation gap that motivated this work remains wide: as of early 2026,
+fewer than 0.02\,\% of the approximately 250 million sequences in UniProt
+carry experimentally validated \gls{go} annotations~\cite{uniprot2023}.
+Computational transfer from characterised proteins to unknown ones narrows
+this gap, but only when carried out on a platform that is reproducible,
+auditable, and extensible as PLMs and annotation databases evolve. Building
+such a platform was the principal research engineering challenge of the
+thesis; the empirical evaluation then tested whether the platform enables
+science that a notebook-based workflow cannot.
 
 The contributions are organised along three pillars.
 
-\paragraph{Pilar 1: Platform and Infrastructure.}
+\paragraph{Pillar 1: Platform and Infrastructure.}
 
 PROTEA provides a production-grade annotation service backed by a
-service-oriented layer exposing four REST API domains
-(Embeddings, Scoring, Annotations, Jobs), a web interface, and a
-queue-based worker architecture. The platform handles reference sets of
-over 527,000 reviewed UniProt sequences and is horizontally scalable
-through RabbitMQ-mediated worker pools.
-
-Plugin extensibility is implemented via Python \texttt{entry\_points}
-across seven code repositories
+queue-based worker architecture and a REST API exposing four domains
+(Embeddings, Scoring, Annotations, Jobs). Plugin extensibility is
+implemented via Python \texttt{entry\_points} across seven code repositories
 (\texttt{protea-contracts}, \texttt{-method}, \texttt{-sources},
-\texttt{-runners}, \texttt{-backends}, \texttt{-reranker-lab}, plus the
-core platform), so new annotation sources, runners and \gls{plm}
-backends can be integrated without modifying the core.
+\texttt{-runners}, \texttt{-backends}, \texttt{-reranker-lab}, and the core
+platform), so new annotation sources, runners, and \gls{plm} backends can
+be integrated without modifying the core.
 
 A versioned relational data model links every prediction permanently to
 the exact ontology release, annotation set, embedding configuration,
-dataset, re-ranker model and code commit that produced it, addressing a
-reproducibility gap identified in \cref{chap:related}.
+dataset, re-ranker model, and code commit that produced it. The temporal
+holdout training pipeline is fully parameterised: re-running the same
+payload against the same database state reproduces identical models and
+results. This addresses the reproducibility gap identified in
+\cref{chap:related}.
 
 Deployment flexibility is achieved through four graduated modes, all
 sharing the same canonical pipeline without code branching: a development
@@ -42,30 +51,17 @@ sharing the same canonical pipeline without code branching: a development
 templates for \gls{hpc} environments (T-OPS.5). An end-to-end CI deploy test
 (T-OPS.11) gates every release against image-level worker regressions.
 
-Observability is provided by an OpenTelemetry SDK boot layer (T5.1a,
-merged) that exports traces to any OTLP-compatible collector via an
-environment variable, and by five Grafana dashboards (T5.3) covering
-API latency, queue depths, worker throughput, database connections, and
-embedding-store load. Deeper SQLAlchemy and pika instrumentation with
-\texttt{traceparent} propagation (T5.1b) is currently in review.
+Observability is provided by an OpenTelemetry SDK boot layer and five
+Grafana dashboards covering API latency, queue depths, worker throughput,
+database connections, and embedding-store load. Deeper SQLAlchemy and pika
+instrumentation with distributed \texttt{traceparent} propagation is in
+review at time of writing.
 
-The InterPro integration (IP.2/IP.3) adds an \texttt{InterProAnnotation}
-ORM model, an \texttt{AlembicMigration}, and a
-\texttt{run\_interproscan\_batch} operation, complemented by an
-InterPro2GO mapping loader (IP.4a) that enriches the annotation graph
-with domain-based functional evidence.
+\paragraph{Pillar 2: Research Methods.}
 
-Three containerised LAFA submission images were published to the GitHub
-Container Registry: a KNN-v1 baseline container (F-LAFA.1), an
-8-\gls{plm} ensemble container (F-LAFA.2), and a full
-\texttt{protea-v18} pipeline container (F-LAFA.3, PR~\#305), each
-providing a reproducible inference artifact beyond the local evaluation.
-
-\paragraph{Pilar 2: Research Methods.}
-
-The feature-engineering layer is organised as a registry of approximately
-52 features per candidate annotation, augmenting embedding cosine
-similarity with Needleman-Wunsch and Smith-Waterman alignment statistics,
+The feature-engineering layer is organised as a registry of 56 features
+per candidate annotation, augmenting embedding cosine similarity with
+Needleman-Wunsch and Smith-Waterman alignment statistics,
 NCBI-taxonomy-based distance metrics, \gls{go} \gls{dag} ancestry
 embeddings, and per-\gls{plm} PCA projections. The lineage-feature wire
 (T-RES.1b, PR~\#304) connects GO directed-acyclic-graph relation
@@ -86,33 +82,38 @@ baseline whenever re-ranking would degrade performance for the current
 cell. Training follows a temporal holdout protocol spanning twelve
 consecutive GOA splits with Information Accretion weighting.
 
-\paragraph{Pilar 3: Empirical Evaluation.}
+The \texttt{protea-method} inference layer received a gated-attention
+Multiple-Instance Learning head that provides an opt-in pooling alternative
+to mean aggregation, extending the hypothesis space for future comparisons.
+
+\paragraph{Pillar 3: Empirical Evaluation.}
 
 The benchmark of eight \gls{plm} backends (ESM-2 in three sizes, ESM-C,
-ProstT5, ProtT5, Ankh, ESM-3 component encoder) on a common evaluation
-surface yielded, in the v9 study, an average lab $F_{\max}$ of
-\textbf{0.2881} (3-seed replication) against a CAFA-format
-\texttt{cafaeval} score of \textbf{0.5427}.
+ProstT5, ProtT5, Ankh, and the ESM-3 component encoder) on a common
+evaluation surface yielded an average lab $F_{\max}$ of \textbf{0.2881}
+(3-seed replication, 56-feature schema) and a cafaeval score of
+\textbf{0.5427} on the GOA~220~$\to$~229 temporal split. The 56-feature
+re-ranker significantly outperforms the raw KNN baseline in all nine
+category-aspect cells (paired bootstrap, all $p < 0.0001$). A comparison with
+eggNOG-mapper v2.1.13 demonstrates that the PROTEA embedding-only baseline
+surpasses DIAMOND-based orthology transfer in eight of nine cells, and the
+leakage-free full-feature re-ranker substantially exceeds both in the NK and LK
+categories.
 
-The historical ceiling of the hybrid picker reached \textbf{0.4400}
-$F_{\max}$, representing the upper bound achievable by optimal backend
-selection per category-aspect cell. The \texttt{anc2vec\_query}
-leave-one-family-out ablation showed a mean delta of $+0.1449$ over the
-embedding-only baseline, confirming the signal contributed by GO ancestry
-embeddings. A $3^{3}$ hyper-parameter grid over the NK-BPO cell spanned
-$F_{\max}$ values from \textbf{0.4386} to \textbf{0.4669}, bounding the
-sensitivity of the re-ranker to its principal hyper-parameters.
-
-The evaluation follows the CAFA temporal protocol on held-out GOA splits
-(reference~220, test~229), complemented by three submissions to the LAFA
-public benchmark that demonstrate adoption-ready deployment.
+The CAFA~6 challenge provided an independent blind validation: the research
+team in which the author of this thesis served as technical lead achieved a
+second-place team ranking, confirming that the methodology developed here is
+competitive with the best publicly evaluated alternatives under the strictest
+possible evaluation conditions.
 
 % ────────────────────────────────────────────────────────────
 \section{Answers to the Research Questions}
-\label{sec:rq-answers}
+\label{sec:conclusion-rq}
 
 \textbf{RQ1}: \emph{Can embedding-based KNN annotation transfer match or
-exceed alignment-based methods?}
+exceed alignment-based methods for GO term prediction, particularly at low
+sequence identity, and how does the answer change as new PLMs replace older
+ones?}
 
 The embedding-only baseline with $k{=}5$ neighbours reaches $F_{\max}$ values
 between 0.187 (PK-BPO) and 0.668 (NK-CCO) without any sequence alignment.
@@ -125,21 +126,30 @@ improvements of up to $+0.306$~$F_{\max}$ (NK-CCO). The hybrid-picker ceiling
 of 0.4400 $F_{\max}$ further demonstrates that combining backends yields
 headroom beyond any single \gls{plm}.
 
-\textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
-provide complementary signals?}
+\textbf{RQ2}: \emph{Do pairwise alignment statistics, taxonomic distance,
+ontology-graph ancestry features, and per-PLM PCA projections provide
+complementary signal that improves the ranking of candidate annotations once
+the embedding baseline is already strong?}
 
-Yes. The progression from the re-ranker v2 (trained without alignment/taxonomy
-features) to v3 (trained with the full 22-feature set) provides direct evidence:
-$F_{\max}$ improved in 8 of 9 cells, with the largest gain in LK-MFO
-($+0.032$). Feature importance analysis confirms that \texttt{identity\_nw},
-\texttt{similarity\_nw}, and \texttt{taxonomic\_distance} rank among the top-10
-features in all three per-category models. The v2 model, lacking these features,
-failed to surpass a simple heuristic that combined them linearly. The
-\texttt{anc2vec\_query} ablation ($+0.1449$ mean $F_{\max}$) adds evidence that
-GO-DAG ancestry embeddings provide a distinct, additive signal.
+Yes, though the dominant signal comes from ontology-derived features rather
+than classical alignment. The leave-one-family-out ablation (Exp.~8,
+\cref{tab:exp8-ablation}) shows that the \texttt{anc2vec\_query} family
+contributes a mean $\Delta F_{\max}$ of $+0.1449$ across three representative
+cells ($+0.2565$ on NK-BPO alone), while every other family contributes at
+most $\pm 0.01$ on average. Alignment and taxonomy features were confirmed to
+carry signal in the progression from the per-category re-ranker (where they were
+absent and the model failed to surpass the heuristic) to the full-feature
+re-ranker (where their inclusion stabilised training and enabled large NK and LK
+gains), but the
+dominant marginal contribution comes from ontology structure, not sequence
+similarity. Raw embedding distance does not appear in the top-10 features for
+any category, confirming that the re-ranker treats PLM similarity as a
+candidate-generation filter rather than a final ranking signal.
 
 \textbf{RQ3}: \emph{How can a reproducible, scalable annotation pipeline be
-designed?}
+designed so that researchers can re-run analyses as ontologies and databases
+are updated, and so that the pipeline can be deployed in development, cloud,
+on-premise HPC, and airgapped environments without code branching?}
 
 \begin{sloppypar}
 PROTEA's versioned data model links every prediction to an immutable
@@ -154,79 +164,213 @@ Swarm, SLURM) without code branching, combined with end-to-end CI gating
 achievable simultaneously.
 \end{sloppypar}
 
+\textbf{RQ4}: \emph{How can the journey of a research platform, with its dead
+ends and pivots, be captured operationally so that the canonical pipeline is
+justified by an auditable trace rather than by post-hoc rationalisation?}
+
+The \texttt{Job.findings} narrative model records the why of every run
+alongside the what of every computed result. Every job writes its inputs
+(ontology version, annotation release, embedding configuration, search
+parameters) to a structured database record before execution begins; findings
+written during execution are attached as structured observations. Complementing
+this, an index of 31 Architecture Decision Records (D1 through D31) in
+\texttt{protea-core/docs/source/adr/} provides a curated history of
+non-obvious design choices, including decisions later reversed (D09, D13,
+D17). The progression from the per-aspect through the 56-feature re-ranker
+(Experiments~4 to~8) is fully traceable through experiment run records, not
+reconstructed from memory: the evaluation chapter is distilled from the database,
+not from notes.
+
 % ────────────────────────────────────────────────────────────
 \section{Limitations}
-\label{sec:limitations}
+\label{sec:conclusion-limitations}
 
 \begin{description}
+  \item[Single hardware configuration.] All embedding and re-ranker experiments
+    run on a single workstation with a 16\,GB GPU. Large-scale multi-GPU
+    experiments and distributed training are out of scope. The NumPy-based exact
+    KNN search is tractable for the 527,000-sequence Swiss-Prot reference set
+    but would require replacement with FAISS or a distributed approximate
+    backend at TrEMBL scale.
+
+  \item[Single primary embedding model.] Main experiments use ESMC~300M; the
+    8-backend benchmark shows the ceiling moves with model size and family, but
+    a full ensemble at inference time is not yet deployed.
+
+  \item[No structural information.] Protein tertiary structure provides
+    functional signal beyond sequence alone. Integrating structure-based
+    embeddings (e.g.\ from ESM-IF or Foldseek) is a natural extension not yet
+    pursued.
+
   \item[Limited external tool comparison.] The evaluation includes a comparison
     with eggNOG-mapper but does not yet cover BLAST or InterProScan-based
-    annotations under the same temporal protocol. The InterPro integration
-    (IP.2/IP.3/IP.4a) provides the data foundation for this comparison in
-    future work.
-
-  \item[Single primary embedding model.] The main experiments use ESMC~300M;
-    the 8-\gls{plm} benchmark demonstrates that the ceiling moves with model
-    size and family, but a full ensemble at inference time is not yet deployed.
-
-  \item[No structural information.] Protein tertiary structure is a powerful
-    predictor of function. Incorporating structure-based embeddings (e.g.\
-    from ESM-IF or Foldseek) is a natural extension.
-
-  \item[T5.1b observability still in review.] Deep SQLAlchemy and pika
-    instrumentation with distributed \texttt{traceparent} propagation (PR~\#330)
-    is open at time of writing and is not reflected in the production metrics
-    dashboards described in this chapter.
+    annotations under the same leakage-free temporal protocol. The InterPro
+    integration (IP.2/IP.3/IP.4a) provides the data foundation for this
+    comparison in future work.
 
   \item[Benchmark coverage.] The temporal holdout covers proteins that received
-    experimental annotations in a fixed window. This may over-represent proteins
-    that are easy to annotate and under-represent orphan proteins.
+    experimental annotations in a fixed window (GOA~220~$\to$~229). This may
+    over-represent proteins that are easy to annotate and under-represent orphan
+    proteins in the evaluation set.
+
+  \item[Pending observability work.] Deep SQLAlchemy and pika instrumentation
+    with distributed \texttt{traceparent} propagation (T5.1b, PR~\#330) is open
+    at time of writing and is not reflected in the production metrics dashboards.
+
+  \item[PK cell performance.] The selective re-ranker degrades on PK-BPO
+    relative to the embedding-only baseline after the leakage fix, reflecting
+    the stricter positive-rate criterion in PK; the fallback policy partially
+    mitigates this but a cell-specific tuning pass is warranted.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
 \section{Future Work}
-\label{sec:future-work}
+\label{sec:conclusion-future-work}
 
-\paragraph{InterPro-augmented evaluation.}
-The IP.2/IP.3/IP.4a integration provides the infrastructure to fold domain-based
-functional evidence into predictions. A direct comparison of KNN-only,
-InterPro-only, and hybrid predictions under the same temporal protocol would
-quantify the additive value of each evidence type.
+The results of this thesis open four concrete research directions for
+post-defence development, each foreshadowed by the empirical findings or by
+architectural decisions described in earlier chapters.
 
-\paragraph{Extended backend ensemble.}
-The hybrid-picker ceiling of 0.4400 $F_{\max}$ sets a concrete target: routing
-queries to the optimal backend per category-aspect cell at inference time
-requires a fast meta-classifier or bandit algorithm over the 8 candidate
-backends. The $3^3$ hyper-parameter sensitivity study (0.4386 to 0.4669)
-provides bounds for the expected gain.
+\paragraph{PROTEA-DL: Relational Graph Convolution over the GO DAG.}
+\label{para:future-protea-dl}
 
-\paragraph{MIL head ablation.}
-The gated-attention MIL head (MIL.2a) is currently an opt-in pooling
-alternative in \texttt{protea-method}. A systematic ablation comparing
-mean-pooling, max-pooling and gated-attention across the NK/LK/PK cells
-and all three aspects would determine whether the architectural complexity
-is justified.
+The leave-one-family-out ablation (Exp.~8) established that the \texttt{anc2vec\_query}
+family is the single most valuable feature family by a large margin (mean
+$\Delta F_{\max} = +0.1449$, Section~\ref{subsec:exp8-reranker-56f}). The
+underlying mechanism is that GO-DAG-derived embeddings supply ontology
+structural information that protein sequence embeddings do not encode. This
+observation motivates a dedicated deep-learning pilot: training a Relational
+Graph Convolutional Network (R-GCN)~\cite{schlichtkrull2018relational}
+directly over the GO DAG, where each GO term is a node and edges are typed
+by the \texttt{is\_a}, \texttt{part\_of}, and \texttt{regulates} relation
+types. Protein nodes could be connected to their GO annotation nodes,
+enabling joint message-passing that propagates functional signal along
+ontology edges and between protein neighbours simultaneously.
 
-\paragraph{Structure-aware embeddings.}
-Integrating structural representations alongside sequence embeddings would
-extend PROTEA's utility to the $>$200 million AlphaFold Database entries.
+The PROTEA plugin architecture accommodates such a pilot cleanly: the R-GCN
+predictor would implement the \texttt{EmbeddingBackend} or
+\texttt{Scorer} ABC, and its outputs would flow through the same temporal
+holdout evaluation pipeline as all existing methods. The
+\texttt{protea-method} MIL head (MIL.2a, merged) provides a precedent for
+attaching alternative pooling mechanisms to the inference layer without
+touching the core. An initial pilot would train on the same twelve temporal
+holdout GOA splits used for the LightGBM re-ranker, use
+\texttt{cafaeval} as the evaluation harness, and report results as an
+\texttt{ExperimentRun} in the database alongside the existing baselines.
+This would make the R-GCN contribution reproducible under the same leakage-free
+protocol that governs the rest of the evaluation.
 
-\paragraph{Ontology-aware scoring.}
-Replacing flat majority vote with a GO-aware scheme (weighting by information
-content within the \gls{dag} or using a hierarchical classifier) could reduce
-semantic distance ($S_{\min}$) without sacrificing recall.
+\paragraph{GeOKG Generalisation.}
+\label{para:future-geokg}
 
-\paragraph{Active learning integration.}
-Proteins with high embedding distance to all references (high uncertainty)
-could be prioritised for experimental characterisation, closing the annotation
-loop and maximising the return on new experimental data.
+The related work chapter (\cref{chap:related}) discusses GeOKG~\cite{geokg2025}
+as a multi-curvature space (combining hyperbolic and Euclidean geometry) for
+embedding the GO DAG, motivated by the observation that the GO DAG has both
+tree-like and grid-like substructure that no single-geometry embedding captures
+well. At time of writing, GeOKG-style embeddings have not yet been integrated
+into PROTEA's feature registry; anc2vec remains the production GO-embedding
+family.
 
-\paragraph{Completion of the observability stack.}
-Merging T5.1b (distributed trace propagation across all workers) and deploying
-the full OTel pipeline against a staging Kubernetes cluster would provide the
-first end-to-end latency profiles across the embedding, scoring and annotation
-services, which are needed to identify bottlenecks at the 10k-protein-per-hour
-target throughput.
+The D19 Architecture Decision Record identifies GeOKG integration as a one-week
+conditional research target: if its geometry-aware embeddings outperform
+anc2vec in a controlled ablation on the NK-BPO cell (where
+\texttt{anc2vec\_query} contributes the most), they should replace anc2vec in
+the canonical feature set. A full integration would: (i)~train GeOKG on the
+same GO ontology snapshot used for the evaluation (\texttt{releases/2026-01-23});
+(ii)~register the resulting embeddings in the \texttt{FeatureRegistry} as a
+new family; (iii)~run the leave-one-family-out ablation (following Exp.~8) with
+GeOKG replacing anc2vec to produce a clean head-to-head delta under the
+leakage-free
+protocol. If GeOKG generalises beyond the specific GO snapshot it was trained
+on, it also opens the path to cross-ontology transfer where the same embedding
+model covers GO, HPO, and ChEBI simultaneously.
+
+\paragraph{Ensemble Multi-K Inference.}
+\label{para:future-multik}
+
+Experiment~1 (\cref{subsec:exp1-k}) established that $k{=}5$ minimises
+$F_{\max}$ degradation from noise in the KNN neighbourhood, with performance
+declining monotonically as $k$ grows. However, the hybrid-picker analysis
+demonstrates a ceiling of 0.4400 $F_{\max}$ when the optimal backend is
+selected per category-aspect cell, revealing that different K values may be
+optimal for different query proteins even within a single cell. A multi-K
+ensemble would aggregate predictions from $k \in \{5, 10, 20\}$ independent
+KNN sweeps, using a meta-classifier (or a lightweight bandit algorithm) to
+weight each K's predictions based on query-level signals such as the density
+of the local embedding neighbourhood, the variance of cosine distances among
+the top-$k$ candidates, and the annotation density of the retrieved
+neighbours. This extends the current single-K sweep into a richer inference
+strategy without architectural changes to the pipeline: each K sweep is a
+separate \texttt{Job}, and their outputs are combined by an additional
+aggregation operation registered in the \texttt{OperationRegistry}.
+
+The $3^3$ hyperparameter sensitivity study on NK-BPO (\cref{subsec:exp8-reranker-56f})
+showed a 0.0283 spread across configurations, bounding the expected gain from
+search-strategy optimisation. A multi-K ensemble represents a complementary
+axis of improvement and is distinct from backend ensembling: it exploits
+geometric properties of the embedding space rather than differences between PLM
+representations.
+
+\paragraph{Granular Plugin Split (F9 Horizon).}
+\label{para:future-f9-plugin}
+
+The current seven-repository split (core, contracts, method, sources,
+backends, runners, reranker-lab) was designed around operational concerns
+identified in D14 and D31. As the platform matures and external contributors
+become a realistic audience, a finer-grained decomposition of the three plugin
+repositories (\texttt{protea-sources}, \texttt{protea-backends},
+\texttt{protea-runners}) is warranted. The F9 horizon would split each plugin
+repository into one package per plugin instance (e.g.\
+\texttt{protea-backend-esmc}, \texttt{protea-backend-esm2},
+\texttt{protea-source-quickgo}, \texttt{protea-source-uniprot}), allowing
+consumers to depend on only the specific integrations they require without
+pulling in GPU libraries for backends they never use.
+
+This decomposition has implications for versioning: each plugin package would
+carry its own SemVer tag, and the contracts package would define the minimum
+version of each ABC that a backend must satisfy. The \texttt{protea-contracts}
+package already functions as the SemVer-versioned extension surface; extending
+the same discipline to per-plugin packages would make the dependency graph
+explicit and auditable. The reranker-lab would remain a single offline package
+to avoid fragmenting the training pipeline. This restructuring is foreshadowed
+by the discussion of plugin granularity in \cref{chap:design}
+(Section~\ref{sec:design-plugins}) and does not require changes to the core
+platform or the contracts package, only to the distribution and tagging
+strategy of the existing plugin code.
+
+% ────────────────────────────────────────────────────────────
+\section{Closing Remarks}
+\label{sec:conclusion-closing}
+
+The central claim of this thesis was methodological: that a contracts-first,
+plugin-driven platform can serve simultaneously as a reproducible research
+instrument, a competitive annotation method, and an independently deployable
+artefact. The evaluation results, the LAFA container submissions, and the CAFA~6
+team result together constitute the evidence for this claim.
+
+The annotation gap in protein biology is not a problem that will be solved by
+any single method or any single snapshot of available PLMs. The value of
+PROTEA as a platform, as opposed to a published result, lies precisely in its
+capacity to be re-evaluated as the field evolves. Every new PLM that outperforms
+ESMC~300M can be plugged in as a new \texttt{EmbeddingBackend}; every new GOA
+release extends the temporal holdout window; every new feature family can be
+registered without touching existing models or breaking the schema fingerprint
+mechanism. The architecture was designed to make scientific claims about protein
+function prediction revisitable and independently verifiable, not just now but
+as the underlying technology changes.
+
+The four future-work directions described above (the R-GCN pilot, GeOKG
+generalisation, multi-K ensemble inference, and granular plugin decomposition)
+are not disconnected from the thesis results. They are the natural next steps
+that follow directly from the empirical findings: the dominance of ontology
+structure in the feature ablation motivates graph convolution; the anc2vec
+saturation motivates geometry-aware replacements; the single-K optimum
+motivates ensemble search; and the growing plugin ecosystem motivates finer
+distribution granularity. Each can be pursued independently, evaluated under
+the same leakage-free temporal protocol, and contributed to the platform
+without breaking existing functionality. This is the property that makes the
+engineering contribution of the thesis durable beyond the specific numbers
+reported in \cref{chap:evaluation}.
 
 \bigskip
 \noindent PROTEA is released as open-source software at

@@ -103,6 +103,30 @@ prediction targets. PROTEA follows this convention: the training reference set
 and the evaluation target set both filter to experimental evidence codes, and the
 \texttt{EvidenceFilter} component enforces this policy at ingestion time.
 
+\subsection{Temporal Evaluation Protocol}
+\label{subsec:temporal-protocol}
+
+A rigorous evaluation of function prediction methods must avoid using
+information from the future when constructing the reference set used to make
+predictions. The standard approach, established by the \gls{cafa} challenge
+series~\cite{radivojac2013cafa1}, is a \textit{temporal holdout}: two GOA
+snapshots are selected, a reference snapshot at time $t_0$ and a test snapshot
+at time $t_1 > t_0$. A protein that gained at least one new experimental
+annotation between $t_0$ and $t_1$ is added to the evaluation set; its new
+annotations form the ground truth. Predictions are generated using only the
+information available at $t_0$, and coverage and accuracy are measured against
+the $t_1$ annotations.
+
+This protocol has two key properties. First, it is leakage-free by
+construction: no test annotation can have been used to train or calibrate the
+method. Second, it naturally stratifies proteins by prior knowledge: proteins
+with no annotations at $t_0$ (No-Knowledge, NK) represent the hardest
+generalisation case, while proteins with annotations in some but not all
+aspects (Limited-Knowledge, LK) and proteins with pre-existing annotations in
+the same aspect (Prior-Knowledge, PK) represent progressively easier settings.
+Formal definitions of these categories and their operational implications for
+PROTEA are given in \cref{subsec:nk-lk-pk}.
+
 \subsection{Protein Data Bank}
 \label{subsec:pdb}
 
@@ -153,6 +177,23 @@ transfer propagates annotations at all specificity levels and reports prediction
 over the full ontology; the re-ranker described in \cref{chap:design} operates
 per-term and per-aspect, allowing it to learn specificity-dependent calibration.
 
+A related quantity is \textit{Information Accretion}
+(IA)~\cite{clark2013information}, which measures the additional information
+contributed by a GO annotation relative to its parents in the ontology graph.
+Formally, the IA of term $t$ given its parent set $\text{pa}(t)$ is
+\[
+  \mathrm{IA}(t) = -\log_2 \Pr(t) + \log_2 \max_{p \in \text{pa}(t)} \Pr(p),
+\]
+where $\Pr(t)$ is the probability that a randomly chosen annotated protein carries
+term $t$. Unlike flat IC, IA accumulates only the \textit{novel} specificity added
+by a term over its parents, avoiding double-counting when a path is traversed from
+root to leaf. The CAFA evaluation framework uses IA to weight the contribution of
+each predicted term to the global $F_{\max}$ score, so that a correct prediction of
+a specific leaf term contributes more than the correct prediction of a broad
+ancestor. PROTEA's re-ranker training pipeline weights training examples by the IA
+of the candidate GO term, aligning the loss directly with this evaluation criterion
+(\cref{chap:evaluation}).
+
 \subsection{Evidence Codes}
 \label{subsec:evidence-codes}
 
@@ -163,9 +204,9 @@ for the association. The GO Consortium defines three broad categories:
   \item[Experimental] Annotations derived from direct experimental assays.
     Representative codes: \texttt{EXP} (Experiment), \texttt{IDA} (Inferred from
     Direct Assay), \texttt{IMP} (Inferred from Mutant Phenotype), \texttt{IGI}
-    (Inferred from Genetic Interaction), and \texttt{IPI} (Inferred from Physical
-    Interaction). These constitute the gold-standard ground truth for benchmark
-    evaluation.
+    (Inferred from Genetic Interaction), \texttt{IPI} (Inferred from Physical
+    Interaction), and \texttt{IEP} (Inferred from Expression Pattern). These
+    constitute the gold-standard ground truth for benchmark evaluation.
   \item[Computational] Annotations generated without direct experimental support.
     \texttt{ISS} (Inferred from Sequence or Structural Similarity) and
     \texttt{IEA} (Inferred from Electronic Annotation) are the most prevalent.

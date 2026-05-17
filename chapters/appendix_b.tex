@@ -1,6 +1,18 @@
 \chapter{External Tool Comparison: Reproducibility Protocol}
 \label{app:external-comparison}
 
+\paragraph{Scope.}
+This appendix collects the full reproduction protocol for the head-to-head
+comparison between PROTEA and eggNOG-mapper~v2.1.13 reported in
+\cref{subsec:exp7-eggnogmapper}, targeting reviewers who wish to verify,
+extend, or replicate the evaluation independently. It covers test-set
+extraction, tool installation, run parameters, evaluation alignment with
+the CAFA protocol, and complete per-cell $F_{\max}$ tables that were
+abbreviated in the main text. It does not overlap with
+\cref{app:api} (REST API reference) or \cref{app:adr-log} (architecture
+decision records): those appendices address system design, whereas this one
+addresses empirical reproducibility of a specific comparative experiment.
+
 This appendix documents the exact procedure used to evaluate eggNOG-mapper
 on the same test set and evaluation protocol as PROTEA (\cref{subsec:exp7-eggnogmapper}).
 It is intended to allow full reproduction of the comparison results and to
@@ -187,18 +199,18 @@ eggNOG-mapper alongside the PROTEA methods.
     \midrule
     eggNOG-mapper 2.1.13 & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
     PROTEA baseline      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
-    PROTEA re-ranker v3  & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    PROTEA full-feature  & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
 \Cref{tab:emapper-delta} shows the absolute $F_{\max}$ difference between
-PROTEA's re-ranker v3 and eggNOG-mapper.
+PROTEA's full-feature re-ranker and eggNOG-mapper.
 
 \begin{table}[htbp]
   \centering
-  \caption[Absolute Fmax improvement vs.\ eggNOG-mapper]{Absolute $F_{\max}$ improvement: PROTEA re-ranker v3 vs.\ eggNOG-mapper.}
+  \caption[Absolute Fmax improvement vs.\ eggNOG-mapper]{Absolute $F_{\max}$ improvement: PROTEA full-feature vs.\ eggNOG-mapper.}
   \label{tab:emapper-delta}
   \begin{tabular}{lccc}
     \toprule

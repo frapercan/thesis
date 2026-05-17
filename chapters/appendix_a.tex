@@ -1,95 +1,259 @@
-\chapter{REST API Reference}
-\label{app:api}
+\chapter{Reproducibility Checklist}
+\label{app:repro}
 
-This appendix documents the public endpoints of the PROTEA REST API.
-All endpoints are prefixed with the base URL of the FastAPI server
-(default: \texttt{http://127.0.0.1:8000}).
-
-\sloppy
+This appendix provides a self-contained reproducibility reference for
+the experiments reported in \cref{chap:evaluation}. A thesis examiner
+or external researcher should be able to reconstruct the full pipeline,
+from an empty database to the $F_{\max}$ figures in \cref{tab:results-all},
+by following the steps below. Where an exact version number was not pinned
+in a source file, a pointer to the authoritative source is given instead
+of a fabricated value.
 
 % ────────────────────────────────────────────────────────────
-\section{Jobs}
-\label{app:api-jobs}
+\section{Environment}
+\label{app:repro-env}
+
+\subsection{Core stack}
+\label{app:repro-core}
 
 \begin{description}
-  \item[\texttt{POST /jobs}] Submit a new job. The request body must contain
-    \texttt{operation} (string) and \texttt{payload} (JSON object). Returns the
-    created \texttt{Job} row.
-  \item[\texttt{GET /jobs}] List jobs, optionally filtered by \texttt{status}
-    and \texttt{operation} query parameters.
-  \item[\texttt{GET /jobs/\{id\}}] Retrieve a single job by UUID.
-  \item[\texttt{GET /jobs/\{id\}/events}] List the structured event log for a
-    job, ordered by timestamp.
-  \item[\texttt{POST /jobs/\{id\}/cancel}] Request cancellation of a queued or
-    running job.
-  \item[\texttt{DELETE /jobs/\{id\}}] Delete a finished job and its event log.
+  \item[Python] 3.12 (declared in \texttt{pyproject.toml}:
+    \texttt{requires-python = ">=3.12,<4.0"}).
+  \item[Dependency management] Poetry 2.1.0 (version pinned in the
+    PROTEA \texttt{Dockerfile}).
+  \item[PostgreSQL] 16, with the \texttt{pgvector} extension; Docker image
+    \texttt{pgvector/pgvector:pg16}. Schema is managed by Alembic; run
+    \texttt{poetry run python scripts/init\_db.py} (or \texttt{alembic upgrade head})
+    before starting workers.
+  \item[RabbitMQ] 3.x with the management plugin; Docker image
+    \texttt{rabbitmq:3-management}.
+  \item[LightGBM] $\geq$4.6, $<$5.0 (PROTEA); $\geq$4.3 (reranker lab).
+    Both resolve to the same major release in practice.
+  \item[FAISS] \texttt{faiss-cpu} $\geq$1.7.0. FAISS is used only
+    for approximate-\gls{knn} in the \texttt{protea-method-runtime}
+    distribution path (\texttt{--backend faiss}). All experiments in
+    \cref{chap:evaluation} use the default NumPy exact-cosine backend
+    (\texttt{--backend numpy}).
+  \item[ESM SDK] \texttt{esm} $\geq$3.2.1, providing the ESMC family
+    (the \texttt{esm3c} backend). ESM-2 family checkpoints are loaded
+    via the HuggingFace \texttt{EsmModel} class (\texttt{esm} backend).
+  \item[PyTorch] $\geq$2.0.0. The default \texttt{poetry install} fetches
+    the CPU wheel from the PyTorch CPU index so that CI and the slim
+    production image stay lean. GPU embedding workers swap in the CUDA
+    wheel via \texttt{bash scripts/install\_gpu\_torch.sh}; the default
+    CUDA variant is \texttt{cu121} (override with
+    \texttt{CUDA\_VARIANT=cu118}, etc.).
+\end{description}
+
+\subsection{Hardware configuration}
+\label{app:repro-hardware}
+
+All experiments in \cref{chap:evaluation} were conducted on a single
+workstation with the following configuration.
+
+\begin{description}
+  \item[Embedding inference (GPU)] NVIDIA GPU, 16\,GB video RAM (VRAM).
+    Workers for the \texttt{protea.embeddings.batch} queue run on this
+    device. The PyTorch CUDA variant used matches the installed NVIDIA
+    driver (see \texttt{scripts/install\_gpu\_torch.sh} for the
+    install recipe).
+  \item[kNN search and re-ranker inference (CPU)] The same workstation,
+    64\,GB system RAM. NumPy cosine-distance \gls{knn} (\cref{subsec:knn-modes})
+    and LightGBM inference both run on CPU; no GPU contention occurs
+    because the embedding and prediction queues are distinct
+    (ADR~001, \cref{chap:design}).
+  \item[Storage] Local filesystem artifact store
+    (\texttt{PROTEA\_STORAGE\_BACKEND=local}). MinIO is available as
+    an alternative S3-compatible backend for multi-node deployments
+    but was not used for the experiments reported here.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
-\section{Proteins and Sequences}
-\label{app:api-proteins}
-
-Protein ingestion and metadata refresh are dispatched through the generic
-\texttt{POST /jobs} endpoint with operation names \texttt{insert\_proteins} or
-\texttt{fetch\_uniprot\_metadata} (\cref{app:api-jobs}); the proteins router
-itself only exposes read endpoints.
+\section{Data Provenance}
+\label{app:repro-data}
 
 \begin{description}
-  \item[\texttt{GET /proteins/stats}] Aggregate protein statistics
-    (totals, reviewed/unreviewed split, taxonomy counts).
-  \item[\texttt{GET /proteins}] List proteins with optional \texttt{search}
-    (substring on accession or entry name) and \texttt{reviewed}
-    (Swiss-Prot vs.\ TrEMBL) query parameters.
-  \item[\texttt{GET /proteins/\{accession\}}] Retrieve a single protein
-    record by UniProt accession.
-  \item[\texttt{GET /proteins/\{accession\}/annotations}] List GO annotations
-    for a protein, optionally scoped to an \texttt{annotation\_set\_id}.
+  \item[\gls{go} ontology snapshot] \texttt{releases/2026-01-23}, loaded
+    via the \texttt{load\_ontology\_snapshot} operation
+    (\texttt{POST /annotations/ontology-snapshot} with the canonical
+    OBO URL). The \texttt{obo\_version} field carries a unique constraint
+    in PROTEA's database, preventing duplicate loads.
+  \item[\gls{goa} snapshots] \gls{swissprot} annotation files for
+    releases 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 211,
+    215, 220, and 229 (GOA FTP archive). Each file is loaded via
+    \texttt{load\_goa\_annotations} with evidence codes restricted to
+    \texttt{EXP}, \texttt{IDA}, \texttt{IMP}, \texttt{IGI},
+    \texttt{IEP}, and \texttt{IPI}. The canonical GOA download URL is
+    \texttt{ftp.ebi.ac.uk/pub/databases/GO/goa/old/UNIPROT/}.
+  \item[\gls{uniprot} reference set] \gls{swissprot} sequences ingested
+    via the \texttt{insert\_proteins} operation, which paginates the
+    UniProt REST API using cursor-based pagination with exponential
+    backoff. Approximately 527,000 reviewed sequences were loaded as
+    the reference embedding corpus (\cref{sec:eval-setup}). The exact
+    accession list is reproducible by re-running \texttt{insert\_proteins}
+    against the same UniProt release; the release date used corresponds
+    to the GOA~220 snapshot window.
+  \item[Evaluation set] Computed by \texttt{generate\_evaluation\_set}
+    on the GOA~220$\to$229 temporal pair. The operation applies NOT-qualifier
+    propagation through the \gls{go} \gls{dag} and classifies each
+    (protein, namespace) pair into NK/LK/PK categories following the
+    CAFA protocol (\cref{subsec:nk-lk-pk}). The resulting set contains
+    20,281 proteins.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
-\section{Query Sets}
-\label{app:api-querysets}
+\section{Determinism and Random Seeds}
+\label{app:repro-seeds}
 
 \begin{description}
-  \item[\texttt{POST /query-sets}] Upload a FASTA file. Creates a \texttt{QuerySet}
-    and its \texttt{QuerySetEntry} rows; upserts novel sequences and proteins.
-    Returns the created \texttt{QuerySet} UUID.
-  \item[\texttt{GET /query-sets}] List all query sets.
-  \item[\texttt{GET /query-sets/\{id\}}] Retrieve a query set with its entries.
-  \item[\texttt{DELETE /query-sets/\{id\}}] Delete a query set and its entries.
+  \item[kNN search (NumPy)] Exact cosine-distance search over the
+    full reference embedding matrix. The result is deterministic: given
+    the same embedding matrix and query vector, the ranked neighbour list
+    is identical across runs. No random component is involved.
+  \item[FAISS index (alternative path)] When \texttt{--backend faiss}
+    is selected in \texttt{protea-method-runtime}, FAISS builds an
+    \texttt{IndexFlatIP} (exact inner product) index over
+    $\ell_2$-normalised embeddings. This is also deterministic; no
+    approximate quantisation is applied in the exact-flat configuration.
+    Approximate indexes (\texttt{IVF}, \texttt{HNSW}) would introduce
+    non-determinism and were not used for any experiment reported here.
+  \item[LightGBM training] Seeds 42, 7, and 137 are run for each of the
+    nine evaluation cells (NK/LK/PK $\times$ BPO/MFO/CCO); results are
+    averaged across seeds (\cref{subsec:exp8-reranker-56f}). The seed is passed as
+    \texttt{--seed} to \texttt{protea-reranker-lab/src/protea\_reranker\_lab/train.py}
+    and forwarded to the LightGBM \texttt{seed} parameter.
+  \item[Train/eval split] The split is temporal and therefore
+    deterministic: re-ranker training uses GOA snapshot pairs 160$\to$220
+    (twelve pairs) as the training set; evaluation uses the GOA~220$\to$229
+    hold-out. The split is encoded in the \texttt{Dataset} manifest
+    (\texttt{train\_snapshot\_pairs}, \texttt{eval\_snapshot\_pair}),
+    not computed at training time.
 \end{description}
 
 % ────────────────────────────────────────────────────────────
-\section{Annotations}
-\label{app:api-annotations}
+\section{Run-from-Scratch Sequence}
+\label{app:repro-steps}
 
-\begin{description}
-  \item[\texttt{POST /annotations/ontology-snapshot}] Enqueue a
-    \texttt{load\_ontology\_snapshot} job for a given OBO URL.
-  \item[\texttt{POST /annotations/annotation-set/goa}] Enqueue a
-    \texttt{load\_goa\_annotations} job for a local GAF file path.
-  \item[\texttt{POST /annotations/annotation-set/quickgo}] Enqueue a
-    \texttt{load\_quickgo\_annotations} job with optional evidence code filter.
-  \item[\texttt{GET /annotations/ontology-snapshots}] List loaded ontology snapshots.
-  \item[\texttt{GET /annotations/annotation-sets}] List loaded annotation sets.
-\end{description}
+The steps below reproduce the full pipeline from an empty database.
+Commands are given in their canonical form; configuration parameters
+(DB URL, AMQP URL, artifact store paths) are set in
+\texttt{protea/config/system.yaml} (copy from
+\texttt{system.yaml.example} and edit accordingly).
+
+\paragraph{Step 1. Bring up the infrastructure.}
+\begin{verbatim}
+git clone https://github.com/frapercan/PROTEA.git
+cd PROTEA
+poetry install
+bash scripts/install_gpu_torch.sh   # GPU workers only
+cp protea/config/system.yaml.example protea/config/system.yaml
+# Edit system.yaml: PROTEA_DB_URL, PROTEA_AMQP_URL
+poetry run python scripts/init_db.py  # applies Alembic migrations
+bash scripts/manage.sh start          # starts API + all workers
+\end{verbatim}
+
+\paragraph{Step 2. Load data.}
+\begin{verbatim}
+# Load GO ontology snapshot (2026-01-23)
+POST /annotations/ontology-snapshot
+  {"obo_url": "http://purl.obolibrary.org/obo/go/releases/2026-01-23/go.obo"}
+
+# Load GOA Swiss-Prot snapshots (repeat for each release 160..229)
+POST /annotations/annotation-set/goa
+  {"gaf_path": "/data/goa_uniprot_all_160.gaf.gz",
+   "evidence_codes": ["EXP","IDA","IMP","IGI","IEP","IPI"]}
+
+# Insert UniProt Swiss-Prot sequences
+POST /jobs
+  {"operation": "insert_proteins", "payload": {"reviewed": true}}
+\end{verbatim}
+
+\paragraph{Step 3. Compute embeddings.}
+\begin{verbatim}
+# Create embedding configuration (ESMC 300M, mean pooling)
+POST /embeddings/configs
+  {"backend": "esm3c", "model_name": "esmc_300m",
+   "pooling": "mean", "batch_size": 32}
+
+# Enqueue embedding computation
+POST /embeddings/compute
+  {"embedding_config_id": "<config-uuid>"}
+\end{verbatim}
+
+\paragraph{Step 4. Export the frozen feature dataset.}
+\begin{verbatim}
+# Export train+eval parquet files for the re-ranker lab
+POST /datasets
+  {"name": "bench-v1-K5",
+   "embedding_config_id": "<config-uuid>",
+   "annotation_source": "goa",
+   "ontology_snapshot_id": "<snapshot-uuid>",
+   "train_snapshot_pairs": [[160,165],[165,170],[170,175],
+     [175,180],[180,185],[185,190],[190,195],[195,200],
+     [200,205],[205,211],[211,215],[215,220]],
+   "eval_snapshot_pair": [220,229],
+   "k": 5}
+\end{verbatim}
+
+\paragraph{Step 5. Train the LightGBM re-ranker.}
+\begin{verbatim}
+cd protea-reranker-lab
+pip install -e .
+python scripts/build_study_specs.py     # generates 93 YAML specs
+python scripts/run_study.py f1          # replication (27 specs)
+python scripts/run_study.py f2          # ablation   (39 specs)
+python scripts/run_study.py f4          # hparam grid (27 specs)
+python scripts/run_bootstrap_phase.py   # bootstrap CIs
+python scripts/summarise_study.py       # SUMMARY.md
+\end{verbatim}
+
+\paragraph{Step 6. Promote the booster and run predictions.}
+\begin{verbatim}
+# Upload the winning booster back to PROTEA
+python scripts/upload_model.py --model-path runs/study_v9/...
+
+# Run predictions on the evaluation set
+POST /embeddings/predict
+  {"embedding_config_id": "<config-uuid>",
+   "query_set_id": "<eval-fasta-uuid>",
+   "reranker_model_id": "<booster-uuid>",
+   "k": 5}
+
+# Stream the 27-column TSV result
+GET /embeddings/prediction-sets/<id>/predictions.tsv
+\end{verbatim}
+
+\paragraph{Step 7. Evaluate.}
+The \texttt{cafaeval-protea} fork is invoked internally by
+PROTEA's \texttt{compute\_evaluation\_data()} function when a
+\texttt{generate\_evaluation\_set} job completes. Standalone
+evaluation of external tools uses \texttt{scripts/evaluate\_external\_tool.py}
+(\cref{app:external-comparison}).
 
 % ────────────────────────────────────────────────────────────
-\section{Embeddings and Predictions}
-\label{app:api-embeddings}
+\section{Artifact Store URIs}
+\label{app:repro-artifacts}
+
+Frozen artifacts (parquet files, trained booster binaries, manifest
+files) are referenced by the URIs stored in the \texttt{Dataset.artifact\_uri}
+and \texttt{RerankerModel.artifact\_uri} columns of the PROTEA database.
+The URI scheme encodes the storage backend:
 
 \begin{description}
-  \item[\texttt{POST /embeddings/configs}] Create a new \texttt{EmbeddingConfig}.
-  \item[\texttt{GET /embeddings/configs}] List embedding configurations.
-  \item[\texttt{POST /embeddings/compute}] Enqueue a \texttt{compute\_embeddings}
-    coordinator job.
-  \item[\texttt{POST /embeddings/predict}] Enqueue a \texttt{predict\_go\_terms}
-    coordinator job.
-  \item[\texttt{GET /embeddings/prediction-sets}] List prediction sets.
-  \item[\texttt{GET /embeddings/prediction-sets/\{id\}}] Retrieve a prediction
-    set with summary statistics.
-  \item[\texttt{GET /embeddings/prediction-sets/\{id\}/predictions.tsv}] Stream
-    predictions as a 27-column TSV file. Optional query parameters:
-    \texttt{accession}, \texttt{aspect} (\texttt{F}/\texttt{P}/\texttt{C}),
-    \texttt{max\_distance}.
+  \item[\texttt{file://path/to/file}] Local filesystem backend
+    (\texttt{PROTEA\_STORAGE\_BACKEND=local}). The root path is
+    configured in \texttt{system.yaml} under \texttt{storage.local\_root}.
+  \item[\texttt{s3://bucket/key}] MinIO (or any S3-compatible store)
+    backend (\texttt{PROTEA\_STORAGE\_BACKEND=minio}). Connection
+    parameters are set via the \texttt{PROTEA\_MINIO\_*} environment
+    variables documented in \texttt{.env.bundle.example}.
 \end{description}
+
+To resolve an artifact from the database, call
+\texttt{ArtifactStore.get(uri)} from \texttt{protea.storage}; the
+factory function \texttt{get\_artifact\_store(settings)} selects the
+correct backend automatically. The \texttt{protea-reranker-lab} lab
+resolves dataset URIs via its own \texttt{pull\_dataset.py} helper,
+which accepts a dataset id or name and downloads all three files
+(\texttt{train.parquet}, \texttt{eval.parquet}, \texttt{manifest.json})
+to the local \texttt{datasets/} directory.

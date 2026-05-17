@@ -158,6 +158,11 @@
 \newtheorem{definition}{Definition}[chapter]
 \newtheorem{example}{Example}[chapter]
 
+% ── ToC / numbering depth (doctoral default: subsection in ToC, ────
+% ── subsubsection numbered in body; supervisor confirmation advised) ─
+\setcounter{tocdepth}{2}    % ToC: chapter(0), section(1), subsection(2)
+\setcounter{secnumdepth}{3} % Number body through subsubsection(3)
+
 % ============================================================
 \begin{document}
 
@@ -173,6 +178,7 @@
 \tableofcontents
 \cleardoublepage
 \listoffigures
+\cleardoublepage
 \listoftables
 \cleardoublepage
 

@@ -152,7 +152,7 @@
 
 @article{blum2021interpro,
   author  = {Blum, Matthias and others},
-  title   = {{InterPro} in 2021 -- improving sequence-based predictions and integrating AlphaFold2 structures},
+  title   = {{InterPro} in 2021: improved sequence-based predictions and integration of {AlphaFold2} structures},
   journal = {Nucleic Acids Research},
   year    = {2021},
   volume  = {49},
@@ -352,9 +352,10 @@
 
 @misc{esm2024esmc,
   author       = {{EvolutionaryScale}},
-  title        = {{ESM} {C}abrera: a frontier protein language model},
+  title        = {{ESM} {C}ambrian: a frontier protein language model},
   howpublished = {Technical report, \url{https://www.evolutionaryscale.ai/blog/esm-cambrian}},
   year         = {2024},
+  url          = {https://www.evolutionaryscale.ai/blog/esm-cambrian},
 }
 
 % ── GO ontology embeddings ───────────────────────────────────
@@ -401,6 +402,7 @@
   eprint       = {2604.20782},
   archivePrefix= {arXiv},
   primaryClass = {q-bio.QM},
+  url          = {https://arxiv.org/abs/2604.20782},
 }
 
 % ── CAFA series ──────────────────────────────────────────────
@@ -434,6 +436,7 @@
                   Kaggle competition},
   howpublished = {\url{https://www.kaggle.com/competitions/cafa-5-protein-function-prediction}},
   year         = {2023},
+  url          = {https://www.kaggle.com/competitions/cafa-5-protein-function-prediction},
 }
 
 @misc{cafa6_2024,
@@ -442,6 +445,7 @@
   howpublished = {\url{https://biofunctionprediction.org/cafa/}},
   year         = {2024},
   note         = {Results announced 2024; community paper in preparation.},
+  url          = {https://biofunctionprediction.org/cafa/},
 }
 
 % ── PSI-BLAST ────────────────────────────────────────────────
@@ -545,15 +549,27 @@
 
 % ── Sequence-based deep models ───────────────────────────────
 
-% TODO: verify metadata
-% The cite key tale2023 is used in chapter 3 for a paper described as
-% "TALE (Transformer-based Annotation Learning and Extraction)" using ESM-1b
-% with a multi-label head and GO-DAG consistency loss, evaluated on CAFA3.
-% The entry below is the ProteinBERT paper (Brandes et al. 2022), which does
-% NOT match that description. Either (a) replace this entry with the real TALE
-% citation once the paper is identified, or (b) if no standalone TALE paper
-% exists, update chapter 3 to cite the correct ProteinBERT entry and rename the
-% key. The ProteinBERT metadata is preserved below pending resolution.
+% TB.1 OPEN ISSUE — tale2023 key mismatch (priority: resolve before deposit)
+%
+% The cite key `tale2023` is used in chapter 3 (sections 3.3.2 and 3.4) for a
+% system described as "TALE (Transformer-based Annotation Learning and Extraction)"
+% that fine-tunes ESM-1b with a multi-label head and a true-path consistency loss,
+% evaluated on CAFA3 targets.
+%
+% The entry below is the ProteinBERT paper (Brandes et al., Bioinformatics 2022),
+% which does NOT match that description. ProteinBERT pre-dates ESM-1b and does not
+% apply a DAG consistency loss.
+%
+% Resolution required (pick one):
+%   (a) Identify the real TALE paper (likely a CAFA5 or CAFA6 workshop submission
+%       or preprint circa 2022-2023) and replace this entry, renaming the key if
+%       necessary.
+%   (b) If no standalone TALE paper exists, remove "TALE" framing from chapter 3
+%       and replace the description with the ProteinBERT paper (renaming key to
+%       proteinbert2022). Then chapter 3 can discuss ProteinBERT plus cite a
+%       separate system that performs DAG-consistent fine-tuning (e.g., NetGO 3).
+%
+% The ProteinBERT metadata is preserved below unchanged pending resolution.
 @article{tale2023,
   author  = {Brandes, Nadav and Ofer, Dan and Peleg, Yam and Rappoport, Nadav and
              Linial, Michal},
@@ -583,7 +599,7 @@
 
 @inproceedings{ilse2018attention,
   author    = {Ilse, Maximilian and Tomczak, Jakub M. and Welling, Max},
-  title     = {Attention-based Deep Multiple Instance Learning},
+  title     = {Attention-Based Deep Multiple Instance Learning},
   booktitle = {Proceedings of the 35th International Conference on Machine Learning
                ({ICML})},
   year      = {2018},
@@ -591,20 +607,14 @@
   series    = {Proceedings of Machine Learning Research},
   pages     = {2127--2136},
   publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v80/ilse18a.html},
+  note      = {arXiv:1802.04712},
 }
 
 % Resolved via bioRxiv API (10.1101/2024.12.17.629067). Note: the method
 % description in chapter 3 frames this as MIL for GO prediction; the preprint
 % title uses broader "protein/RNA sequence annotation" framing. Authors are
 % Xu et al., not Yang et al. as originally placeholder-listed.
-@misc{opusgo2024,
-  author       = {Xu, G. and Lv, Y. and Zhang, R. and Xia, X. and Wang, Q. and Ma, J.},
-  title        = {{OPUS-GO}: An interpretable protein/{RNA} sequence annotation
-                  framework based on biological language model},
-  howpublished = {bioRxiv preprint},
-  year         = {2024},
-  doi          = {10.1101/2024.12.17.629067},
-}
 @misc{opusgo2024,
   author       = {Xu, G. and Lv, Y. and Zhang, R. and Xia, X. and Wang, Q. and Ma, J.},
   title        = {{OPUS-GO}: An interpretable protein/{RNA} sequence annotation
@@ -652,12 +662,20 @@
   note   = {[?] Citation: verify exact authorship and DOI; TB.1 backfill required.},
 }
 
-@misc{gocurator2024,
-  author = {{GoCurator authors}},
-  title  = {{GoCurator}: evidence-filtered {KNN} annotation transfer in
-            {Swiss-Prot} embedding space},
-  year   = {2024},
-  note   = {[?] Citation: verify exact authorship and DOI; TB.1 backfill required.},
+% Resolved via Oxford Bioinformatics (doi:10.1093/bioinformatics/btae401). GoCurator
+% won CAFA 5 (Kaggle leaderboard #1); GORetriever is the primary published paper
+% describing the system. It applies KNN-based retrieval in annotated protein space
+% combined with literature-driven GO reranking.
+@article{gocurator2024,
+  author  = {Zhao, Guangyao and others},
+  title   = {{GORetriever}: reranking protein-description-based {GO} candidates by
+             literature-driven deep information retrieval for protein function annotation},
+  journal = {Bioinformatics},
+  year    = {2024},
+  volume  = {40},
+  number  = {Supplement\_2},
+  pages   = {ii53--ii61},
+  doi     = {10.1093/bioinformatics/btae401},
 }
 
 % ── FANTASIA ─────────────────────────────────────────────────
@@ -711,19 +729,6 @@
   doi     = {10.1093/database/bar068},
 }
 
-% ── Gated attention MIL ──────────────────────────────────────
-
-@inproceedings{ilse2018attention,
-  author    = {Ilse, Maximilian and Tomczak, Jakub M. and Welling, Max},
-  title     = {Attention-based deep multiple instance learning},
-  booktitle = {Proceedings of the 35th International Conference on Machine
-               Learning (ICML)},
-  year      = {2018},
-  volume    = {80},
-  pages     = {2127--2136},
-  note      = {arXiv:1802.04712},
-}
-
 % ── T5 backbone ──────────────────────────────────────────────
 
 @article{raffel2020t5,
@@ -737,6 +742,7 @@
   volume  = {21},
   number  = {140},
   pages   = {1--67},
+  url     = {https://jmlr.org/papers/v21/20-074.html},
 }
 
 % ── OPA2Vec ──────────────────────────────────────────────────
@@ -751,4 +757,16 @@
   number  = {12},
   pages   = {2133--2140},
   doi     = {10.1093/bioinformatics/bty933},
+}
+
+@inproceedings{schlichtkrull2018relational,
+  author    = {Schlichtkrull, Michael and Kipf, Thomas N. and Bloem, Peter and
+               van den Berg, Rianne and Titov, Ivan and Welling, Max},
+  title     = {Modeling Relational Data with Graph Convolutional Networks},
+  booktitle = {The Semantic Web -- 15th International Conference, ESWC 2018},
+  year      = {2018},
+  pages     = {593--607},
+  doi       = {10.1007/978-3-319-93417-4\_38},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {10843},
 }

@@ -79,12 +79,12 @@ on either of the other two.
     ORM / migrations     & SQLAlchemy 2.0 + Alembic    & 2.0 / 1.13       \\
     Database             & PostgreSQL 16 + pgvector    & 16 / 0.7         \\
     Message broker       & RabbitMQ + aio-pika         & 3.x / 9.x        \\
-    Data validation      & Pydantic v2                 & 2.x              \\
+    Data validation      & Pydantic                    & 2.x              \\
     Protein LM inference & Hugging Face Transformers   & 4.x              \\
     Alignment            & parasail-python (BLOSUM62)  & 1.x              \\
     Taxonomy             & ete3 + NCBITaxa             & 3.x              \\
     ANN search           & NumPy / FAISS               & n/a              \\
-    Frontend             & Next.js 16 + Tailwind v4    & 16 / 4           \\
+    Frontend             & Next.js 16 + Tailwind CSS   & 16 / 4           \\
     Dependency mgmt.     & Poetry                      & 1.x              \\
     \bottomrule
   \end{tabular}
@@ -293,7 +293,10 @@ The user-facing operations are:
   \item[\texttt{run\_cafa\_evaluation}] Runs the standalone \texttt{cafaeval}
     fork against a \texttt{PredictionSet} and persists \texttt{EvaluationResult}
     rows (Fmax, AuPRC, coverage, per-aspect breakdowns). Isolated on its own
-    queue so long evaluations do not block the general jobs queue.
+    queue so long evaluations do not block the general jobs queue. The same
+    evaluation protocol is applied to external tools via the companion
+    \texttt{scripts/evaluate\_external\_tool.py} helper; the concrete
+    procedure for eggNOG-mapper is documented in \cref{app:external-comparison}.
   \item[\texttt{compute\_embeddings}] Coordinator operation described in
     \cref{sec:impl-embedding-pipeline}.
   \item[\texttt{predict\_go\_terms}] Coordinator operation described in
@@ -525,7 +528,7 @@ redundant tree traversals across a batch.
 \label{subsec:fe-lineage}
 
 Lineage features (T-RES.1) capture the relationship between a candidate GO
-term and the protein's pre-cutoff known annotation set, a signal that the v6
+term and the protein's pre-cutoff known annotation set, a signal that the full
 alignment and taxonomy features do not encode. The
 \texttt{protea\_method.lineage.compute\_lineage\_features} function adds four
 columns to each prediction record:
@@ -755,30 +758,30 @@ domain labels required to supervise the head.
 \label{sec:lafa-containers}
 
 The LAFA benchmark accepts containerised systems. PROTEA submits three Docker
-images for the LAFA v2 evaluation (ADR~D23), all layered on the
+images for the LAFA second-round evaluation (ADR~D23), all layered on the
 \texttt{protea-method-runtime} base image (ADR~D15, PR~\#276) so the heavy
 dependency graph (torch, transformers, ProtT5 checkpoint) ships only once.
 Each image pins the bind-mount layout specified in the
 \texttt{anphan0828/LAFA\_container\_guide}.
 
 \begin{description}
-  \item[\texttt{protea-knn-v1} (F-LAFA.1, PR~\#284)] The v1 baseline. Runs
-    aspect-separated KNN with ProtT5-XL without v6 feature enrichment or a
-    learned reranker (\texttt{-{}-no\_v6 -{}-no\_reranker}). Provides the
-    kNN-only lower bound against which the v6 and ensemble submissions are
-    measured.
+  \item[\texttt{protea-knn-v{}1} (F-LAFA.1, PR~\#284)] The KNN-only baseline
+    container. Runs aspect-separated KNN with ProtT5-XL without full feature
+    enrichment or a learned reranker (\texttt{-{}-no\_v6 -{}-no\_reranker}).
+    Provides the embedding-only lower bound against which the feature-enriched
+    and ensemble submissions are measured.
 
   \item[\texttt{protea-knn-8plm} (F-LAFA.2, PR~\#294)] A score-level mean
     ensemble over eight PLMs: ESM-2~150M, 650M, and 3B; ProtT5; ProstT5;
     Ankh-base and Ankh-large; ESMC~600M. Each PLM runs per-aspect KNN
     independently; the per-protein score vectors are averaged (or optionally
-    maximised via a CLI flag) before prediction. No v6 features or reranker.
-    This image captures the embedding-level ensemble gain that the single-PLM
-    v18 submission cannot achieve on its own.
+    maximised via a CLI flag) before prediction. No feature enrichment or
+    reranker. This image captures the embedding-level ensemble gain that the
+    single-PLM baseline cannot achieve on its own.
 
-  \item[\texttt{protea-v18} (F-LAFA.3, PR~\#305)] The full pipeline
+  \item[\texttt{protea-v{}18} (F-LAFA.3, PR~\#305)] The full pipeline
     container: single PLM (ProtT5-XL UniRef50, half-precision encoder),
-    aspect-separated KNN, complete v6 feature enrichment (NW/SW alignments,
+    aspect-separated KNN, complete feature enrichment (NW/SW alignments,
     taxonomy voters, Anc2Vec, 16-dimensional embedding PCA), and per-aspect
     LightGBM reranking (one booster per BPO/MFO/CCO). The entrypoint pins
     \texttt{-{}-aspect\_separated} and forwards any additional positional
@@ -798,7 +801,7 @@ on every push to main, release tag, or manual dispatch.
 \section{Frontend}
 \label{sec:frontend}
 
-The web interface is a Next.js 16 application using Tailwind CSS v4 for
+The web interface is a Next.js 16 application using Tailwind CSS for
 styling. It communicates with the FastAPI backend exclusively through the REST
 API, enabling the two layers to be deployed independently. The primary
 workflows exposed by the frontend are:

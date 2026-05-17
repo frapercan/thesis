@@ -70,7 +70,8 @@ PROTEA decomposes into four horizontal layers, illustrated in
     The offline reranker training laboratory (\texttt{protea-reranker-lab}) is
     not part of this plugin graph; it consumes frozen datasets published by
     PROTEA and feeds trained boosters back through the \texttt{/reranker-models}
-    import endpoint.%
+    import endpoint.
+    Source: \texttt{figures/fig\_architecture.tex} @ \texttt{57fa4d4}.%
   }
   \label{fig:architecture}
 \end{figure}
@@ -392,7 +393,8 @@ frontend reflects the cancelled state regardless of how the worker exits.
     \texttt{*.batch}~$\to$~\texttt{*.write} chains, where every write worker
     atomically increments \texttt{progress\_current} on the parent job. The
     last write closes the parent as \texttt{SUCCEEDED}, avoiding write
-    contention from hundreds of concurrent batches.%
+    contention from hundreds of concurrent batches.
+    Source: \texttt{figures/fig\_job\_lifecycle.tex} @ \texttt{57fa4d4}.%
   }
   \label{fig:job-lifecycle}
 \end{figure}
@@ -570,7 +572,7 @@ The prediction pipeline mirrors the structure of the embedding pipeline:
     batches; publishes one operation message per batch to
     \texttt{protea.predictions.batch}.
   \item \textbf{Batch prediction} (\texttt{predict\_go\_terms\_batch}): delegates
-    KNN search, GO annotation transfer, v6 feature enrichment, and optional
+    KNN search, GO annotation transfer, full feature enrichment, and optional
     reranking to \texttt{protea\_method.pipeline.predict()}. The operation class
     is responsible for loading reference embeddings and annotations from the
     database, wiring them into the pure-function interface through a thin
@@ -661,9 +663,10 @@ independently replaceable without modifying any operation logic.
 
 The API follows REST conventions. Resources are grouped into seventeen routers
 spanning the full operational surface of the platform (ADR D4). All public
-endpoints are mounted under the \texttt{/v1/} path prefix (T4.1, ADR D4 accepted
-2026-05-06); unprefixed aliases are kept hidden from OpenAPI for a deprecation
-window so that existing clients can migrate without a hard cutover.
+endpoints are mounted under a versioned path prefix (e.g.\ \texttt{/v}\emph{N}\texttt{/};
+T4.1, ADR D4 accepted 2026-05-06); unprefixed aliases are kept hidden from
+OpenAPI for a deprecation window so that existing clients can migrate without a
+hard cutover.
 
 \subsection{Services Layer}
 \label{subsec:services-layer}
@@ -888,7 +891,7 @@ most consequential decisions as a decision log).
   \item[cafaeval coverage fix (ADR-008).] An upstream bug in the cafaeval
     library that affected PK coverage reporting is documented here; the fix
     was contributed upstream and backported.
-  \item[Schema SHA v2 migration (D10).] The parallel \texttt{schema\_sha\_v2}
+  \item[Schema SHA parallel migration (D10).] The \texttt{schema\_sha\_v2}
     column migration described in \cref{subsec:schema-sha} is fully specified
     in D10, including the production rollout gate (staging verification before
     live migration).
@@ -898,11 +901,12 @@ most consequential decisions as a decision log).
   \item[GOPrediction features in JSONB (D3).] The extensible JSONB column on
     \texttt{GOPrediction} that carries per-candidate features without
     schema migrations is specified in D3.
-  \item[API versioning (D4).] Universal \texttt{/v1/} path prefix on all public
-    routers (accepted 2026-05-06, implemented in T4.1). Future breaking changes
-    branch as \texttt{/v2/} without stranding \texttt{/v1/} consumers; deprecated
-    unprefixed aliases are retained for one release cycle and suppressed from
-    the OpenAPI schema. D4 is recorded here.
+  \item[API versioning (D4).] A universal versioned path prefix on all public
+    routers (accepted 2026-05-06, implemented in T4.1). The current prefix is
+    \texttt{/v}\emph{N}\texttt{/} (major version number); breaking changes introduce
+    a new major version without removing existing endpoints. Deprecated unprefixed
+    aliases are retained for one release cycle and suppressed from the OpenAPI
+    schema. D4 is recorded here.
   \item[Frontend co-located in core (D5).] The Next.js application lives
     inside the PROTEA monorepo under \texttt{apps/web/} rather than in a
     separate repository (D5, D8, D13).
