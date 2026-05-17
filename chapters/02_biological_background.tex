@@ -96,8 +96,8 @@ imports GOA releases as immutable \texttt{OntologySnapshot} objects and associat
 every annotation set and evaluation target with a specific release pair, enabling
 reproducible leakage-free evaluation (\cref{chap:evaluation}).
 
-IEA annotations make up the large majority of records in any GOA release. By
-convention, benchmark evaluations (including \gls{cafa}) exclude IEA annotations from
+\gls{iea} annotations make up the large majority of records in any GOA release. By
+convention, benchmark evaluations (including CAFA) exclude IEA annotations from
 the ground-truth set and treat only experimentally supported codes as valid
 prediction targets. PROTEA follows this convention: the training reference set
 and the evaluation target set both filter to experimental evidence codes, and the
@@ -169,7 +169,7 @@ nodes such as GO:0003674 (Molecular Function) are trivially true for every prote
 and carry no discriminative information; deep leaf terms such as
 GO:0004364 (glutathione transferase activity) are experimentally supported for
 only a handful of well-characterised proteins. This specificity gradient is
-captured by the \textit{information content} (IC) of a term, defined as the
+captured by the \gls{ic} of a term, defined as the
 negative log of the fraction of annotated proteins that carry it. Prediction
 quality metrics that weight by IC (such as $S_{\min}$, used in CAFA) reward
 correct prediction of specific terms more than generic ones. PROTEA's nearest-neighbour

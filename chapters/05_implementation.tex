@@ -3,7 +3,7 @@
 
 This chapter describes the concrete technology choices and key implementation
 details behind the design presented in \cref{chap:design}. Where decisions are
-recorded in a numbered ADR, the identifier is cited in-text so the decision
+recorded in a numbered \gls{adr}, the identifier is cited in-text so the decision
 can be traced back to its rationale.
 
 % ────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ index types for nearest-neighbour queries (HNSW, IVFFlat), PROTEA
 intentionally does not use them for kNN search: querying through pgvector at
 the scale of hundreds of thousands of vectors introduces unacceptable latency
 (ADR 001). Instead, reference embeddings are loaded into Python (NumPy or
-FAISS via \texttt{protea-method}) at prediction time.
+\gls{faiss} via \texttt{protea-method}) at prediction time.
 
 \subsection{Session Management}
 \label{subsec:sessions}
@@ -397,7 +397,7 @@ in the database for batch messages; progress is tracked by the coordinator
 via \texttt{update\_parent\_progress}.
 
 \paragraph{Batch worker: \texttt{ComputeEmbeddingsBatchOperation}.}
-Running on \texttt{protea.embeddings.batch} workers (one or more, GPU-bound),
+Running on \texttt{protea.embeddings.batch} workers (one or more, \gls{gpu}-bound),
 this operation receives a list of sequence primary keys and a device string.
 Control flow:
 
@@ -706,7 +706,7 @@ fingerprint onto each batch message.
 \section{Gated-Attention MIL Head}
 \label{sec:mil-head}
 
-Multiple-instance learning (MIL) applied to per-residue PLM embeddings offers
+\Gls{mil} applied to per-residue PLM embeddings offers
 a route from the current sequence-level prediction to residue-level attribution,
 enabling the interpretability features planned for MIL.4. The
 \texttt{protea-method} package ships the \texttt{GatedAttentionMILHead}

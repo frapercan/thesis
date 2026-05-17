@@ -44,14 +44,12 @@ payload against the same database state reproduces identical models and
 results. This addresses the reproducibility gap identified in
 \cref{chap:related}.
 
-Deployment flexibility spans four graduated modes sharing the same
-canonical pipeline without code branching: a development
-\texttt{docker compose} bundle, a Helm chart for Kubernetes, a Docker
-Swarm stack file, and SLURM \texttt{sbatch} templates for HPC environments.
-An end-to-end CI deploy test gates every release against image-level worker
-regressions. Three containerised LAFA submission images were published to
-the GitHub Container Registry, providing independently verifiable inference
-artefacts.
+Deployment flexibility is achieved through four graduated modes, all
+sharing the same canonical pipeline without code branching: a development
+\texttt{docker compose} bundle (T-OPS.2), a Helm chart for Kubernetes
+(T-OPS.3), a Docker Swarm stack file (T-OPS.4), and SLURM~\texttt{sbatch}
+templates for \gls{hpc} environments (T-OPS.5). An end-to-end CI deploy test
+(T-OPS.11) gates every release against image-level worker regressions.
 
 Observability is provided by an OpenTelemetry SDK boot layer and five
 Grafana dashboards covering API latency, queue depths, worker throughput,
@@ -65,18 +63,24 @@ The feature-engineering layer is organised as a registry of 56 features
 per candidate annotation, augmenting embedding cosine similarity with
 Needleman-Wunsch and Smith-Waterman alignment statistics,
 NCBI-taxonomy-based distance metrics, \gls{go} \gls{dag} ancestry
-embeddings (anc2vec), per-\gls{plm} PCA projections, and GO-lineage
-features encoding the hierarchical relationship between candidate terms and
-the query's existing annotation profile.
+embeddings, and per-\gls{plm} PCA projections. The lineage-feature wire
+(T-RES.1b, PR~\#304) connects GO directed-acyclic-graph relation
+features to the re-ranker training pipeline and regenerates the golden
+parquet artefact used to gate regressions.
+
+The protea-method inference layer received a gated-attention
+\gls{mil} head (MIL.2a, PR~\#13 in
+\texttt{protea-method}) that provides an opt-in pooling alternative to
+mean aggregation for bag-of-patch embeddings, extending the hypothesis
+space for future architectural comparisons.
 
 A selective learning-to-rank re-ranker is trained per category
-(No-Knowledge, Limited-Knowledge, Partial-Knowledge) and per aspect
-(BPO, MFO, CCO) using LightGBM over the feature registry. A
-selective-application policy falls back to the embedding-only baseline
-whenever re-ranking would degrade performance for the current cell.
-Training follows a temporal holdout protocol spanning twelve consecutive
-GOA splits with Information Accretion weighting, avoiding annotation
-leakage throughout.
+(No-Knowledge, Limited-Knowledge, Prior-Knowledge) and per aspect
+(\gls{bpo}, \gls{mfo}, \gls{cco}) using LightGBM over the feature registry, with a
+selective-application policy that falls back to the embedding-only
+baseline whenever re-ranking would degrade performance for the current
+cell. Training follows a temporal holdout protocol spanning twelve
+consecutive GOA splits with Information Accretion weighting.
 
 The \texttt{protea-method} inference layer received a gated-attention
 Multiple-Instance Learning head that provides an opt-in pooling alternative
@@ -111,17 +115,16 @@ exceed alignment-based methods for GO term prediction, particularly at low
 sequence identity, and how does the answer change as new PLMs replace older
 ones?}
 
-Yes. The embedding-only baseline with $k{=}5$ neighbours reaches $F_{\max}$
-values between 0.187 (PK-BPO) and 0.668 (NK-CCO) without any sequence
-alignment. It surpasses eggNOG-mapper in eight of nine category-aspect cells
-(pre-leakage-fix numbers), consistent with the known advantage of PLM
-representations in the twilight zone below 30\,\% pairwise identity. The
-eight-backend benchmark further demonstrates that the ceiling moves with model
-size and family: the hybrid-picker ceiling across all backends reaches
-0.4400~$F_{\max}$, setting a concrete target for ensemble inference. The plugin
-architecture ensures that this question can be re-answered whenever a new PLM
-is released, by adding a single class that implements the
-\texttt{EmbeddingBackend} ABC, without modifying the pipeline.
+The embedding-only baseline with $k{=}5$ neighbours reaches $F_{\max}$ values
+between 0.187 (PK-BPO) and 0.668 (NK-CCO) without any sequence alignment.
+Adding alignment features via the re-ranker improves performance by up to
+$+0.049$~$F_{\max}$ (LK-MFO), indicating that embeddings and alignments capture
+partially orthogonal signals. A direct comparison with eggNOG-mapper~v2.1.13
+confirms that PROTEA's embedding-based approach outperforms \gls{diamond}-based
+orthology transfer in all nine category-aspect cells, with absolute
+improvements of up to $+0.306$~$F_{\max}$ (NK-CCO). The hybrid-picker ceiling
+of 0.4400 $F_{\max}$ further demonstrates that combining backends yields
+headroom beyond any single \gls{plm}.
 
 \textbf{RQ2}: \emph{Do pairwise alignment statistics, taxonomic distance,
 ontology-graph ancestry features, and per-PLM PCA projections provide
@@ -150,16 +153,15 @@ on-premise HPC, and airgapped environments without code branching?}
 
 \begin{sloppypar}
 PROTEA's versioned data model links every prediction to an immutable
-\texttt{EmbeddingConfig} UUID, a versioned \texttt{AnnotationSet}, and a dated
-\texttt{OntologySnapshot}. Re-running the same payload against the same
-database state reproduces identical models and results. When new GOA releases
-become available, the pipeline extends by appending the new version and
-shifting the test window forward. Deployment portability across four target
-environments without code branching, combined with end-to-end CI gating,
-demonstrates that reproducibility and operational scalability are achievable
-simultaneously in a single artefact. The LAFA submissions confirm that the same
-container that runs on the development workstation can be submitted to a public
-benchmark without modification.
+\texttt{EmbeddingConfig} \gls{uuid}, a versioned \texttt{AnnotationSet}, and a dated
+\texttt{OntologySnapshot}. The temporal holdout training pipeline is fully
+parameterised: re-running the same payload against the same database state
+reproduces identical models and results. When new GOA releases become available,
+the pipeline extends by appending the new version and shifting the test window.
+Deployment portability across four target environments (docker compose, Helm,
+Swarm, SLURM) without code branching, combined with end-to-end CI gating
+(T-OPS.11), demonstrates that reproducibility and operational scalability are
+achievable simultaneously.
 \end{sloppypar}
 
 \textbf{RQ4}: \emph{How can the journey of a research platform, with its dead
