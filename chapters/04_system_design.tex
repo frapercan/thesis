@@ -260,7 +260,7 @@ parallel column \texttt{feature\_schema\_sha\_v2} on the
 \texttt{RerankerModel} and \texttt{Dataset} tables, populated by a
 backfill script that recomputed each row's digest using the canonical
 helper. The legacy column is retained until the audit window closes; new
-registrations write only the v2 column. The episode is recorded in
+registrations write only the \texttt{feature\_schema\_sha\_v2} column. The episode is recorded in
 \gls{adr} D10.
 
 \subsection{Why a Separate Package, Not Just a Module}
