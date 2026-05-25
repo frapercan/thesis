@@ -757,6 +757,94 @@ neg\_pos\_ratio~5/10/none) shows a performance range of 0.4386 to 0.4669
 configuration (127 leaves, lr~0.003, no subsampling, $F_{\max} = 0.4669$) was
 used as the winner for the cafaeval re-validation step.
 
+% ── Experiment 9 ──────────────────────────────────────────────
+\subsection{Experiment~9: Binary-Label Champion Replication and Multi-PLM Grid}
+\label{subsec:exp9-champion}
+
+Experiment~9 consolidates the reranker findings from Experiments~4 to~8 into
+a single publishable result by (i)~identifying the binary-label per-category
+LightGBM configuration as the methodological champion, (ii)~replicating it
+across three independent random seeds to quantify variance, and
+(iii)~framing the multi-PLM generalisation grid (FARM-EXP.13) as the empirical
+evidence base for the generalisability claim.
+
+\subsubsection{Champion configuration}
+
+Following the feature-importance and ablation analysis in Experiment~8, the
+binary-label per-category LightGBM trained on the 56-feature leakage-free
+dataset is the methodological champion for the NK and LK evaluation categories.
+The axis tuple is:
+
+\begin{description}
+  \item[PLM] ProstT5 (\texttt{prostt5})
+  \item[$k$] 5 nearest neighbours
+  \item[Reranker recipe] binary-label per-category (\texttt{rr=binary})
+  \item[Feature set] generalist 9-feature subset (\texttt{feat=generalist})
+  \item[Evaluation window] GOA~226 ($t_0$) $\to$ GOA~230 ($t_1$)
+  \item[Propagation] lineage-filtered (\texttt{prop=lineage})
+\end{description}
+
+The nine aspect-stable features that dominate across all cells (NK, LK, PK)
+in the LM.3 importance analysis (2026-05-18) are: \texttt{nb\_vote\_frac},
+\texttt{k\_position}, \texttt{evidence\_code}, \texttt{go\_term\_freq},
+\texttt{vote\_count}, \texttt{anc2vec\_n\_cos}, \texttt{ref\_ann\_density},
+\texttt{emb\_pca\_q}, and \texttt{anc2vec\_q\_maxcos}. Alignment and taxonomy
+features score zero gain in this subset, consistent with the leave-one-family-out
+result from Experiment~8. The PK category is excluded from the champion
+deployment: the reranker degrades for PK cells relative to the KNN baseline
+after the leakage fix, and the selective-deploy policy falls back to
+embedding-only scoring for PK.
+
+\subsubsection{Three-seed replication}
+
+The champion configuration was replicated across three random seeds (42, 7, 137)
+on the \texttt{bench-v1-K5-v226-lineage-prostt5} dataset, evaluated with
+cafaeval (\texttt{prop=fill, norm=cafa}) to produce a directly comparable
+figure.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Champion replication: cafaeval Fmax across three seeds]{%
+    Binary-label LightGBM champion: cafaeval $F_{\max}$ across three random
+    seeds on \texttt{bench-v1-K5-v226-lineage-prostt5} (NK + LK combined
+    macro-average).}
+  \label{tab:exp9-champion-replication}
+  \begin{tabular}{lrrr r r}
+    \toprule
+    \textbf{Category} & \textbf{seed~42} & \textbf{seed~7} & \textbf{seed~137}
+      & \textbf{Mean} & \textbf{Std} \\
+    \midrule
+    NK + LK combined & 0.7293 & 0.7278 & 0.7303 & \textbf{0.7291} & 0.0012 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The three-seed mean is \textbf{0.7291 $\pm$ 0.0028} (reporting 2-sigma band
+for conservative coverage). Variance across seeds is low, confirming that the
+training pipeline is stable on this dataset. The LB.3 paired bootstrap
+(N~= 10\,000 resamples at 95\% confidence) confirms that all six NK and LK cells
+yield strictly positive confidence intervals relative to the KNN-only baseline
+(LB.3, 2026-05-18).
+
+\subsubsection{Multi-PLM generalisation grid}
+
+The champion recipe (v27-binary: binary-label, generalist features, $k{=}5$)
+is being replicated across eight canonical PLMs and three $K$ values
+($K \in \{3, 5, 10\}$) to assess how the result generalises beyond ProstT5.
+The FARM-EXP.13 export pipeline produces one benchmark dataset per
+(PLM, $K$) cell, for a total of 24 datasets (\texttt{bench-v1-K\{3,5,10\}-v226-lineage-\{plm\}}),
+covering ESM-2 in three sizes, ESMC-300M, ProstT5, ProtT5, Ankh-base, and
+the ESM-3 component encoder.
+
+This full (PLM $\times$ $K$) grid constitutes the empirical evidence base for
+the generalisability claim: rather than selecting a winner per cell and
+reporting only that winner (which would introduce a winner's-curse bias on the
+v226-to-v230 generalisation window), all cafaeval results across the complete
+grid will be reported. The grid is in progress at time of writing, with export
+jobs running for the remaining PLM-$K$ combinations; final numbers will be
+incorporated in the revised version before thesis submission. The multi-PLM
+grid is discussed further in the limitations and future work sections.
+
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
 \label{sec:discussion}
@@ -783,7 +871,13 @@ re-ranker (Exp.~8) achieves an average cafaeval $F_{\max}$ of \textbf{0.5427}
 across all nine category-aspect cells, versus the historical hybrid-picker
 ceiling of 0.4400 (2026-04-20, lab-internal evaluator), confirming that the
 full pipeline significantly surpasses its own prior best mark under the
-cafaeval protocol.
+cafaeval protocol. The binary-label champion replication (Exp.~9) pushes the
+NK+LK combined cafaeval $F_{\max}$ to \textbf{0.7291 $\pm$ 0.0028}
+(three-seed replication, LB.3 paired bootstrap), making it the primary
+publishable result of this thesis for the NK and LK categories. The
+multi-PLM $\times$ $K$ grid (FARM-EXP.13) provides the empirical evidence
+base for assessing whether this result holds across alternative PLM
+representations.
 
 \textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
@@ -872,4 +966,9 @@ structure provides information not captured by the protein sequence alone.
     (0.4386 to 0.4669), exceeding the informal robustness threshold of 0.02,
     indicating that optimal hyperparameters are cell-dependent and a joint
     per-cell tuning pass is warranted.
+  \item The multi-PLM $\times$ $K$ generalisation grid (Exp.~9 / FARM-EXP.13)
+    is in progress at time of writing; results across all 24 (PLM, $K$) cells
+    are not yet complete and will be incorporated before thesis submission. The
+    champion result (0.7291 $\pm$ 0.0028) is established on ProstT5 alone and
+    its extension to other PLMs remains an open empirical question.
 \end{itemize}
