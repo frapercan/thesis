@@ -98,7 +98,14 @@ category-aspect cells (paired bootstrap, all $p < 0.0001$). A comparison with
 eggNOG-mapper v2.1.13 demonstrates that the PROTEA embedding-only baseline
 surpasses DIAMOND-based orthology transfer in eight of nine cells, and the
 leakage-free full-feature re-ranker substantially exceeds both in the NK and LK
-categories.
+categories. The binary-label per-category LightGBM champion, replicated across
+three seeds on \texttt{bench-v1-K5-v226-lineage-prostt5}, achieves
+NK+LK cafaeval $F_{\max}$ of \textbf{0.7291 $\pm$ 0.0028}
+(LB.3 paired bootstrap, 6/6 NK+LK cells strictly positive at 95\%
+confidence), and is the primary publishable result for the NK and LK
+categories. The multi-PLM $\times$ $K \in \{3,5,10\}$ generalisation grid
+(FARM-EXP.13, 24 datasets) constitutes the empirical evidence base for
+the thesis and will be packaged as FAIR-compliant datasets via the F-DATA-PACK loop.
 
 The CAFA~6 challenge provided an independent blind validation: the research
 team in which the author of this thesis served as technical lead achieved a
@@ -173,11 +180,13 @@ alongside the what of every computed result. Every job writes its inputs
 (ontology version, annotation release, embedding configuration, search
 parameters) to a structured database record before execution begins; findings
 written during execution are attached as structured observations. Complementing
-this, an index of 31 Architecture Decision Records (D1 through D31) in
+this, an index of 38 Architecture Decision Records (D1 through D38) in
 \texttt{protea-core/docs/source/adr/} provides a curated history of
 non-obvious design choices, including decisions later reversed (D09, D13,
-D17). The progression from the per-aspect through the 56-feature re-ranker
-(Experiments~4 to~8) is fully traceable through experiment run records, not
+D17) and decisions to defer a research direction (D38, neural-head
+deferral). The progression from the per-aspect through the 56-feature re-ranker
+(Experiments~4 to~8) and onward to the binary-label champion replication
+(Experiment~9) is fully traceable through experiment run records, not
 reconstructed from memory: the evaluation chapter is distilled from the database,
 not from notes.
 
@@ -231,34 +240,72 @@ The results of this thesis open four concrete research directions for
 post-defence development, each foreshadowed by the empirical findings or by
 architectural decisions described in earlier chapters.
 
-\paragraph{PROTEA-DL: Relational Graph Convolution over the GO DAG.}
-\label{para:future-protea-dl}
+\paragraph{Neural Architecture Exploration: Explored but Not Shipped.}
+\label{para:future-neural-boundary}
 
-The leave-one-family-out ablation (Exp.~8) established that the \texttt{anc2vec\_query}
-family is the single most valuable feature family by a large margin (mean
-$\Delta F_{\max} = +0.1449$, Section~\ref{subsec:exp8-reranker-56f}). The
-underlying mechanism is that GO-DAG-derived embeddings supply ontology
-structural information that protein sequence embeddings do not encode. This
-observation motivates a dedicated deep-learning pilot: training a Relational
-Graph Convolutional Network (R-GCN)~\cite{schlichtkrull2018relational}
-directly over the GO DAG, where each GO term is a node and edges are typed
-by the \texttt{is\_a}, \texttt{part\_of}, and \texttt{regulates} relation
-types. Protein nodes could be connected to their GO annotation nodes,
-enabling joint message-passing that propagates functional signal along
-ontology edges and between protein neighbours simultaneously.
+The leave-one-family-out ablation (Exp.~8) established that the
+\texttt{anc2vec\_query} family is the single most valuable feature family by a
+large margin (mean $\Delta F_{\max} = +0.1449$,
+Section~\ref{subsec:exp8-reranker-56f}), with GO-DAG-derived embeddings
+supplying ontology structural information that protein sequence embeddings do
+not encode. This observation motivated an exploratory deep-learning run: a
+frozen ESMC-300M encoder with a binary classification head was trained end-to-end
+on 84\,000 proteins over ten epochs (binary NK+LK task, bf16 precision, chunk
+size 128). The run completed within the thesis timeline. However, its internal
+cafaeval $F_{\max}$ did not surpass the LightGBM champion (0.7291 $\pm$ 0.0028,
+Exp.~9) within the available GPU budget: the neural head would need to capture
+qualitatively new signal beyond the nine aspect-stable generalist features that
+already dominate the champion, rather than re-learning the same vote-aggregation
+and ontology-proximity signals through a different architecture (ADR-D38,
+2026-05-25).
 
-The PROTEA plugin architecture accommodates such a pilot cleanly: the R-GCN
-predictor would implement the \texttt{EmbeddingBackend} or
-\texttt{Scorer} ABC, and its outputs would flow through the same temporal
-holdout evaluation pipeline as all existing methods. The
-\texttt{protea-method} MIL head (MIL.2a, merged) provides a precedent for
-attaching alternative pooling mechanisms to the inference layer without
-touching the core. An initial pilot would train on the same twelve temporal
-holdout GOA splits used for the LightGBM re-ranker, use
-\texttt{cafaeval} as the evaluation harness, and report results as an
-\texttt{ExperimentRun} in the database alongside the existing baselines.
-This would make the R-GCN contribution reproducible under the same leakage-free
-protocol that governs the rest of the evaluation.
+The decision recorded in ADR-D38 is therefore to defer the neural head
+indefinitely. The prerequisite for resumption is a demonstrated gap of at
+least 0.005 $F_{\max}$ units between the LightGBM ceiling on the
+v226-to-v230 generalisation window and a retrained neural head on the same
+benchmark, a threshold structurally parallel to the GeOKG NO-GO precondition
+(2026-05-17). The neural-head scaffold is preserved locally as an exploratory
+artefact; it is not wired to any PROTEA registry row or any thesis table.
+If a future architecture (e.g.\ a Relational Graph Convolutional Network
+directly over the GO DAG, or a protein-GO joint message-passing model) clears
+this bar under the same leakage-free temporal protocol, it would slot into the
+PROTEA plugin architecture via the \texttt{Scorer} ABC without requiring
+changes to the evaluation harness.
+
+\paragraph{Curated Dataset Packaging: the F-DATA-PACK Loop.}
+\label{para:future-fdata-pack}
+
+The most concrete and bounded near-term deliverable is the F-DATA-PACK loop,
+which packages the 24-dataset multi-PLM grid produced by FARM-EXP.13 as
+FAIR-compliant, externally reproducible research datasets. The loop comprises
+four sequential tasks:
+
+\begin{enumerate}
+  \item \textbf{Manifest validator} (F-DATA-PACK.1, lab PR~\#48, merged):
+    a schema-and-content-hash checker wired into the PROTEA export pipeline
+    that ensures every exported dataset carries a verified manifest before any
+    downstream step can consume it.
+  \item \textbf{Per-dataset READMEs and dataset cards}: one README per
+    (PLM, $K$) cell following the HuggingFace \texttt{DatasetCard} and Zenodo
+    metadata schemas, documenting the data provenance, split logic, feature
+    schema, and citation information needed for independent reproduction.
+  \item \textbf{FAIR documentation page}: a Sphinx page under
+    \texttt{docs/source/datasets/} aggregating provenance metadata, coverage
+    statistics, and usage instructions for all 24 datasets in a single
+    citable location.
+  \item \textbf{Zenodo and/or HuggingFace Hub upload}: archival upload of the
+    full grid, establishing persistent DOIs that allow any reader of
+    this thesis or of a derived publication to reproduce the evaluation
+    without access to the local PROTEA instance.
+\end{enumerate}
+
+Completing F-DATA-PACK before thesis submission provides a tangible,
+externally verifiable artefact that strengthens the reproducibility claim of
+Chapter~\ref{chap:evaluation} independently of any further training runs.
+It also directly benefits any future researcher who wants to evaluate
+an alternative re-ranker recipe, a new PLM, or a neural architecture on
+the same grid: the datasets are ready to use without re-running the
+computationally expensive PROTEA export pipeline.
 
 \paragraph{GeOKG Generalisation.}
 \label{para:future-geokg}
@@ -359,18 +406,22 @@ mechanism. The architecture was designed to make scientific claims about protein
 function prediction revisitable and independently verifiable, not just now but
 as the underlying technology changes.
 
-The four future-work directions described above (the R-GCN pilot, GeOKG
-generalisation, multi-K ensemble inference, and granular plugin decomposition)
-are not disconnected from the thesis results. They are the natural next steps
-that follow directly from the empirical findings: the dominance of ontology
-structure in the feature ablation motivates graph convolution; the anc2vec
-saturation motivates geometry-aware replacements; the single-K optimum
-motivates ensemble search; and the growing plugin ecosystem motivates finer
-distribution granularity. Each can be pursued independently, evaluated under
-the same leakage-free temporal protocol, and contributed to the platform
-without breaking existing functionality. This is the property that makes the
-engineering contribution of the thesis durable beyond the specific numbers
-reported in \cref{chap:evaluation}.
+The four future-work directions described above are not disconnected from the
+thesis results. They follow directly from the empirical findings: the
+F-DATA-PACK loop closes the reproducibility loop opened by the multi-PLM
+grid in Experiment~9; the GeOKG direction addresses the saturation of the
+\texttt{anc2vec\_query} family identified in the feature ablation; the
+multi-K ensemble exploits the geometric structure of the embedding space
+revealed by the $k$-sweep; and the granular plugin split addresses the
+growing consumer audience of the platform. The neural-head boundary
+experiment, explored within the thesis timeline and recorded in ADR-D38,
+establishes a concrete quantitative precondition that any deep-learning
+alternative must meet before it displaces the binary-label LightGBM champion
+as the canonical method. Each direction can be pursued independently,
+evaluated under the same leakage-free temporal protocol, and contributed to
+the platform without breaking existing functionality. This is the property
+that makes the engineering contribution of the thesis durable beyond the
+specific numbers reported in \cref{chap:evaluation}.
 
 \bigskip
 \noindent PROTEA is released as open-source software at
