@@ -198,19 +198,25 @@ eggNOG-mapper alongside the PROTEA methods.
     \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
     \midrule
     eggNOG-mapper 2.1.13 & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
-    PROTEA baseline      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
-    PROTEA full-feature  & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
+    PROTEA baseline$^\dagger$      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    PROTEA per-category$^\dagger$  & \textbf{0.431} & \textbf{0.620} & \textbf{0.692} & \textbf{0.478} & \textbf{0.607} & \textbf{0.697} & \textbf{0.201} & \textbf{0.297} & \textbf{0.339} \\
     \bottomrule
   \end{tabular}
   }
 \end{table}
 
+\noindent$^\dagger$~Pre-leakage-fix \texttt{bench-v1-K5} dataset (22-feature schema,
+GOA~220$\to$229 evaluation split); not directly comparable with the leakage-free
+full-feature re-ranker results (NK-BPO=0.599, NK-CCO=0.775) reported in
+\cref{tab:results-all} (Chapter~\ref{chap:evaluation}).
+The delta table below therefore reflects the per-category row relative to eggNOG-mapper.
+
 \Cref{tab:emapper-delta} shows the absolute $F_{\max}$ difference between
-PROTEA's full-feature re-ranker and eggNOG-mapper.
+the PROTEA pre-leakage-fix per-category configuration and eggNOG-mapper.
 
 \begin{table}[htbp]
   \centering
-  \caption[Absolute Fmax improvement vs.\ eggNOG-mapper]{Absolute $F_{\max}$ improvement: PROTEA full-feature vs.\ eggNOG-mapper.}
+  \caption[Absolute Fmax improvement vs.\ eggNOG-mapper]{Absolute $F_{\max}$ improvement: PROTEA per-category (pre-leakage-fix) vs.\ eggNOG-mapper.}
   \label{tab:emapper-delta}
   \begin{tabular}{lccc}
     \toprule
