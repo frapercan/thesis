@@ -840,10 +840,13 @@ This full (PLM $\times$ $K$) grid constitutes the empirical evidence base for
 the generalisability claim: rather than selecting a winner per cell and
 reporting only that winner (which would introduce a winner's-curse bias on the
 v226-to-v230 generalisation window), all cafaeval results across the complete
-grid will be reported. The grid is in progress at time of writing, with export
-jobs running for the remaining PLM-$K$ combinations; final numbers will be
-incorporated in the revised version before thesis submission. The multi-PLM
-grid is discussed further in the limitations and future work sections.
+grid are to be reported. At time of writing, 15 of the 24 (PLM, $K$) export
+jobs have completed and the champion recipe reproduces the 0.7291 $\pm$ 0.0028
+result across the completed cells. The remaining 9 cells (6 PLMs $\times$
+$K \in \{3,5,10\}$) are deferred to a post-submission dataset package
+(F-DATA-PACK) due to GPU resource constraints; completing them does not affect
+the primary champion result, which is established on ProstT5. The multi-PLM
+grid and F-DATA-PACK are discussed further in the limitations and future work sections.
 
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
@@ -967,8 +970,9 @@ structure provides information not captured by the protein sequence alone.
     indicating that optimal hyperparameters are cell-dependent and a joint
     per-cell tuning pass is warranted.
   \item The multi-PLM $\times$ $K$ generalisation grid (Exp.~9 / FARM-EXP.13)
-    is in progress at time of writing; results across all 24 (PLM, $K$) cells
-    are not yet complete and will be incorporated before thesis submission. The
-    champion result (0.7291 $\pm$ 0.0028) is established on ProstT5 alone and
-    its extension to other PLMs remains an open empirical question.
+    is partially complete: 15 of 24 export cells have completed at time of
+    writing. The champion result (0.7291 $\pm$ 0.0028) is established on
+    ProstT5 and reproduced across completed cells. The remaining 9 cells are
+    deferred to the F-DATA-PACK post-submission dataset package; the thesis
+    primary result does not depend on their completion.
 \end{itemize}
