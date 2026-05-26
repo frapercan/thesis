@@ -82,10 +82,6 @@ baseline whenever re-ranking would degrade performance for the current
 cell. Training follows a temporal holdout protocol spanning twelve
 consecutive GOA splits with Information Accretion weighting.
 
-The \texttt{protea-method} inference layer received a gated-attention
-Multiple-Instance Learning head that provides an opt-in pooling alternative
-to mean aggregation, extending the hypothesis space for future comparisons.
-
 \paragraph{Pillar 3: Empirical Evaluation.}
 
 The benchmark of eight \gls{plm} backends (ESM-2 in three sizes, ESM-C,
@@ -104,8 +100,10 @@ NK+LK cafaeval $F_{\max}$ of \textbf{0.7291 $\pm$ 0.0028}
 (LB.3 paired bootstrap, 6/6 NK+LK cells strictly positive at 95\%
 confidence), and is the primary publishable result for the NK and LK
 categories. The multi-PLM $\times$ $K \in \{3,5,10\}$ generalisation grid
-(FARM-EXP.13, 24 datasets) constitutes the empirical evidence base for
-the thesis and will be packaged as FAIR-compliant datasets via the F-DATA-PACK loop.
+(FARM-EXP.13, 24 datasets) provides the empirical breadth context for the
+thesis; 15 of 24 cells are complete and confirm the champion result generalises
+across PLMs. The completed grid cells are being packaged as FAIR-compliant
+datasets via the F-DATA-PACK loop.
 
 The CAFA~6 challenge provided an independent blind validation: the research
 team in which the author of this thesis served as technical lead achieved a
@@ -129,7 +127,8 @@ $+0.049$~$F_{\max}$ (LK-MFO), indicating that embeddings and alignments capture
 partially orthogonal signals. A direct comparison with eggNOG-mapper~v2.1.13
 confirms that PROTEA's embedding-based approach outperforms \gls{diamond}-based
 orthology transfer in all nine category-aspect cells, with absolute
-improvements of up to $+0.306$~$F_{\max}$ (NK-CCO). The hybrid-picker ceiling
+improvements of up to $+0.389$~$F_{\max}$ (NK-CCO, leakage-free full-feature
+re-ranker vs eggNOG-mapper). The hybrid-picker ceiling
 of 0.4400 $F_{\max}$ further demonstrates that combining backends yields
 headroom beyond any single \gls{plm}.
 
@@ -381,7 +380,7 @@ the same discipline to per-plugin packages would make the dependency graph
 explicit and auditable. The reranker-lab would remain a single offline package
 to avoid fragmenting the training pipeline. This restructuring is foreshadowed
 by the discussion of plugin granularity in \cref{chap:design}
-(Section~\ref{sec:design-plugins}) and does not require changes to the core
+(Section~\ref{sec:plugin-contracts}) and does not require changes to the core
 platform or the contracts package, only to the distribution and tagging
 strategy of the existing plugin code.
 
