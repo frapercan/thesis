@@ -36,7 +36,11 @@ historical hybrid-picker ceiling of 0.4400. Feature-ablation experiments identif
 \texttt{anc2vec\_query} as the dominant contributor, with a leave-one-family-out mean
 $\Delta F_{\max}$ of $+0.1449$. Bootstrap confidence intervals against the KNN baseline
 show $p < 0.0001$ across all nine ablation cells, with per-cell deltas ranging from
-$+0.03$ to $+0.43$. These gains collapse almost entirely when temporal leakage is
+$+0.03$ to $+0.43$. The binary-label per-category LightGBM champion, replicated across
+three seeds on \texttt{bench-v1-K5-v226-lineage-prostt5}, achieves NK+LK combined
+cafaeval $F_{\max} = \mathbf{0.7291 \pm 0.0028}$ (LB.3 paired bootstrap, 6/6 NK+LK
+cells strictly positive at 95\,\% confidence), the primary publishable result for
+NK and LK categories. These gains collapse almost entirely when temporal leakage is
 introduced, underscoring the importance of rigorous evaluation methodology.
 
 The experimental work was a component of a team placement of second in CAFA~6,
