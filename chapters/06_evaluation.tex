@@ -361,7 +361,8 @@ random seeds (42, 7, 137) are run and averaged.
 pre-leakage-fix \texttt{bench-v1-K5} dataset with the older 22-feature schema.
 Their absolute $F_{\max}$ values are not directly comparable to the full-feature
 re-ranker numbers reported here. A full leakage-free re-run of the baseline and heuristic
-experiments is pending (lab-runner slice LB.2).
+experiments (lab-runner LB.2) was not completed within the thesis timeline and
+remains a known limitation.
 \end{quote}
 
 \begin{table}[htbp]
@@ -395,8 +396,8 @@ $F_{\max}$ across all nine category-aspect cells. The GOA~220$\to$230
 evaluation window (versus 220$\to$229 for earlier rows) adds one additional
 GOA release to the test delta; this difference is expected to be small relative
 to the dataset size. Direct cell-by-cell comparison with the pre-leakage-fix
-rows is not valid; a full leakage-free re-run of the earlier methods is pending
-(lab-runner slice LB.2).
+rows is not valid; a full leakage-free re-run of the earlier methods was not
+completed within the thesis timeline and remains a known limitation (lab-runner LB.2).
 
 \begin{figure}[htbp]
   \centering
@@ -407,7 +408,7 @@ rows is not valid; a full leakage-free re-run of the earlier methods is pending
     dataset (52 features, mean of 3 seeds); all other bars use the
     pre-leakage-fix \texttt{bench-v1-K5} dataset and are included for
     directional reference only. A full leakage-free re-run of earlier methods
-    is pending (lab-runner LB.2).
+    (lab-runner LB.2) was not completed within the thesis timeline.
     Source: \texttt{figures/fig\_reranker\_progression.py} @ \texttt{21d74f7}
     (data: \texttt{figures/data/reranker\_progression.csv}).%
   }
@@ -486,8 +487,9 @@ Three observations stand out:
 \Cref{tab:improvement} summarises the absolute $F_{\max}$ change of the
 leakage-free full-feature re-ranker relative to the pre-leakage-fix per-category
 baseline. These deltas are not clean apples-to-apples comparisons because the
-datasets and feature schemas differ; they are reported as an indicative reference
-pending the full leakage-free ablation (lab-runner LB.2).
+datasets and feature schemas differ; they are reported as an indicative reference.
+A controlled leakage-free ablation across all methods (lab-runner LB.2) was not
+completed within the thesis timeline and remains a known limitation.
 
 \begin{table}[htbp]
   \centering
@@ -554,7 +556,8 @@ recategorisation reduces the positive rate, leading to lower absolute
 $F_{\max}$ compared to the pre-leakage-fix baseline and eggNOG-mapper;
 this is expected, as the leakage-free criterion is stricter. A side-by-side
 comparison on a shared leakage-free eval set (including a re-run of
-eggNOG-mapper) is pending (lab-runner LB.2).
+eggNOG-mapper, lab-runner LB.2) was not completed within the thesis timeline
+and remains a known limitation.
 
 The PROTEA baseline surpasses eggNOG-mapper in 8 of 9 cells (pre-leakage-fix
 numbers), consistent with the earlier finding that protein language model
@@ -869,7 +872,8 @@ capture partially orthogonal signals. The comparison with eggNOG-mapper
 embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells and
 PROTEA's leakage-free full-feature re-ranker substantially exceeds both in NK and LK.
 These comparisons are on different evaluation sets; a controlled comparison
-on a shared leakage-free split is pending (lab-runner LB.2). The 56-feature
+on a shared leakage-free split (lab-runner LB.2) was not completed within the
+thesis timeline and remains a known limitation. The 56-feature
 re-ranker (Exp.~8) achieves an average cafaeval $F_{\max}$ of \textbf{0.5427}
 across all nine category-aspect cells, versus the historical hybrid-picker
 ceiling of 0.4400 (2026-04-20, lab-internal evaluator), confirming that the
