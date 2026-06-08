@@ -844,6 +844,121 @@ a single large rewrite, kept CI green throughout and gave the test suite time to
 grow coverage alongside the new module boundaries.
 
 % ────────────────────────────────────────────────────────────
+\section{Universal Reranker Design}
+\label{sec:universal-reranker-design}
+
+The per-cell family of reranker models trained in Experiments~4 to~9
+(one LightGBM booster per category-aspect combination, i.e.\ up to nine
+models per dataset) has a structural limitation: the 24-cell multi-PLM grid
+(\cref{subsec:exp9-champion}) multiplies that cost by $8~\text{PLMs} \times
+3~K$ values, making a fresh nine-model retrain per cell impractical at
+benchmark scale. The universal reranker contribution addresses this by
+replacing the per-cell family with a single aspect-conditioned booster
+trained jointly on the pooled output of three $K$ values ($K \in \{3, 5,
+10\}$), and by aligning the training objective directly with the live-board
+metric.
+
+\subsection{Aspect Conditioning and K-Pooled Manifests}
+\label{subsec:universal-aspect-conditioning}
+
+The key modelling insight is that the three GO aspects (BPO, MFO, CCO) have
+sufficiently distinct statistics (term depth, annotation density, GO-embedding
+geometry) that treating them as a single ranking problem discards signal.
+Rather than training three separate models, aspect identity is injected as an
+integer-coded column (\texttt{aspect\_code}: $0 = \text{BPO}$,
+$1 = \text{MFO}$, $2 = \text{CCO}$) so that a single LightGBM booster can
+learn aspect-specific split thresholds without the combinatorial model-count
+penalty. LightGBM handles this natively because the column participates in
+tree splits rather than requiring dummy encoding.
+
+The candidate set is pooled across three manifest slices ($K = 3$, $K = 5$,
+$K = 10$). For a given query protein and GO term, the booster sees the most
+optimistic candidate row across the three $K$ values: a term that surfaces as
+a confident neighbour-vote at $K = 3$ but falls below the vote threshold at
+$K = 10$ still contributes the $K = 3$ signal. Pooling is implemented in the
+offline lab as a streaming merge of three parquet files keyed by
+\texttt{(query\_accession, go\_term, aspect\_code)}; a global row budget caps
+the merged table before it is fed into the training pipeline, preventing
+out-of-memory allocation on the 64\,GB host when all 24 datasets are
+combined.
+
+Column types for all integer-coded fields (\texttt{aspect\_code},
+\texttt{evidence\_code}, \texttt{qualifier}) are materialised as
+\texttt{int8} before the training pass. This has two consequences: the parquet
+footprint per merged manifest drops by roughly 30\% relative to
+string-encoded columns, and the LightGBM categorical-column path is bypassed
+(the booster treats them as ordered integers, which is a valid approximation
+for evidence codes ranked by informativeness).
+
+\subsection{IA-Weighted Training Objective}
+\label{subsec:universal-ia-weighting}
+
+PROTEA's benchmark metric, and the metric used by the LAFA live board, is the
+IA-weighted micro-average $F_{\max}$ (\texttt{f\_micro\_w}). This metric
+penalises misprediction of high-information GO terms more heavily than
+misprediction of generic terms (e.g.\ a missed annotation to
+\texttt{GO:0005488}~``binding'' incurs a smaller loss than a missed annotation
+to a deeply specific biosynthesis term). A reranker trained with uniform
+sample weights is therefore systematically misaligned with the evaluation
+criterion.
+
+The universal booster aligns training and evaluation in three ways. First,
+each training row is weighted by the IA of the candidate GO term so that the
+LightGBM leaf-value gradients reflect the same per-term information content
+used during evaluation. Second, the label-gain vector passed to the LambdaMART
+objective is also proportional to IA, ensuring that the pairwise preference
+learning step prioritises swapping a wrong high-IA prediction ahead of a wrong
+low-IA prediction. Third, the early-stopping metric is \texttt{f\_micro\_w}
+evaluated with \texttt{cafaeval} on the validation fold, so the number of
+boosting rounds is selected by the actual evaluation criterion rather than a
+proxy such as binary log-loss.
+
+LambdaMART is chosen over binary classification for the learning-to-rank
+objective because the reranker's output is consumed as a ranked list
+(confidence scores determine the $F_{\max}$ threshold sweep), not as a binary
+yes/no gate. The pairwise loss aligns better with ranked-list quality than
+binary cross-entropy when the positive rate is below 1\% (as it is in the PK
+category).
+
+\subsection{Temporal Validation Protocol}
+\label{subsec:universal-temporal-validation}
+
+The strict temporal holdout protocol introduced for the per-cell reranker is
+preserved and tightened in the universal design. Training uses GOA snapshots
+160 through 226 as the train window; the internal validation fold is the
+GOA~226$\to$227 delta (a one-release forward step that provides a clean
+separation from the training distribution without consuming the reserved test
+window); the reserved test window is GOA~227$\to$230 (the same multi-release
+forward gap used by the LAFA evaluation). This three-way partition ensures:
+
+\begin{enumerate}
+  \item No train/test leakage: test proteins are never seen during model
+    selection or hyperparameter tuning.
+  \item No validation/test leakage: the early-stopping metric is computed on
+    226$\to$227, not on 227$\to$230.
+  \item Comparability with the live-board window: the reserved test window
+    corresponds to the LAFA benchmark period, so the reranker's offline
+    estimate of $F_{\max}$ is directly comparable to the live submission score.
+\end{enumerate}
+
+The validation protocol is enforced at the dataset-generation level: the
+\texttt{export\_research\_dataset} operation accepts an explicit
+\texttt{eval\_set\_id} parameter that specifies which GOA delta to use as the
+evaluation fold; accidentally passing a training-window evaluation set is
+detected by a guard in the lab runner that checks
+$\texttt{eval\_goa\_version} > \texttt{max(train\_goa\_versions)}$ and raises
+before any booster file is written.
+
+\noindent \textbf{Note on current evaluation status.} The universal booster
+described in this section is at proof-of-concept stage. The candidate set used
+for current benchmarking is generated from ground-truth positives (i.e.\ the
+evaluation set includes the known correct GO terms as candidate rows), giving
+an optimistic upper bound on $F_{\max}$ that is not representative of the
+real inference distribution. A clean recompute against the v227-lineage
+GOA~227$\to$230 window is required before a definitive performance figure can
+be reported; see \cref{subsec:exp10-universal}.
+
+% ────────────────────────────────────────────────────────────
 \section{Design Decision Index}
 \label{sec:adr-index}
 

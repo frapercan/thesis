@@ -153,6 +153,11 @@
 \usepackage{csquotes}
 \usepackage{enumitem}
 
+% ── Placeholder command for pending numbers / decisions ─────
+% Usage: \TODO{text describing what is pending}
+% Renders inline as bold coloured text so it is hard to miss in draft mode.
+\newcommand{\TODO}[1]{\textbf{\textcolor{red}{[TODO: #1]}}}
+
 % ── Theorem-like environments ───────────────────────────────
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}[chapter]

@@ -702,6 +702,89 @@ in the \texttt{predict\_go\_terms} payload; the coordinator validates the row
 and snapshots the artefact URI together with the expected feature-schema
 fingerprint onto each batch message.
 
+\subsection{Universal Booster: Multi-Manifest Staging}
+\label{subsec:impl-universal-staging}
+
+The universal reranker (\cref{sec:universal-reranker-design}) introduces a
+multi-manifest staging step that differs from the single-manifest promotion
+path above. Instead of one \texttt{train.parquet} per cell, the lab runner
+merges three manifests ($K \in \{3, 5, 10\}$) generated from the same PLM
+into a single pooled training table before calling the LightGBM training step.
+
+The merge is implemented as a streaming pass over the three parquet files in
+column-projection mode: only the columns required by the active feature
+families (plus the join keys \texttt{query\_accession}, \texttt{go\_term},
+\texttt{aspect\_code}) are decoded into memory at any one time. A global row
+budget (configurable via \texttt{PROTEA\_RERANKER\_ROW\_BUDGET}, default
+$50 \times 10^6$ rows) caps the merged table; when the merged row count
+exceeds the budget, the lab runner applies stratified reservoir sampling
+stratified by \texttt{aspect\_code} so that all three aspects retain
+proportional representation.
+
+The integer-coding step converts string-valued categorical columns to
+\texttt{int8} before the LightGBM call. The mapping is stable across runs
+because it is derived from the sorted category list exported by
+\texttt{protea-contracts}. This stability is a hard requirement: a booster
+trained against \texttt{aspect\_code = 0} for BPO cannot be safely applied to
+a scoring context where BPO has been remapped to 1.
+
+The resulting booster is promoted through the same
+\texttt{register\_reranker.py} path used by the per-cell models. The
+\texttt{spec.yaml} field in the \texttt{RerankerModel} row records the pooling
+configuration (\texttt{k\_values: [3, 5, 10]}, \texttt{objective:
+lambdamart\_ia}) so that the promotion is self-documenting and reproducible.
+
+\subsection{GOA Self-Prior: Leakage-Safe Annotation Injection}
+\label{subsec:impl-goa-self-prior}
+
+The GOA non-experimental baseline is a reference submission included in the
+LAFA live-board evaluation. It consists of each target protein's own non-experimental
+GO annotations present at time $t_0$ (i.e.\ in the GOA release used as the
+prediction baseline). Because non-experimental IEA/ISS/etc.\ annotations are
+already associated with the target before the evaluation window, this baseline
+captures the prior knowledge already attached to the protein and consistently
+outperforms methods that discard this prior.
+
+The KNN submission pipeline (\texttt{protea-knn-v1}) excludes self-hits by
+design: the KNN index is built from the reference set, and the query protein
+is not guaranteed to appear in its own nearest-neighbour list. For Swiss-Prot
+proteins that are present in both the query and reference sets, the
+self-exclusion therefore discards the target's own $t_0$ non-experimental
+annotations, degrading performance relative to the GOA baseline.
+
+The GOA self-prior implementation addresses this with a leakage-safe
+injection step:
+
+\begin{enumerate}
+  \item For each query protein, retrieve the set of non-experimental GO
+    annotations associated with that protein in the $t_0$ annotation snapshot
+    (\texttt{AnnotationSet}). Only evidence codes that are
+    \emph{not} experimental (\texttt{EXP}, \texttt{IDA}, \texttt{IMP},
+    \texttt{IGI}, \texttt{IEP}, \texttt{IPI} are excluded) and that are
+    present at $t_0$ are eligible. Annotations added at $t_1$ or later are
+    never included.
+  \item Each eligible annotation is injected into the candidate set with a
+    configurable base confidence score, evidence-weighted by a fixed table
+    that maps evidence code class to a score (e.g.\ ISS~$\to$~0.7,
+    IEA~$\to$~0.5). The weight table is static and does not require any
+    knowledge of $t_1$.
+  \item The merged candidate set (KNN candidates plus self-prior candidates)
+    is de-duplicated by \texttt{(query\_accession, go\_term)}. Where both
+    paths contribute a score for the same term, the maximum score is retained.
+\end{enumerate}
+
+This design satisfies temporal hygiene: the injected annotations are drawn
+exclusively from the $t_0$ snapshot, they carry no information about which
+terms will appear at $t_1$, and experimental evidence codes (which would
+constitute a form of label leakage in the NK evaluation category) are
+explicitly excluded. The practical consequence is that the gap between the KNN
+submission and the GOA non-experimental baseline is reduced; the degree to
+which the gap is reversed depends on the annotation density of the query set
+and the evaluation category (NK proteins by definition have zero experimental
+$t_0$ annotations, but they may carry IEA and ISS non-experimental annotations
+that the self-prior can exploit). The evaluation results are described in
+\cref{subsec:exp11-lafa-goa-prior}.
+
 % ────────────────────────────────────────────────────────────
 \section{Gated-Attention MIL Head}
 \label{sec:mil-head}
