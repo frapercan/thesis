@@ -953,18 +953,45 @@ representations.
 \textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
 
-Yes. The feature importance analysis for the leakage-free full-feature re-ranker
-(Tab.~\ref{tab:feature-importance}) confirms that GO-embedding similarity
-(\texttt{anc2vec\_neighbor\_cos}, \texttt{anc2vec\_query\_known\_maxcos}) and
-aggregation features (\texttt{neighbor\_vote\_fraction}) are the dominant
-signals, while raw embedding distance does not appear in the top-10 for any
-category. The leave-one-family-out ablation (Exp.~8,
-\cref{tab:exp8-ablation}) quantifies this: the \texttt{anc2vec\_query} family
-alone contributes a mean $\Delta F_{\max}$ of +0.1449 across the three
-representative cells (+0.2565 on NK-BPO), whereas every other family
-contributes at most $\pm 0.01$ on average. This confirms that ontology-derived
-query embeddings are the decisive marginal signal, not classical alignment or
-taxonomy features.
+Partly, and the honest answer is more nuanced than a single dominant family.
+The heuristic scoring experiment (Exp.~3) already showed that layering pairwise
+alignment statistics on top of the embedding-only baseline yields a consistent
+1.5 to 4\% improvement, direct evidence that alignment carries signal partially
+orthogonal to the learned representation. The leakage-free full-feature
+importance analysis (\cref{tab:feature-importance}) then locates the dominant
+ranking signal elsewhere: vote-aggregation features
+(\texttt{neighbor\_vote\_fraction}, \texttt{go\_term\_frequency}) lead in every
+category, GO-embedding similarity (\texttt{anc2vec\_neighbor\_cos},
+\texttt{anc2vec\_query\_known\_maxcos}) contributes prominently as a
+complementary ontology-aware term, and raw protein-embedding distance falls
+outside the top-10, used by the model as a candidate-generation filter rather
+than a final ranking signal. Classical alignment and taxonomy features rank
+low individually once embeddings and neighbourhood statistics are present, so
+their marginal contribution is real but modest. The answer to RQ2 is therefore
+qualified: alignment and taxonomy add a small, genuine complementary signal,
+while the decisive ranking information comes from the statistical structure of
+the retrieved neighbourhood.
+
+A methodological caveat governs how this question must be read, and it is
+itself one of the rigor findings of the work. An earlier 56-feature
+leave-one-family-out ablation (Exp.~8, \cref{tab:exp8-ablation}) appeared to
+show the \texttt{anc2vec\_query} family dominating by a wide margin. That
+magnitude does not reflect biological signal. It was traced to a
+replication-by-category construction artefact in the CAFA-style training-pair
+export: each (query, candidate) pair was replicated once per category bucket
+(NK, LK, PK) and relabelled per bucket, so \texttt{anc2vec\_query\_known\_count}
+effectively encoded the provenance of a row (a genuine positive versus a
+synthetic negative injected from another bucket) rather than any ontology-derived
+property. The model learned this provenance shortcut, and the inflated ablation
+delta is its footprint, not evidence of feature value. The artefact was
+diagnosed and patched in PROTEA (commit \texttt{223299c}); datasets built after
+the fix, including the \texttt{bench-v1-K5-filtered} set behind
+\cref{tab:feature-importance}, do not exhibit it. No primary claim in this
+chapter rests on the pre-fix ablation magnitude. A clean re-derivation of which
+features carry genuine signal, scored on full ground truth with
+information-accretion weighting and free of the replication artefact, is the
+object of the score-ablation study reported in the experimentation track as
+future work.
 
 \textbf{RQ3}: \emph{How can a reproducible, scalable annotation pipeline be
 designed so that researchers can re-run analyses as ontologies and databases are
@@ -1004,13 +1031,24 @@ to combine multiple complementary signals:
     protein.
 \end{itemize}
 
-The full-feature leakage-free importance analysis (Tab.~\ref{tab:feature-importance})
-and the family ablation (Tab.~\ref{tab:exp8-ablation}) together show that
-GO-embedding features (\texttt{anc2vec\_query} family) and vote-aggregation
-signals dominate, while raw protein-embedding distance ranks outside the
-top-10 in the full-feature analysis. This confirms that feature engineering remains
-valuable even when powerful embeddings are available, and that the ontology
-structure provides information not captured by the protein sequence alone.
+The leakage-free full-feature importance analysis
+(\cref{tab:feature-importance}) shows that vote-aggregation signals
+(\texttt{neighbor\_vote\_fraction}, \texttt{go\_term\_frequency}) dominate
+across all three categories, with GO-embedding similarity (\texttt{anc2vec})
+contributing as a complementary ontology-aware term and raw protein-embedding
+distance ranking outside the top-10. The much larger \texttt{anc2vec\_query}
+ablation magnitude in the earlier 56-feature study
+(\cref{tab:exp8-ablation}) is, as set out in the RQ2 answer above, a
+replication-by-category dataset-construction artefact rather than evidence of
+feature value; it is retained here as a methodological finding, patched in
+PROTEA, and no conclusion in this section rests on it. With that caveat, the
+leakage-clean evidence still supports the broader claim that feature
+engineering remains valuable even when powerful embeddings are available: the
+statistical structure of the retrieved neighbourhood and ontology-derived
+similarity carry information not present in the raw protein-sequence embedding
+alone. A clean per-feature re-derivation under full ground-truth
+information-accretion scoring is provided by the score-ablation study reported
+as future work.
 
 \subsection{Limitations}
 \label{subsec:limitations}
