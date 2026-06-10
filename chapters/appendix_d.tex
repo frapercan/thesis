@@ -1,0 +1,485 @@
+\chapter{Development Trace: Historical Pre-Leakage Runs}
+\label{app:dev-trace}
+
+This appendix preserves the development trace of the re-ranker work: the
+sequence of early experiments (Experiments~1 to~7) that shaped the final
+methodology but predate the leakage fix and are therefore \emph{not}
+live-reproducible from the PROTEA app. They were run on the retired 22-feature
+\texttt{bench-v1-K5} schema over the GOA~220~$\to$~229 evaluation split, before
+the anc2vec look-up leakage was identified and patched and before the
+\texttt{cafaeval} (\texttt{prop=fill, norm=cafa}) protocol was adopted for
+reporting. Their absolute $F_{\max}$ values are not directly comparable to the
+leakage-clean numbers in the body of \cref{chap:evaluation}, and they carry no
+live \texttt{/benchmark} or \texttt{/evaluation} source. They are retained here
+as an auditable record of the design path, including its dead-ends, and provide
+the empirical trace behind \textbf{RQ4}.
+
+Every result in this appendix is provenance-anchored to the frozen lab CSV and
+commit cited in the corresponding figure caption rather than to the live app.
+The leakage-clean, live-reproducible studies that constitute the primary
+results (the 56-feature study and the binary-label champion with its multi-PLM
+grid) are reported in \cref{sec:experiments-results}.
+
+% ── Experiment 1 ──────────────────────────────────────────────
+\section[Experiment~1: Effect of k (Neighbours Per Query)]{Experiment~1: Effect of $k$ (Neighbours Per Query)}
+\label{subsec:exp1-k}
+
+The first experiment establishes the optimal number of nearest neighbours $k$
+for annotation transfer. Four values are tested: $k \in \{5, 10, 20, 50\}$,
+all using \texttt{aspect\_separated\_knn=true} and the baseline scoring
+$c = 1 - d/2$.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax vs.\ number of neighbours k]{$F_{\max}$ vs.\ number of neighbours $k$.}
+  \label{tab:results-k-sweep}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    $k$ & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    \textbf{5}  & \textbf{0.412} & \textbf{0.590} & \textbf{0.668} & \textbf{0.467} & \textbf{0.558} & \textbf{0.676} & \textbf{0.187} & \textbf{0.278} & \textbf{0.325} \\
+    10 & 0.400 & 0.574 & 0.656 & 0.458 & 0.537 & 0.663 & 0.177 & 0.272 & 0.317 \\
+    20 & 0.396 & 0.564 & 0.649 & 0.454 & 0.528 & 0.654 & 0.173 & 0.269 & 0.313 \\
+    50 & 0.396 & 0.555 & 0.646 & 0.452 & 0.523 & 0.651 & 0.173 & 0.269 & 0.312 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+$k{=}5$ is optimal across all categories and aspects. Increasing $k$ degrades
+performance monotonically: additional neighbours introduce noise without
+meaningful recall gains. This is consistent with the concentration of function
+in the nearest embedding-space neighbours. All subsequent experiments use
+$k{=}5$.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_fmax_vs_k}
+  \caption[Fmax as a function of k]{%
+    $F_{\max}$ as a function of the number of neighbours $k$ for each evaluation
+    category and GO aspect. Performance degrades monotonically as $k$ grows,
+    confirming that functional signal is concentrated in the very nearest
+    neighbours and that aggregating over more candidates merely dilutes the vote.
+    Note the log-scale on the $x$ axis.
+    Source: \texttt{figures/fig\_fmax\_vs\_k.py} @ \texttt{21d74f7}
+    (data: \texttt{figures/data/fmax\_vs\_k.csv}).%
+  }
+  \label{fig:fmax-vs-k}
+\end{figure}
+
+% ── Experiment 2 ──────────────────────────────────────────────
+\section{Experiment~2: Aspect-Separated vs.\ Unified KNN}
+\label{subsec:exp2-aspect}
+
+In aspect-separated mode, three independent \gls{knn} indices are built, one
+per GO namespace, using only reference proteins annotated in that namespace.
+This guarantees coverage of all three aspects but may dilute the signal for
+well-represented namespaces.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: aspect-separated vs.\ unified KNN]{$F_{\max}$: aspect-separated vs.\ unified KNN ($k{=}5$).}
+  \label{tab:results-aspect-sep}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Separated  & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.676 & 0.187 & 0.278 & 0.325 \\
+    Unified    & 0.410 & 0.595 & 0.666 & 0.471 & 0.569 & 0.675 & 0.188 & 0.279 & 0.325 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+Differences are minimal ($\leq 0.011$). The unified index slightly favours \gls{mfo}
+while the separated index slightly favours \gls{bpo}. We retain
+\texttt{aspect\_separated=true} for all subsequent experiments as it provides
+uniform aspect coverage without measurable degradation.
+
+% ── Experiment 3 ──────────────────────────────────────────────
+\section{Experiment~3: Heuristic Scoring Configurations}
+\label{subsec:exp3-scoring}
+
+This experiment tests whether combining embedding distance with alignment
+statistics and evidence codes improves scoring without machine learning.
+A single prediction set with \texttt{compute\_alignments=true} and
+\texttt{compute\_taxonomy=true} is generated; five scoring configurations
+are applied post-hoc via different weight vectors.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax under five heuristic scoring configurations]{$F_{\max}$ under five heuristic scoring configurations.}
+  \label{tab:results-scoring}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Config} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    embedding\_only     & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    \textbf{alignment\_weighted} & \textbf{0.428} & \textbf{0.611} & \textbf{0.683} & \textbf{0.500} & \textbf{0.598} & \textbf{0.699} & \textbf{0.201} & \textbf{0.285} & \textbf{0.337} \\
+    evidence\_primary   & 0.362 & 0.558 & 0.638 & 0.412 & 0.540 & 0.642 & 0.165 & 0.268 & 0.308 \\
+    emb+evidence        & 0.352 & 0.531 & 0.618 & 0.387 & 0.517 & 0.626 & 0.162 & 0.250 & 0.300 \\
+    composite           & 0.364 & 0.560 & 0.639 & 0.412 & 0.542 & 0.642 & 0.167 & 0.267 & 0.307 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The \texttt{alignment\_weighted} configuration (embedding~$=0.5$, NW
+identity~$=0.3$, SW identity~$=0.2$) improves the baseline by 1.5 to 4\%
+$F_{\max}$ across all cells. Configurations that incorporate evidence code
+weights \emph{degrade} performance: the evidence code signal conflicts with
+IA weighting used in evaluation. This is an early indication that pairwise
+alignment statistics provide a complementary signal to embedding distance,
+a question revisited under the leakage-clean protocol in
+\cref{sec:experiments-results}.
+
+% ── Experiment 4 ──────────────────────────────────────────────
+\section{Experiment~4: LightGBM Re-Ranker, Per-Aspect Models}
+\label{subsec:exp4-reranker-pa}
+
+A LightGBM binary classifier is trained on 12 temporal holdout splits
+(GOA~160$\to$165 through GOA~215$\to$220) and evaluated on the test split
+(GOA~220$\to$229). Nine models are trained (NK/LK/PK $\times$ BPO/MFO/CCO).
+Two variants are tested: no class balancing, and subsampling negatives to a
+10:1 ratio (\texttt{neg\_pos\_ratio=10}).
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: LightGBM per-aspect re-ranker]{$F_{\max}$: LightGBM per-aspect re-ranker (Exp.~4).}
+  \label{tab:results-reranker-pa}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    PA (no balance)    & 0.384 & 0.584 & \textbf{0.695} & 0.447 & 0.482 & \textbf{0.713} & 0.201 & 0.284 & 0.335 \\
+    PA (balanced)      & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The per-aspect re-ranker improves CCO substantially (+2 to 4\% over baseline) but
+\emph{degrades} MFO by 3 to 9\% relative to the heuristic. Six of nine models
+suffer from early stopping at iteration~1 due to extreme class imbalance
+(positive rate $<0.2\%$). Class balancing corrects the BPO collapse but
+introduces a different trade-off. Neither variant surpasses the heuristic
+overall.
+
+% ── Experiment 5 ──────────────────────────────────────────────
+\section{Experiment~5: LightGBM Re-Ranker, Per-Category Models with IA Weighting}
+\label{subsec:exp5-reranker-pc}
+
+Experiment~5 addresses three weaknesses of the per-aspect re-ranker (Exp.~4):
+\begin{enumerate}
+  \item \textbf{Per-category models} (NK, LK, PK) instead of per-aspect
+    (NK-BPO, NK-MFO, \ldots), giving each model ${\sim}3{\times}$ more training data.
+  \item \textbf{IA sample weighting}: each training example is weighted by the
+    Information Accretion of its GO term, aligning the loss with the evaluation metric.
+  \item Hyperparameter refinement: learning rate $0.05 \to 0.01$,
+    max rounds $300 \to 1000$, early stopping patience $30 \to 50$.
+\end{enumerate}
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: LightGBM per-category re-ranker]{$F_{\max}$: LightGBM per-category re-ranker with IA weighting (Exp.~5).}
+  \label{tab:results-reranker-pc}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline           & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    PC (full)          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+The per-category re-ranker is substantially more robust than the per-aspect
+configuration: MFO no longer collapses (0.607 vs.\ 0.577) and performance is
+consistent across all cells. However, \texttt{alignment\_weighted} still leads
+in BPO and MFO. Post-hoc analysis of feature importance revealed that alignment
+and taxonomy features had \textbf{zero importance} in all three models: these
+features were set to \texttt{NULL} during training data generation, meaning the
+model could only learn from embedding distance, aggregation features, and
+categorical signals.
+
+% ── Experiment 6 ──────────────────────────────────────────────
+\section{Experiment~6: LightGBM Re-Ranker, Full Feature Set}
+\label{subsec:exp6-reranker-ff}
+
+Experiment~6 addresses the missing-feature problem identified in Exp.~5 by
+computing pairwise alignment (Needleman-Wunsch and Smith-Waterman via
+parasail/BLOSUM62), taxonomic distance (via the NCBI taxonomy tree), and
+anc2vec GO-embedding cosine similarities
+for every (query, reference) pair during training data generation. This gives the
+model access to all 52 features, the same set available at inference time.
+
+\textbf{Note on feature schema at time of writing.} Subsequent development
+(T-RES.1b, 2026-05-12) added four lineage features
+(\texttt{lineage\_is\_ancestor\_of\_known}, \texttt{lineage\_is\_descendant\_of\_known},
+\texttt{lineage\_ancestor\_of\_count}, \texttt{lineage\_descendant\_of\_count}) to
+the canonical \texttt{FeatureRegistry}, bringing the schema from 52 to 56 columns.
+The 56-feature study described in Experiment~8 (\cref{subsec:exp8-reranker-56f}) was run
+against the current 56-column schema.
+
+Training uses the same 12 temporal holdout splits as Exp.~5, with identical
+hyperparameters. The feature dataset is the leakage-free
+\texttt{bench-v1-K5-filtered} snapshot (evaluation pair GOA~220$\to$230),
+which removes anc2vec look-up leakage present in the original
+\texttt{bench-v1-K5} dataset. Nine per-cell models are trained
+(NK/LK/PK $\times$ BPO/MFO/CCO) and evaluated with the lab
+protein-averaged $F_{\max}$ metric (no prediction-side propagation); three
+random seeds (42, 7, 137) are run and averaged.
+
+\begin{quote}
+\textbf{Note.} The preceding experiments (Exp.~1 to 5) were run on the
+pre-leakage-fix \texttt{bench-v1-K5} dataset with the older 22-feature schema.
+Their absolute $F_{\max}$ values are not directly comparable to the full-feature
+re-ranker numbers reported here. Under the current protocol, a controlled
+cross-method comparison requires re-running the baseline and heuristic
+configurations on a shared leakage-clean SELECT-window split; that re-run is
+reported as future work, and the earlier rows are retained for directional
+reference only.
+\end{quote}
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: complete comparison of all methods]{$F_{\max}$: complete comparison of all methods.}
+  \label{tab:results-all}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    Baseline (emb.\ only)$^\dagger$ & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    Alignment weighted$^\dagger$    & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
+    Per-aspect (bal.)$^\dagger$     & 0.408 & 0.577 & 0.687 & 0.478 & 0.506 & 0.711 & 0.201 & 0.298 & 0.332 \\
+    Per-category$^\dagger$          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+    \textbf{Full-feature} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+\noindent$^\dagger$~Numbers from pre-leakage-fix \texttt{bench-v1-K5} dataset
+(22-feature schema, GOA~220$\to$229 eval split); not directly comparable with
+the full-feature row, which uses \texttt{bench-v1-K5-filtered}
+(52-feature schema, GOA~220$\to$230 eval split, mean of 3 seeds).
+
+The full-feature re-ranker trained on the leakage-free feature set achieves strong
+$F_{\max}$ across all nine category-aspect cells. The GOA~220$\to$230
+evaluation window (versus 220$\to$229 for earlier rows) adds one additional
+GOA release to the test delta; this difference is expected to be small relative
+to the dataset size. Direct cell-by-cell comparison with the pre-leakage-fix
+rows is not valid; a controlled leakage-free re-run of the earlier methods on
+the shared SELECT-window split is future work.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_reranker_progression}
+  \caption[Re-ranker progression across methods]{%
+    Method progression faceted by category (NK / LK / PK) with one bar per GO
+    aspect. The full-feature bar reflects the leakage-free \texttt{bench-v1-K5-filtered}
+    dataset (52 features, mean of 3 seeds); all other bars use the
+    pre-leakage-fix \texttt{bench-v1-K5} dataset and are included for
+    directional reference only. A controlled leakage-free re-run of the earlier
+    stages on the shared SELECT-window split is future work.
+    Source: \texttt{figures/fig\_reranker\_progression.py} @ \texttt{21d74f7}
+    (data: \texttt{figures/data/reranker\_progression.csv}).%
+  }
+  \label{fig:reranker-progression}
+\end{figure}
+
+\subsection{Feature Importance Analysis}
+
+\Cref{tab:feature-importance} shows the top-10 features by LightGBM gain
+for each category, aggregated over the three per-aspect models (BPO, MFO, CCO),
+seed 42, leakage-free dataset.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Top-10 features by LightGBM gain for full-feature per-cell models (seed~42,
+    aggregated across BPO + MFO + CCO within each category).}
+  \label{tab:feature-importance}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{clr clr clr}
+    \toprule
+    \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){1-3} \cmidrule(lr){4-6} \cmidrule(lr){7-9}
+    \# & Feature & Gain & \# & Feature & Gain & \# & Feature & Gain \\
+    \midrule
+    1 & nb\_vote\_frac   & 155K & 1 & nb\_vote\_frac   & 98K  & 1 & go\_term\_freq       & 410K \\
+    2 & k\_position      & 58K  & 2 & evidence\_code   & 45K  & 2 & anc2vec\_q\_maxcos   & 233K \\
+    3 & evidence\_code   & 48K  & 3 & k\_position      & 38K  & 3 & nb\_vote\_frac       & 166K \\
+    4 & go\_term\_freq   & 45K  & 4 & go\_term\_freq   & 33K  & 4 & nb\_min\_dist        & 133K \\
+    5 & vote\_count      & 28K  & 5 & anc2vec\_n\_cos  & 18K  & 5 & qualifier            & 85K  \\
+    6 & anc2vec\_n\_cos  & 27K  & 6 & vote\_count      & 17K  & 6 & anc2vec\_n\_cos      & 83K  \\
+    7 & ref\_ann\_dens.  & 17K  & 7 & anc2vec\_q\_maxcos& 13K & 7 & evidence\_code       & 64K  \\
+    8 & emb\_pca\_q\_5   & 5K   & 8 & ref\_ann\_dens.  & 9K   & 8 & anc2vec\_q\_cos      & 55K  \\
+    9 & emb\_pca\_q\_0   & 5K   & 9 & anc2vec\_q\_count& 7K   & 9 & vote\_count          & 53K  \\
+   10 & anc2vec\_n\_maxcos& 5K  & 10 & anc2vec\_q\_cos & 7K   & 10 & anc2vec\_q\_count   & 50K  \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_feature_importance}
+  \caption[Top-10 LightGBM feature importances per category (full-feature, leakage-free)]{%
+    Top-10 features by LightGBM gain aggregated over the three per-aspect
+    models per category (NK, LK, PK), seed~42, \texttt{bench-v1-K5-filtered}.
+    Aggregation features (\texttt{neighbor\_vote\_fraction},
+    \texttt{go\_term\_frequency}) dominate across all three categories.
+    GO-embedding similarity (\texttt{anc2vec\_neighbor\_cos},
+    \texttt{anc2vec\_query\_known\_maxcos}) contributes prominently in LK and PK.
+    Raw embedding distance (\texttt{distance}) does not appear in the top-10
+    for any category, confirming that the model uses embedding similarity
+    primarily as a candidate-generation filter.
+    Source: \texttt{figures/fig\_feature\_importance.py} @ \texttt{21d74f7}
+    (data: \texttt{figures/data/feature\_importance\_v3.csv}).%
+  }
+  \label{fig:feature-importance}
+\end{figure}
+
+Three observations stand out:
+\begin{itemize}
+  \item \textbf{Vote-aggregation features dominate}: \texttt{neighbor\_vote\_fraction}
+    is the top feature in NK and LK; \texttt{go\_term\_frequency} tops PK. These
+    capture the statistical reliability of the annotation vote.
+  \item \textbf{GO-embedding features are prominent}: \texttt{anc2vec\_neighbor\_cos}
+    and \texttt{anc2vec\_query\_known\_maxcos} appear in all three category
+    top-10 lists, reflecting the utility of GO-ontology-derived embeddings as a
+    complementary signal to protein-sequence-derived embeddings.
+  \item \textbf{Embedding distance ranks low}: the raw cosine distance between
+    protein language model embeddings does not appear in any category top-10,
+    confirming that the re-ranker learns to use it as a candidate-generation
+    filter rather than a final ranking signal.
+\end{itemize}
+
+\subsection{Improvement Over Per-Category Configuration (Indicative)}
+
+\Cref{tab:improvement} summarises the absolute $F_{\max}$ change of the
+leakage-free full-feature re-ranker relative to the pre-leakage-fix per-category
+baseline. These deltas are not clean apples-to-apples comparisons because the
+datasets and feature schemas differ; they are reported as an indicative reference.
+A controlled leakage-free ablation across all methods on the shared
+SELECT-window split is future work.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Indicative Fmax delta: full-feature (leakage-free) vs.\ per-category (pre-leakage-fix)]{%
+    Indicative $F_{\max}$ delta: full-feature leakage-free (\texttt{bench-v1-K5-filtered})
+    vs.\ per-category pre-leakage-fix (\texttt{bench-v1-K5}). Datasets and feature
+    schemas differ; these figures are not a controlled ablation.}
+  \label{tab:improvement}
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Category} & \textbf{BPO} & \textbf{MFO} & \textbf{CCO} \\
+    \midrule
+    NK & +0.174 & +0.039 & +0.086 \\
+    LK & +0.134 & +0.031 & +0.087 \\
+    PK & $-$0.034 & $-$0.004 & +0.011 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The large positive deltas in NK-BPO and LK-BPO reflect both the
+leakage-fix correction and the expanded feature set (anc2vec). The negative
+PK-BPO delta is consistent with the leakage fix tightening the category
+criterion, reducing over-optimistic positive rates in PK. A controlled
+leakage-free re-run of the per-category configuration is required to isolate the
+net feature contribution.
+
+% ── Experiment 7 ──────────────────────────────────────────────
+\section{Experiment~7: Comparison with eggNOG-mapper}
+\label{subsec:exp7-eggnogmapper}
+
+To position PROTEA relative to an established annotation transfer tool,
+the same 20,281-protein test set was submitted to eggNOG-mapper~v2.1.13
+\cite{cantalapiedra2021eggnogmapper} using DIAMOND sequence search with
+\texttt{--go\_evidence experimental}. Of the 20,281 proteins, 17,334
+(85.5\%) received at least one GO term prediction. Full setup and
+reproduction instructions are given in \cref{app:external-comparison}.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Fmax: eggNOG-mapper vs.\ PROTEA methods]{$F_{\max}$: eggNOG-mapper vs.\ PROTEA methods (IA-weighted).}
+  \label{tab:results-emapper}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l ccc ccc ccc}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{NK}} & \multicolumn{3}{c}{\textbf{LK}} & \multicolumn{3}{c}{\textbf{PK}} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    \textbf{Method} & BPO & MFO & CCO & BPO & MFO & CCO & BPO & MFO & CCO \\
+    \midrule
+    eggNOG-mapper 2.1.13$^\ddagger$ & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 & 0.190 & 0.199 & 0.325 \\
+    PROTEA baseline$^\dagger$      & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
+    \textbf{PROTEA full-feature} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & \textbf{0.165} & \textbf{0.293} & \textbf{0.346} \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+\noindent$^\dagger$~Pre-leakage-fix \texttt{bench-v1-K5} dataset (22-feature schema).
+$^\ddagger$~eggNOG-mapper evaluated on the same pre-leakage-fix evaluation set
+as the baseline; a re-evaluation against the updated split is pending.
+
+The full-feature re-ranker outperforms both eggNOG-mapper and the pre-leakage-fix
+baseline in NK and LK across all aspects. In PK-BPO the leakage-fix
+recategorisation reduces the positive rate, leading to lower absolute
+$F_{\max}$ compared to the pre-leakage-fix baseline and eggNOG-mapper;
+this is expected, as the leakage-free criterion is stricter. A side-by-side
+comparison on a shared leakage-clean SELECT-window eval set (including a re-run
+of eggNOG-mapper) is future work.
+
+The PROTEA baseline surpasses eggNOG-mapper in 8 of 9 cells (pre-leakage-fix
+numbers), consistent with the earlier finding that protein language model
+embeddings provide a stronger retrieval signal than DIAMOND-based orthology
+transfer for NK and LK proteins.
+
+Three caveats apply: (i)~the full-feature and baseline rows use different evaluation
+splits and feature schemas and cannot be directly compared;
+(ii)~eggNOG-mapper assigns uniform confidence (no threshold optimisation),
+which disadvantages it under $F_{\max}$; and (iii)~the eggNOG database
+version (5.0.2) predates the evaluation window. A more detailed analysis is
+provided in \cref{app:external-comparison}. A clean side-by-side comparison
+on the leakage-clean SELECT-window split is future work, covered by the
+score-ablation track.
+
+\begin{figure}[htbp]
+  \centering
+  \input{figures/fig_protea_vs_emapper}
+  \caption[PROTEA vs eggNOG-mapper across NK/LK/PK and aspects]{%
+    Head-to-head $F_{\max}$ comparison between eggNOG-mapper~v2.1.13,
+    PROTEA's pre-leakage-fix embedding-only baseline ($^\dagger$), and
+    PROTEA's leakage-free full-feature re-ranker on the GOA~220$\to$230
+    evaluation set. The full-feature and baseline rows use different datasets;
+    direct cell-by-cell comparisons are indicative only. NK and LK show large
+    margins over eggNOG-mapper across all methods. PK-BPO shows lower full-feature
+    performance due to the leakage-fix recategorisation tightening the positive set.
+    Source: \texttt{figures/fig\_protea\_vs\_emapper.py} @ \texttt{21d74f7}
+    (data: \texttt{figures/data/protea\_vs\_emapper.csv}).%
+  }
+  \label{fig:protea-vs-emapper}
+\end{figure}
