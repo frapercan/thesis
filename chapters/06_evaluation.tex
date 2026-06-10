@@ -470,6 +470,156 @@ prerequisite for the primary result: the champion is established on ProstT5
 The completed grid cells are packaged as FAIR-compliant datasets via the
 F-DATA-PACK loop, discussed further in the limitations and future work sections.
 
+% ── Experiment 10 ─────────────────────────────────────────────
+\subsection{Experiment~10: Universal Reranker}
+\label{subsec:exp10-universal}
+
+Experiment~10 evaluates the universal aspect-conditioned LambdaMART booster
+described in \cref{sec:universal-reranker-design}. The booster is trained on
+the pooled multi-manifest staging dataset derived from the
+\texttt{bench-v1-K\{3,5,10\}-v226-lineage-prostt5} triplet, with ProtT5 as
+the embedding backbone, and is evaluated on the GOA~227$\to$230 reserved test
+window using the IA-weighted micro-average $F_{\max}$ metric
+(\texttt{f\_micro\_w}, computed via \texttt{cafaeval}).
+
+\subsubsection{The \texttt{f\_micro\_w} Metric}
+\label{subsubsec:f-micro-w}
+
+All prior experiments in this chapter use the protein-averaged $F_{\max}$
+(macro-average: first compute $F_{\max}$ per protein, then average). The live
+LAFA leaderboard and the CAFA6 assessment use the IA-weighted
+\emph{micro}-average variant, denoted $f\_micro\_w$:
+
+\begin{equation}
+  f_{\mathrm{micro\text{-}w}}(\tau) =
+    \frac{2 \, \sum_{p,t} w_t \cdot \mathbf{1}[\hat{c}_{p,t} \ge \tau] \cdot \mathbf{1}[t \in T_p^*]}
+         {\sum_{p,t} w_t \cdot \mathbf{1}[\hat{c}_{p,t} \ge \tau]
+         + \sum_{p,t} w_t \cdot \mathbf{1}[t \in T_p^*]}
+\end{equation}
+
+where $w_t$ is the Information Accretion of GO term $t$, $\hat{c}_{p,t}$ is
+the predicted confidence score, $T_p^*$ is the set of ground-truth terms for
+protein $p$, and the outer maximum over $\tau$ defines $F_{\max}$.
+
+The micro-average weights proteins implicitly by the size of their ground-truth
+set: proteins with many new annotations at $t_1$ contribute more to the metric.
+IA weighting further concentrates mass on informative terms. The combination
+means that the metric is dominated by well-annotated proteins gaining specific
+new functions, which is a sensible prioritisation for a benchmark designed to
+reward biological precision.
+
+\subsubsection{Status and Placeholder}
+
+At the time of writing, the universal booster training pipeline has been
+validated on a preliminary candidate set derived from ground-truth positives
+(optimistic configuration: candidate rows include the known correct GO terms).
+This configuration provides a useful proof-of-concept that the pooled-manifest
+staging, integer-coded aspect conditioning, and LambdaMART + IA objective can
+be combined in a single training run without numerical instability. However,
+the resulting $f\_micro\_w$ figures are not representative of the deployment
+distribution and must not be compared directly to per-cell cafaeval $F_{\max}$
+numbers.
+
+A clean recompute using the v227-lineage GOA~227$\to$230 evaluation window
+(evaluation set identifier reserved for this experiment) is in progress. The
+definitive performance figure will replace the placeholder below once the
+recompute is complete and the evaluation protocol has been verified to be
+contamination-free.
+
+\begin{quote}
+  \TODO{universal f\_micro\_w pending clean v227-lineage 227\texttt{->}230 recompute}
+\end{quote}
+
+For comparison, the published three-seed champion result on the per-cell
+binary-label configuration is $\mathbf{0.7291 \pm 0.0028}$ (macro-averaged
+NK+LK cafaeval $F_{\max}$, ProstT5, $k{=}5$, \cref{subsec:exp9-champion}).
+The two figures are measured by different metrics and on different evaluation
+windows; a direct numeric comparison will be possible once both are reported
+under the same \texttt{cafaeval} call with identical flags.
+
+% ── Experiment 11 ─────────────────────────────────────────────
+\subsection{Experiment~11: GOA Self-Prior and LAFA Live-Board Analysis}
+\label{subsec:exp11-lafa-goa-prior}
+
+The LAFA benchmark provides a live leaderboard that reveals one systematic gap
+not visible in the offline evaluation: the GOA Non-experimental baseline
+(\textit{GOA\,Nonexp}) consistently outperforms the bare KNN submission
+(\texttt{protea-knn-v1}) in several category-aspect cells. This section
+analyses the cause of that gap and the methodological insight it produces.
+
+\subsubsection{Why the GOA Non-experimental Baseline Beats Bare KNN}
+
+The GOA\,Nonexp submission assigns to each target protein its own non-experimental
+GO annotations from the $t_0$ release as predictions. Because these annotations
+were already associated with the protein before the evaluation window, they
+constitute a strong prior: the transition from non-experimental to experimental
+evidence for the same GO term is a common mode of annotation growth in Swiss-Prot,
+and detecting it correctly gives the GOA\,Nonexp baseline a per-protein hit rate
+that is hard for a retrieval method to match.
+
+The KNN pipeline, by contrast, excludes self-hits: when the query protein is
+present in the Swiss-Prot reference set (which is the case for all proteins
+with experimental $t_0$ annotations), it does not appear in its own $K$
+nearest neighbours. The target's own $t_0$ non-experimental annotations are
+therefore never surfaced by the retrieval step, and the residual vote from
+other proteins' annotations is weaker than a direct self-prior.
+
+The magnitude of the gap depends on the evaluation category:
+\begin{itemize}
+  \item For \textbf{NK proteins} (no experimental $t_0$ annotations), the
+    GOA\,Nonexp baseline can still contribute IEA, ISS, and other non-experimental
+    terms. The KNN baseline has no self-exclusion disadvantage in this category
+    (NK proteins with zero $t_0$ experimental annotations may still appear in
+    the reference index, but they contribute only their non-experimental prior),
+    so the gap is typically smaller.
+  \item For \textbf{LK and PK proteins} (some or many $t_0$ experimental
+    annotations), the GOA\,Nonexp baseline benefits from a richer non-experimental
+    prior, widening the gap.
+\end{itemize}
+
+\subsubsection{Temporal-Leakage Hygiene}
+
+A critical constraint on the self-prior is the distinction between the
+non-experimental $t_0$ annotations and the experimental $t_1$ annotations that
+constitute the ground truth. Including experimental $t_0$ annotations in the
+prior would constitute a form of label leakage: for NK proteins, there are no
+experimental $t_0$ annotations by definition, so the constraint is automatically
+satisfied. For LK and PK proteins, experimental $t_0$ annotations are excluded
+from the prior because they would allow the system to directly recall known
+experimental facts that should be treated as prior knowledge rather than
+predictions.
+
+The self-prior implementation (\cref{subsec:impl-goa-self-prior}) enforces
+this by maintaining a hard exclusion list of experimental evidence codes
+(\texttt{EXP}, \texttt{IDA}, \texttt{IMP}, \texttt{IGI}, \texttt{IEP},
+\texttt{IPI}). Any candidate term derived from an excluded evidence code
+is discarded before the candidate set is assembled, regardless of whether
+the term would also be contributed by the KNN path. A subsequent check
+verifies that the injected prior annotations carry a $t_0$ GOA release
+identifier strictly earlier than the evaluation window boundary; annotations
+that appeared at $t_1$ or later are never eligible.
+
+\subsubsection{Effect on the Live-Board Gap}
+
+Adding the leakage-safe GOA self-prior to the KNN submission reverses the gap
+between the bare KNN and the GOA\,Nonexp baseline in the live-board results for
+the NK and LK categories. The methodological conclusion is that a strong KNN
+retrieval method and a leakage-safe self-prior are complementary rather than
+competing: the prior captures direct term-propagation evidence that retrieval
+misses by design, while the KNN step captures functional similarity to
+homologous proteins that the prior cannot express.
+
+The combined method (KNN + leakage-safe self-prior) is a drop-in replacement
+for the bare KNN submission; it requires no change to the PROTEA platform,
+only an additional post-processing step in the LAFA container entrypoint.
+The submission infrastructure is described in \cref{sec:lafa-containers};
+the extended container variant is designated \texttt{protea-knn-v1+prior}.
+
+\noindent \TODO{confirm CAFA team rank: user says \#19, CLAUDE.md says \#2;
+do not publish a specific rank number in this section until reconciled.
+The team submission was a collaborative effort; the author was the technical
+motor of that effort.}
+
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
 \label{sec:discussion}
