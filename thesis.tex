@@ -44,6 +44,30 @@
 \definecolor{proteagreen}{RGB}{38, 120, 78}
 \definecolor{linkblue}{RGB}{0, 70, 140}
 
+% ── Chapter & section headings ──────────────────────────────
+\usepackage{titlesec}
+% Numbered chapters: a small-caps green "CHAPTER N" label between two thin
+% rules, above the large title.
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{black}}
+  {\color{proteagreen}\large\bfseries\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {1.2ex}
+  {\color{proteagreen}\titlerule[1pt]\vspace{1.4ex}}
+  [\vspace{0.8ex}{\color{proteagreen}\titlerule[1pt]}]
+% Unnumbered chapters (Abstract, Acknowledgements, Bibliography): same rules,
+% no "CHAPTER N" label.
+\titleformat{name=\chapter,numberless}[display]
+  {\normalfont\huge\bfseries\color{black}}
+  {}{0pt}
+  {\color{proteagreen}\titlerule[1pt]\vspace{1.4ex}}
+  [\vspace{0.8ex}{\color{proteagreen}\titlerule[1pt]}]
+\titlespacing*{\chapter}{0pt}{10pt}{28pt}
+% Section accent: a touch of the brand colour on section numbers.
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\color{proteagreen}\thesection}{0.8em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\color{proteagreen}\thesubsection}{0.7em}{}
+
 % ── Math ────────────────────────────────────────────────────
 \usepackage{amsmath, amssymb, amsthm}
 
