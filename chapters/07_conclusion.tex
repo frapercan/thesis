@@ -84,13 +84,13 @@ consecutive GOA splits with Information Accretion weighting.
 
 \paragraph{Pillar 3: Empirical Evaluation.}
 
-The benchmark of eight \gls{plm} backends (ESM-2 in three sizes, ESM-C,
-ProstT5, ProtT5, Ankh, and the ESM-3 component encoder) on a common
-evaluation surface yielded an average lab $F_{\max}$ of \textbf{0.2881}
-(3-seed replication, 56-feature schema) and a cafaeval score of
-\textbf{0.5427} on the GOA~220~$\to$~229 temporal split. The 56-feature
-re-ranker significantly outperforms the raw KNN baseline in all nine
-category-aspect cells (paired bootstrap, all $p < 0.0001$). A comparison with
+The 56-feature re-ranker, replicated across three seeds on the GOA~220~$\to$~229
+temporal split, reaches an average lab $F_{\max}$ of \textbf{0.2881} and a
+cafaeval score of \textbf{0.5427} across the nine category-aspect cells, and
+significantly outperforms the raw KNN baseline in every cell (paired bootstrap,
+all $p < 0.0001$). The eight \gls{plm} backends (ESM-2 in three sizes, ESM-C,
+ProstT5, ProtT5, Ankh, and the ESM-3 component encoder) supply the breadth
+context for this result through the multi-PLM $\times$ $K$ benchmark grid. A comparison with
 eggNOG-mapper v2.1.13 demonstrates that the PROTEA embedding-only baseline
 surpasses DIAMOND-based orthology transfer in eight of nine cells, and the
 leakage-free full-feature re-ranker substantially exceeds both in the NK and LK
@@ -100,10 +100,10 @@ NK+LK cafaeval $F_{\max}$ of \textbf{0.7291 $\pm$ 0.0028}
 (LB.3 paired bootstrap, 6/6 NK+LK cells strictly positive at 95\%
 confidence), and is the primary publishable result for the NK and LK
 categories. The multi-PLM $\times$ $K \in \{3,5,10\}$ generalisation grid
-(FARM-EXP.13, 24 datasets) provides the empirical breadth context for the
-thesis; 15 of 24 cells are complete and confirm the champion result generalises
-across PLMs. The completed grid cells are being packaged as FAIR-compliant
-datasets via the F-DATA-PACK loop.
+(24 datasets) provides the empirical breadth context for the thesis and is to
+be reported from the leakage-clean SELECT-window benchmark; the champion result
+is established on ProstT5 and does not depend on the grid. The grid cells are
+packaged as FAIR-compliant datasets via the F-DATA-PACK loop.
 
 The CAFA~6 challenge provided an independent blind validation: the research
 team in which the author of this thesis served as technical lead achieved a
