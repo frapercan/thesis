@@ -34,7 +34,7 @@
         label={[font=\footnotesize\itshape]above:Job state machine}] (sm) {};
 
   % ── Queue topology (right column) ───────────────────────────
-  \node[proteablock, minimum width=30mm, right=24mm of queued.north east, anchor=north west] (coord) {Coordinator op\\\footnotesize \texttt{compute\_embeddings}\\\texttt{predict\_go\_terms}};
+  \node[proteablock, minimum width=30mm, right=38mm of queued.north east, anchor=north west] (coord) {Coordinator op\\\footnotesize \texttt{compute\_embeddings}\\\texttt{predict\_go\_terms}};
 
   \node[proteaqueue, below=8mm of coord]                      (qjobs)    {protea.jobs};
   \node[proteaqueue, below=2mm of qjobs]                      (qemb)     {protea.embeddings};
@@ -67,6 +67,6 @@
   \draw[proteaarrow] (qewrite.east) -- (counter.west);
   \draw[proteaarrow] (qpwrite.east) to[bend right=18] (counter.south);
   \draw[proteadashed] (counter.north) to[bend left=12]
-        node[right, font=\footnotesize]{closes parent} (running.east);
+        node[pos=0.12, above right, font=\footnotesize]{closes parent} (running.east);
 
 \end{tikzpicture}

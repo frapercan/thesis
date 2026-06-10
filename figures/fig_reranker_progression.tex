@@ -10,6 +10,7 @@
 %        (52-feature schema, GOA 220->230, mean of 3 seeds).
 %        The earlier stages are directional reference only.
 % ============================================================
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}
   \begin{groupplot}[
     group style={
@@ -63,4 +64,5 @@
 
   \node[anchor=north] at ($(group c2r1.south) + (0,-12mm)$)
     {\pgfplotslegendfromname{reranker-legend}};
-\end{tikzpicture}
+\end{tikzpicture}%
+}

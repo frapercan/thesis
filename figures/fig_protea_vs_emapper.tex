@@ -7,6 +7,7 @@
 %        The full-feature row uses leakage-free bench-v1-K5-filtered
 %        (52-feature schema, GOA 220->230, mean of 3 seeds).
 % ============================================================
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}
   \begin{groupplot}[
     group style={
@@ -61,4 +62,5 @@
 
   \node[anchor=north] at ($(group c2r1.south) + (0,-7mm)$)
     {\pgfplotslegendfromname{emapper-legend}};
-\end{tikzpicture}
+\end{tikzpicture}%
+}
