@@ -10,11 +10,17 @@
 \usepackage[english]{babel}
 
 % ── Typography ──────────────────────────────────────────────
-\usepackage{lmodern}
+\usepackage{libertinus}      % modern professional serif + matching math (replaces Latin Modern)
+\usepackage[scaled=0.85]{beramono}  % clearer, narrower monospace for code identifiers
 \usepackage{microtype}
 \usepackage{setspace}
 \onehalfspacing
 \setlength{\emergencystretch}{3em}
+% Let long monospace identifiers (e.g. lineage_is_descendant_of_known) break at
+% underscores instead of overflowing into the margin.
+\let\oldtextunderscore\_
+\renewcommand{\_}{\oldtextunderscore\allowbreak}
+\usepackage{emptypage}       % blank verso pages carry no header rule or page number
 
 % ── Page layout ─────────────────────────────────────────────
 \usepackage[
