@@ -6,14 +6,15 @@
 %  Aggregated over BPO + MFO + CCO per category.
 %  Gain values are in thousands.
 % ============================================================
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}
   \begin{groupplot}[
     group style={
       group size=3 by 1,
-      horizontal sep=22mm,
+      horizontal sep=15mm,
     },
     protea plot,
-    width=5.5cm, height=6.0cm,
+    width=4.6cm, height=6.0cm,
     enlarge y limits=0.06,
     xmin=0,
     xlabel={LightGBM gain (thousands)},
@@ -64,4 +65,5 @@
         (50,anc2vec-q-count) (53,votes) (55,anc2vec-q-cos) (64,evcode) (83,anc2vec-n-cos) (85,qual) (133,nb-min-d) (166,nb-vf) (233,anc2vec-q-mc) (410,go-freq)
       };
   \end{groupplot}
-\end{tikzpicture}
+\end{tikzpicture}%
+}
