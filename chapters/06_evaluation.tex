@@ -245,10 +245,11 @@ and cafaeval $F_{\max}$ side by side with the ratio and absolute delta.
   }
 \end{table}
 
-The average cafaeval $F_{\max}$ across all cells is \textbf{0.5427}, compared
-to the historical hybrid-picker ceiling of 0.4400 (recorded 2026-04-20,
-lab-internal evaluator). This 0.5427 figure is based on the same cafaeval
-protocol and is therefore in a comparable metric space to CAFA reported scores.
+The average cafaeval $F_{\max}$ across all cells is \textbf{0.5427}. This figure
+is computed under the \texttt{cafaeval} (\texttt{prop=fill, norm=cafa}) protocol
+and is therefore in a comparable metric space to CAFA reported scores, unlike
+the lab-internal protein-averaged marks used in the development trace before this
+protocol was adopted (\cref{app:dev-trace}).
 The per-cell ratio between cafaeval and lab $F_{\max}$ ranges from
 1.13$\times$ (NK-BPO) to 4.11$\times$ (PK-MFO), reflecting the large impact
 of prediction-side GO-DAG propagation for categories where predictions tend to
@@ -434,11 +435,11 @@ frozen recipe is scored once on the held-out test window. The complete grid is
 %  SELECT-window benchmark (PROTEA /benchmark surface, cafaeval
 %  prop=fill,norm=cafa, NK+LK macro-average, GOA 226 -> 230).
 %  Drop the cafaeval F_max per (PLM, K) cell into the table below,
-%  replacing each \TODO placeholder. Do NOT invent values; populate
+%  replacing each \gridna placeholder. Do NOT invent values; populate
 %  only from completed /benchmark runs. One number per (row=PLM,
 %  column=K) cell. ProstT5/K5 is the established champion (0.7291).
 % ============================================================
-\newcommand{\TODO}{\textit{n/a}}
+\newcommand{\gridna}{\textit{n/a}}
 \begin{table}[htbp]
   \centering
   \caption[Multi-PLM x K generalisation grid (to be reported)]{%
@@ -446,20 +447,20 @@ frozen recipe is scored once on the held-out test window. The complete grid is
     $F_{\max}$ per backend and neighbourhood size, selected and scored under
     the leakage-clean SELECT-window protocol (GOA~226~$\to$~230). Values are
     to be reported from the PROTEA \texttt{/benchmark} surface; placeholders
-    (\TODO) mark cells pending population.}
+    (\gridna) mark cells pending population.}
   \label{tab:exp9-multiplm-grid}
   \begin{tabular}{l ccc}
     \toprule
     \textbf{PLM backend} & $K{=}3$ & $K{=}5$ & $K{=}10$ \\
     \midrule
-    ESM-2 (8M)        & \TODO & \TODO & \TODO \\
-    ESM-2 (35M)       & \TODO & \TODO & \TODO \\
-    ESM-2 (150M)      & \TODO & \TODO & \TODO \\
-    ESMC-300M         & \TODO & \TODO & \TODO \\
-    ProstT5           & \TODO & \TODO & \TODO \\
-    ProtT5            & \TODO & \TODO & \TODO \\
-    Ankh-base         & \TODO & \TODO & \TODO \\
-    ESM-3 (encoder)   & \TODO & \TODO & \TODO \\
+    ESM-2 (8M)        & \gridna & \gridna & \gridna \\
+    ESM-2 (35M)       & \gridna & \gridna & \gridna \\
+    ESM-2 (150M)      & \gridna & \gridna & \gridna \\
+    ESMC-300M         & \gridna & \gridna & \gridna \\
+    ProstT5           & \gridna & \gridna & \gridna \\
+    ProtT5            & \gridna & \gridna & \gridna \\
+    Ankh-base         & \gridna & \gridna & \gridna \\
+    ESM-3 (encoder)   & \gridna & \gridna & \gridna \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -630,38 +631,36 @@ motor of that effort.}
 exceed alignment-based methods for GO term prediction, particularly at low
 sequence identity?}
 
-The embedding-only baseline ($k{=}5$, $c = 1 - d/2$) establishes competitive
-performance across all categories (pre-leakage-fix numbers), reaching
-$F_{\max}$ values of 0.590 (NK-MFO), 0.558 (LK-MFO), and 0.668 (NK-CCO)
-without any alignment computation. The heuristic scoring experiment (Exp.~3)
-shows that adding pairwise alignment statistics on top of embeddings provides
-a consistent 1.5 to 4\% improvement, indicating that embeddings and alignments
-capture partially orthogonal signals. The comparison with eggNOG-mapper
-(Exp.~7, pre-leakage-fix baseline) provides directional evidence: the
-embedding-only baseline surpasses eggNOG-mapper in 8 of 9 cells and
-PROTEA's leakage-free full-feature re-ranker substantially exceeds both in NK and LK.
-These comparisons are on different evaluation sets; a controlled comparison
-on a shared leakage-clean SELECT-window split is future work. The 56-feature
-re-ranker (Exp.~8) achieves an average cafaeval $F_{\max}$ of \textbf{0.5427}
-across all nine category-aspect cells, versus the historical hybrid-picker
-ceiling of 0.4400 (2026-04-20, lab-internal evaluator), confirming that the
-full pipeline significantly surpasses its own prior best mark under the
-cafaeval protocol. The binary-label champion replication (Exp.~9) pushes the
-NK+LK combined cafaeval $F_{\max}$ to \textbf{0.7291 $\pm$ 0.0028}
-(three-seed replication, LB.3 paired bootstrap), making it the primary
-publishable result of this thesis for the NK and LK categories. The
-multi-PLM $\times$ $K$ grid (FARM-EXP.13) provides the empirical evidence
-base for assessing whether this result holds across alternative PLM
+Embedding-based KNN annotation transfer is competitive without any alignment
+computation. Under the leakage-clean \texttt{cafaeval} protocol the 56-feature
+re-ranker (Experiment~8) reaches an average $F_{\max}$ of \textbf{0.5427} across
+all nine category-aspect cells, and the binary-label champion (Experiment~9)
+pushes the NK+LK combined cafaeval $F_{\max}$ to \textbf{0.7291 $\pm$ 0.0028}
+(three-seed replication, LB.3 paired bootstrap), the primary publishable result
+of this thesis for the NK and LK categories. The directional evidence that
+motivated this design is recorded in the development trace
+(\cref{app:dev-trace}): an embedding-only baseline that already retrieves
+function competitively at $k{=}5$, a heuristic alignment-weighted scoring step
+that adds a small consistent gain over that baseline (Exp.~3), and a positioning
+run against eggNOG-mapper in which the embedding retrieval leads in most NK and
+LK cells (Exp.~7). Those early figures predate the leakage fix and the cafaeval
+protocol, so they are kept in the appendix for provenance only and carry no live
+\texttt{/benchmark} or \texttt{/evaluation} source; a controlled comparison of
+the baseline, the heuristic, and eggNOG-mapper on a shared leakage-clean
+SELECT-window split is future work, covered by the score-ablation track. The
+multi-PLM $\times$ $K$ grid (FARM-EXP.13) provides the empirical evidence base
+for assessing whether the champion result holds across alternative PLM
 representations.
 
 \textbf{RQ2}: \emph{Do pairwise alignment statistics and taxonomic distance
 provide complementary signals that improve the ranking of candidate annotations?}
 
 Partly, and the honest answer is more nuanced than a single dominant family.
-The heuristic scoring experiment (Exp.~3) already showed that layering pairwise
-alignment statistics on top of the embedding-only baseline yields a consistent
-1.5 to 4\% improvement, direct evidence that alignment carries signal partially
-orthogonal to the learned representation. The leakage-free full-feature
+The development trace (\cref{app:dev-trace}) showed, before the leakage fix,
+that layering pairwise alignment statistics on top of the embedding-only
+baseline yields a small consistent gain (Exp.~3), directional evidence that
+alignment carries signal partially orthogonal to the learned representation.
+The leakage-free full-feature
 importance analysis (\cref{tab:feature-importance}) then locates the dominant
 ranking signal elsewhere: vote-aggregation features
 (\texttt{neighbor\_vote\_fraction}, \texttt{go\_term\_frequency}) lead in every
