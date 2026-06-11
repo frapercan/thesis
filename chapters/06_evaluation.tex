@@ -435,11 +435,11 @@ frozen recipe is scored once on the held-out test window. The complete grid is
 %  SELECT-window benchmark (PROTEA /benchmark surface, cafaeval
 %  prop=fill,norm=cafa, NK+LK macro-average, GOA 226 -> 230).
 %  Drop the cafaeval F_max per (PLM, K) cell into the table below,
-%  replacing each \TODO placeholder. Do NOT invent values; populate
+%  replacing each \gridna placeholder. Do NOT invent values; populate
 %  only from completed /benchmark runs. One number per (row=PLM,
 %  column=K) cell. ProstT5/K5 is the established champion (0.7291).
 % ============================================================
-\newcommand{\TODO}{\textit{n/a}}
+\newcommand{\gridna}{\textit{n/a}}
 \begin{table}[htbp]
   \centering
   \caption[Multi-PLM x K generalisation grid (to be reported)]{%
@@ -447,20 +447,20 @@ frozen recipe is scored once on the held-out test window. The complete grid is
     $F_{\max}$ per backend and neighbourhood size, selected and scored under
     the leakage-clean SELECT-window protocol (GOA~226~$\to$~230). Values are
     to be reported from the PROTEA \texttt{/benchmark} surface; placeholders
-    (\TODO) mark cells pending population.}
+    (\gridna) mark cells pending population.}
   \label{tab:exp9-multiplm-grid}
   \begin{tabular}{l ccc}
     \toprule
     \textbf{PLM backend} & $K{=}3$ & $K{=}5$ & $K{=}10$ \\
     \midrule
-    ESM-2 (8M)        & \TODO & \TODO & \TODO \\
-    ESM-2 (35M)       & \TODO & \TODO & \TODO \\
-    ESM-2 (150M)      & \TODO & \TODO & \TODO \\
-    ESMC-300M         & \TODO & \TODO & \TODO \\
-    ProstT5           & \TODO & \TODO & \TODO \\
-    ProtT5            & \TODO & \TODO & \TODO \\
-    Ankh-base         & \TODO & \TODO & \TODO \\
-    ESM-3 (encoder)   & \TODO & \TODO & \TODO \\
+    ESM-2 (8M)        & \gridna & \gridna & \gridna \\
+    ESM-2 (35M)       & \gridna & \gridna & \gridna \\
+    ESM-2 (150M)      & \gridna & \gridna & \gridna \\
+    ESMC-300M         & \gridna & \gridna & \gridna \\
+    ProstT5           & \gridna & \gridna & \gridna \\
+    ProtT5            & \gridna & \gridna & \gridna \\
+    Ankh-base         & \gridna & \gridna & \gridna \\
+    ESM-3 (encoder)   & \gridna & \gridna & \gridna \\
     \bottomrule
   \end{tabular}
 \end{table}
