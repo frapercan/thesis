@@ -621,6 +621,111 @@ do not publish a specific rank number in this section until reconciled.
 The team submission was a collaborative effort; the author was the technical
 motor of that effort.}
 
+% ── Experiment 12 ─────────────────────────────────────────────
+\subsection{Experiment~12: LAFA Continuous Benchmark (Official 7{,}401-Target Frame)}
+\label{subsec:exp12-lafa}
+
+Experiment~11 (\cref{subsec:exp11-lafa-goa-prior}) read the LAFA gap from the
+public live board. This experiment closes that loop with a single sealed,
+leakage-clean measurement on the benchmark's \emph{exact} target frame, scored
+with the benchmark's own harness, and reaches a conclusion that revises the
+live-board reading of the self-prior.
+
+The window is September~2025~$\to$~March~2026, whose timepoints coincide with the
+sealed test the rest of this chapter uses: GOA release~227 (2025-09-04) as the
+$t_0$ reference and release~230 (2026-03-04) as the $t_1$ target. The benchmark
+ranks by the IA-weighted micro-$F$, $f_{\mu,w}$ (\cref{subsubsec:f-micro-w}),
+averaged over the three namespaces within each category.
+
+\paragraph{A frame-alignment audit.}
+Reconstructing the window delta locally with PROTEA's
+\texttt{generate\_evaluation\_set} operation yielded 7{,}002 target proteins
+against the benchmark's 7{,}401. The window itself was correct (both annotation
+sets are clean by annotation date) and the divergence was concentrated entirely
+in PK, where the reconstruction missed 1{,}322 official targets. The cause is a
+difference of annotation source, not of protocol: the benchmark derives its
+experimental ground truth from \texttt{goa\_uniprot\_all} filtered to the
+SwissProt-reviewed proteome, and PROTEA's local import of the same archive shows
+almost no experimental growth across the window (only three of the 3{,}631 novel
+PK terms the benchmark attributes to the missed proteins appear as experimental
+in the local store). Reconstructing the target set locally therefore deflates PK
+by leaving 1{,}322 targets unpredicted. The fix is to predict and score on the
+benchmark's exact target list; all 7{,}401 targets are present in PROTEA's protein
+store and carry embeddings, so no re-embedding is required.
+
+\paragraph{Result.}
+\Cref{tab:exp12-lafa} reports $f_{\mu,w}$ for the composite KNN scorer
+(Ankh-base, $K{=}30$, $t_0$ reference GOA~227) on the aligned 7{,}401-target
+frame, against the public leaderboard. PROTEA places fourth overall and is
+effectively tied with the GOA non-experimental baseline for third, improving on
+the prior \texttt{protea-knn-v1} submission. The per-category shape matches the
+method's design: the homology transfer is competitive on No-Knowledge targets,
+where prior annotation is absent, and the residual gap to the top learned systems
+(TransFew, FunBind) falls in the prior-knowledge categories LK and PK, where those
+systems fuse additional modalities.
+
+\begin{table}[htbp]
+  \centering
+  \caption[LAFA continuous benchmark: IA-weighted micro-$F$ (7,401-target frame)]{%
+    LAFA continuous benchmark (September~2025~$\to$~March~2026), IA-weighted
+    micro-$F$ ($f_{\mu,w}$) averaged over the three namespaces, on the official
+    7{,}401-target frame. PROTEA is the composite KNN scorer of this work; the
+    remaining rows are the public leaderboard. Scored under the benchmark's exact
+    harness (\texttt{cafaeval}, \texttt{prop=fill, norm=cafa}, no-orphans,
+    terms-of-interest filter, and the propagated PK known-term exclusion).}
+  \label{tab:exp12-lafa}
+  \begin{tabular}{l rrr r}
+    \toprule
+    \textbf{Method} & \textbf{NK} & \textbf{LK} & \textbf{PK} & \textbf{Mean} \\
+    \midrule
+    TransFew                       & 0.428 & 0.485 & 0.230 & 0.381 \\
+    FunBind                        & 0.441 & 0.451 & 0.205 & 0.366 \\
+    GOA non-experimental           & 0.426 & 0.390 & 0.158 & 0.325 \\
+    \textbf{PROTEA (this work)}    & \textbf{0.412} & \textbf{0.394} & \textbf{0.165} & \textbf{0.324} \\
+    \texttt{protea-knn-v1} (prior) & 0.416 & 0.368 & 0.150 & 0.312 \\
+    DeepGOPlus                     & 0.384 & 0.392 & 0.157 & 0.311 \\
+    ProtT5                         & 0.287 & 0.282 & 0.123 & 0.231 \\
+    BLAST                          & 0.264 & 0.274 & 0.102 & 0.213 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Harness fidelity.}
+The only leaderboard-comparable invocation is the benchmark's own: \texttt{cafaeval}
+over the $t_0$ ontology with the information-accretion file, a terms-of-interest
+filter, no-orphan terms, and, for PK, the known-term set passed as an exclusion so
+that already-annotated terms are masked \emph{after} propagation. Passing the known
+set as an exclusion rather than pre-filtering the prediction leaves is load-bearing:
+the naive pre-filter leaks propagated known ancestors back in as predictions and
+inflates PK by roughly forty percent. The reported figure was validated two ways,
+through the platform evaluation and through an offline replication of the exact
+harness, which agree at a mean $f_{\mu,w}$ of 0.324.
+
+\paragraph{Revising the self-prior reading of Experiment~11.}
+The live board of Experiment~11 suggested that adding the leakage-safe GOA
+self-prior reverses the gap to the GOA non-experimental baseline. Tested under the
+sealed protocol of this chapter, that reading does not hold. The self-prior was fit
+on the SELECT window (GOA~220~$\to$~227) and sealed on the 7{,}401-target frame; no
+score-level fusion generalised. A maximum blend never beat the KNN scorer alone and
+degraded PK at high weight, and an agreement boost that only reinforced terms the
+two sources share was flat. The composite KNN score already saturates, and its
+neighbours subsume the protein's own electronic annotations, so the self-prior
+contributes no separable signal at the score level. The apparent live-board gain
+did not replicate on the SELECT window and is therefore read as sampling noise
+rather than a real improvement. This is a negative result, recorded because it
+delimits where the homology transfer is already saturated: extracting value from
+the self-prior would require a learned re-ranker that models source agreement and
+cross-aspect association rather than a score-level blend
+(\cref{sec:conclusion-future-work}).
+
+\paragraph{Reproducibility.}
+The aligned frame is live in the PROTEA app: the query set, the composite
+prediction set, and the evaluation set carrying the benchmark's official ground
+truth are persisted artifacts, and the scored result is served from the
+\texttt{/benchmark} surface marked with the LAFA frame and the sealed
+($227 \to 230$) window. As elsewhere in this chapter, the UI is the single source
+of truth for the reported figure.
+
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
 \label{sec:discussion}
