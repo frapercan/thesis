@@ -602,24 +602,26 @@ that appeared at $t_1$ or later are never eligible.
 
 \subsubsection{Effect on the Live-Board Gap}
 
-Adding the leakage-safe GOA self-prior to the KNN submission reverses the gap
-between the bare KNN and the GOA\,Nonexp baseline in the live-board results for
-the NK and LK categories. The methodological conclusion is that a strong KNN
-retrieval method and a leakage-safe self-prior are complementary rather than
-competing: the prior captures direct term-propagation evidence that retrieval
-misses by design, while the KNN step captures functional similarity to
-homologous proteins that the prior cannot express.
+On the live board, adding the leakage-safe GOA self-prior to the KNN submission
+\emph{appeared} to narrow the gap to the GOA\,Nonexp baseline in the NK and LK
+categories. This suggested a hypothesis: that a strong KNN retrieval method and a
+leakage-safe self-prior might be complementary rather than competing, with the
+prior capturing direct term-propagation evidence that retrieval misses by design
+while the KNN step captures functional similarity to homologous proteins that the
+prior cannot express. The live board is an unsealed surface, however, so the
+observation was treated as a hypothesis rather than a result and tested under the
+sealed protocol of this chapter. That test (\cref{subsec:exp12-lafa}) does
+\emph{not} confirm it: fit on the SELECT window and sealed on the official target
+frame, no score-level fusion of the self-prior generalises, and the apparent
+board gain is best read as sampling noise. The sealed verdict supersedes the
+live-board reading.
 
-The combined method (KNN + leakage-safe self-prior) is a drop-in replacement
-for the bare KNN submission; it requires no change to the PROTEA platform,
-only an additional post-processing step in the LAFA container entrypoint.
-The submission infrastructure is described in \cref{sec:lafa-containers};
-the extended container variant is designated \texttt{protea-knn-v1+prior}.
-
-\noindent \TODO{confirm CAFA team rank: user says \#19, CLAUDE.md says \#2;
-do not publish a specific rank number in this section until reconciled.
-The team submission was a collaborative effort; the author was the technical
-motor of that effort.}
+The combined method (KNN + leakage-safe self-prior) is implemented as a drop-in
+post-processing step in the LAFA container entrypoint, requiring no change to the
+PROTEA platform; the submission infrastructure is described in
+\cref{sec:lafa-containers} and the extended container variant is designated
+\texttt{protea-knn-v1+prior}. It is retained as a documented configuration rather
+than the recommended scorer, in light of the sealed result above.
 
 % ── Experiment 12 ─────────────────────────────────────────────
 \subsection{Experiment~12: LAFA Continuous Benchmark (Official 7{,}401-Target Frame)}
