@@ -24,7 +24,7 @@ Docker\,Compose development, Docker\,Compose bundle, Docker Swarm, Helm/Kubernet
 SLURM, and exposes OpenTelemetry-instrumented observability across FastAPI, SQLAlchemy
 and pika.
 
-Prediction quality is improved by a LightGBM re-ranker trained on a 52-feature schema
+Prediction quality is improved by a LightGBM re-ranker trained on a 56-feature schema
 combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment statistics,
 NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings (anc2vec).
 Training follows a leakage-free temporal holdout over twelve consecutive GOA releases.
@@ -43,7 +43,7 @@ cells strictly positive at 95\,\% confidence), the primary publishable result fo
 NK and LK categories. These gains collapse almost entirely when temporal leakage is
 introduced, underscoring the importance of rigorous evaluation methodology.
 
-The experimental work was a component of a team placement of second in CAFA~6,
+The experimental work was a component of a team ranking of \#19 in CAFA~6,
 validating the approach in a blinded international benchmark; PROTEA is the
 post-CAFA productisation, not the submission entrant. Three pre-built containers were
 submitted to the LAFA public benchmark, demonstrating deployment across development,

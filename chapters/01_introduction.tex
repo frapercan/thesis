@@ -111,7 +111,7 @@ that PROTEA implements end-to-end, including for the re-ranker training pipeline
 The CAFA 6 challenge, whose results were released in late 2025, provided an
 independent blind validation of methods built around these principles. The research
 team in which the author of this thesis served as technical lead achieved a
-second-place ranking, validating the embedding-based annotation transfer approach at
+final team ranking of \#19, validating the embedding-based annotation transfer approach at
 international scale and under the strictest possible evaluation conditions. The CAFA
 result does not belong to PROTEA as a platform: PROTEA is the post-challenge
 productisation. The result belongs to the research, and it is cited here as evidence
@@ -255,7 +255,7 @@ that RQ2 cannot be answered reliably unless the evaluation methodology is correc
         baseline is already strong?
 
         This question motivates the feature-engineering layer and the learning-to-rank
-        reranker. The relevant evidence is whether the 52-feature schema adds
+        reranker. The relevant evidence is whether the 56-feature schema adds
         measurable lift on top of the embedding-only baseline under a leakage-free
         evaluation, and whether that lift is robust across ontology aspects and
         knowledge categories.
@@ -353,7 +353,7 @@ The main contributions of this work are:
         Needleman--Wunsch / Smith--Waterman alignment scores,
         NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
         (anc2vec), and per-PLM PCA projections, organised as a registry of
-        approximately 52 features. The feature schema fingerprint ensures that
+        approximately 56 features. The feature schema fingerprint ensures that
         any stored re-ranker model is automatically invalidated if the feature
         definition changes.
 
@@ -380,12 +380,12 @@ The main contributions of this work are:
 
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
         baseline methods on held-out \gls{goa} splits under a leakage-free temporal
-        holdout (GOA~220 $\to$~229), demonstrating that the 52-feature LightGBM
+        holdout (GOA~220 $\to$~229), demonstrating that the 56-feature LightGBM
         re-ranker raises NK-BPO $F_{\max}$ from 0.431 to 0.599 relative to the
         embedding-only baseline.
 
   \item A \textbf{contribution to CAFA~6} as part of a research team, achieving a
-        second-place team ranking in the international challenge, and three pre-built
+        final team ranking of \#19 in the international challenge, and three pre-built
         container submissions to the LAFA public benchmark as independently verifiable
         performance references.
 \end{itemize}
