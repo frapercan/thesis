@@ -394,7 +394,7 @@ alignment bit-score (when available), ontology-aware GO term embeddings from
 anc2vec~\cite{edera2022anc2vec}, information-content of the predicted term,
 and taxon-distance between query and annotated neighbour. \cref{chap:evaluation}
 reports three successive re-ranker configurations (per-aspect models, per-category
-models with IA weighting, and a full 52-feature set) and their marginal gains over
+models with IA weighting, and a full 56-feature set) and their marginal gains over
 the score-fusion baseline.
 
 \textbf{eggNOG-mapper}~\cite{cantalapiedra2021eggnogmapper} deserves particular
@@ -582,7 +582,7 @@ CAFA 5: systems that learned a secondary model over the initial KNN scores (usin
 alignment bit-scores, taxonomy features, and GO-term information content as
 covariates) improved consistently over unweighted KNN transfer. This observation
 is the direct empirical motivation for PROTEA's LightGBM re-ranker. The PROTEA
-team participated in CAFA 6, achieving a second-place team result in the combined
+team participated in CAFA 6, achieving a final team ranking of \#19 in the combined
 GO track; the present author was the technical lead responsible for the embedding
 pipeline, the FAISS index, and the re-ranking framework. The leakage question is
 addressed directly in PROTEA's evaluation protocol (\cref{chap:evaluation})
