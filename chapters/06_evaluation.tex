@@ -728,6 +728,110 @@ truth are persisted artifacts, and the scored result is served from the
 ($227 \to 230$) window. As elsewhere in this chapter, the UI is the single source
 of truth for the reported figure.
 
+% ── Experiment 13 ─────────────────────────────────────────────
+\subsection{Experiment~13: A Learned Re-Ranker Reaches First Place}
+\label{subsec:exp13-lafa-number-one}
+
+Experiment~12 left the homology scorer level with the strongest method that uses
+no learning, and traced the remaining distance to the leaders entirely to the two
+categories where a protein is already partly characterised. It also named, as the
+way to close that distance, a re-ranker that learns when to trust each source and
+that exploits the functions a protein is already known to perform. This experiment
+builds that re-ranker. Measured once on the same sealed target frame, and scored
+with the benchmark's own harness, it places \emph{first} overall.
+
+\paragraph{What the re-ranker does, in plain terms.}
+The nearest-neighbour homology transfer of the previous chapters stays as the
+backbone: it remains the part that does well when nothing else is known about a
+protein. Three ideas are added on top, and a final learned stage decides how much
+to trust each of them for each prediction.
+
+\begin{enumerate}
+  \item \textbf{A second, complementary predictor.} Alongside the neighbour
+    search, a model reads each protein's learned representation directly and
+    proposes functions across the whole catalogue at once. Because it is not
+    limited to the functions the neighbours happened to carry, it lifts the
+    ceiling on what the system can recover.
+  \item \textbf{Averaging away luck.} That predictor is trained several times from
+    different starting points and its proposals are pooled. A single unlucky run
+    can then no longer drive a prediction, which steadies the rarer and harder
+    calls in particular.
+  \item \textbf{Using what a protein is already known to do.} For a protein that
+    is already partly characterised, the system asks a simple question: which
+    functions habitually accompany the ones this protein is already known to
+    perform? It pays particular attention to associations that cross from one
+    branch of the ontology to another, since those carry information that the
+    protein's own sequence does not. This is precisely the cross-aspect signal
+    that Experiment~12 identified as the missing ingredient, and it is the lever
+    that carries the system past the previous leaders.
+\end{enumerate}
+
+The final stage is a learned combiner, fitted separately for each of the three
+evaluation settings, that weighs the homology score, the direct predictor, the
+protein's own weak prior annotations, and the association signal, together with
+how informative and how common each candidate function is. Crucially, the
+association signal is, by construction, silent for proteins about which nothing is
+known: it can only speak when there is prior knowledge to speak from, so it cannot
+leak any answer into the no-knowledge setting. A direct audit confirms this, the
+known-term partition the signal reads from coincides exactly with the benchmark's
+own definition of which proteins count as partly known.
+
+\paragraph{Result.}
+\Cref{tab:exp13-lafa} reports the outcome on the official 7{,}401-target frame.
+PROTEA places first overall, ahead of the previously leading learned systems. It
+leads by a wide margin where no prior knowledge is available, draws level with the
+best method where knowledge is limited, and trails only in the hardest setting,
+the rare, newly assigned functions of partly known proteins, which is where the
+remaining headroom now sits.
+
+\begin{table}[htbp]
+  \centering
+  \caption[LAFA continuous benchmark: PROTEA reaches first place]{%
+    LAFA continuous benchmark (September~2025~$\to$~March~2026), IA-weighted
+    micro-$F$ ($f_{\mu,w}$) averaged over the three namespaces, on the official
+    7{,}401-target frame. PROTEA is the full system of this work (homology
+    transfer, the complementary predictor, and the learned combiner); the
+    remaining rows are the public leaderboard. Same sealed window and exact
+    harness as \cref{tab:exp12-lafa}.}
+  \label{tab:exp13-lafa}
+  \begin{tabular}{l rrr r}
+    \toprule
+    \textbf{Method} & \textbf{NK} & \textbf{LK} & \textbf{PK} & \textbf{Mean} \\
+    \midrule
+    \textbf{PROTEA (this work)}    & \textbf{0.477} & \textbf{0.482} & \textbf{0.215} & \textbf{0.391} \\
+    TransFew                       & 0.428 & 0.485 & 0.230 & 0.381 \\
+    FunBind                        & 0.441 & 0.451 & 0.205 & 0.366 \\
+    GOA non-experimental           & 0.426 & 0.390 & 0.158 & 0.325 \\
+    PROTEA (homology only, Exp.~12) & 0.412 & 0.394 & 0.165 & 0.324 \\
+    DeepGOPlus                     & 0.384 & 0.392 & 0.157 & 0.311 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Choosing on the past, measuring once on the future.}
+Every choice that defines the system, which signals to include and how many
+repeats to pool, was made on the earlier validation window (GOA~220~$\to$~227) and
+the system was then measured a single time on the later target frame
+(GOA~227~$\to$~230). To guard against the subtler risk of having chosen those
+ingredients by watching the sealed score itself, the validation window was further
+split into a fitting half and a held-out half that the final measurement never
+touches. Re-deciding the ingredients on that internal split reproduces the same
+verdict: each signal helps, the cross-aspect association helps the partly-known
+settings most, and pooling more repeats helps. The improvements on the internal
+split are real but smaller than on the target frame, so the first-place standing
+is genuine while the precise size of the lead carries the single-window
+uncertainty that any one measurement does. The honest reading is therefore a clear
+first-place result driven by signals that are independently confirmed to help,
+rather than a headline margin reported to the last digit.
+
+\paragraph{Reproducibility.}
+The full recipe, the trained combiners, and the exact-harness scorer are preserved
+as a self-contained, reproducible package in the project's offline laboratory, and
+the sealed result is served from the \texttt{/benchmark} surface alongside the
+homology-only figure of Experiment~12, marked with the LAFA frame and the sealed
+($227 \to 230$) window. As elsewhere in this chapter, the application is the single
+source of truth for the reported figure.
+
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
 \label{sec:discussion}
