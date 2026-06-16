@@ -110,7 +110,7 @@ that PROTEA implements end-to-end, including for the re-ranker training pipeline
 
 The CAFA 6 challenge, whose results were released in late 2025, provided an
 independent blind validation of methods built around these principles. The research
-team in which the author of this thesis served as technical lead achieved a
+team in which the author of this thesis was the technical motor achieved a
 final team ranking of \#19, validating the embedding-based annotation transfer approach at
 international scale and under the strictest possible evaluation conditions. The CAFA
 result does not belong to PROTEA as a platform: PROTEA is the post-challenge
@@ -374,8 +374,8 @@ The main contributions of this work are:
   \item An \textbf{operational narrative model} (\texttt{Job.findings},
         \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why
         of every run and provides the audit trace from which the evaluation chapter
-        is distilled. Complementing this, an index of 31 Architecture Decision
-        Records (D1--D31) in \texttt{protea-core/docs/source/adr/} provides a
+        is distilled. Complementing this, an index of Architecture Decision
+        Records (the D-series, D01 through D41) in \texttt{protea-core/docs/source/adr/} provides a
         curated history of non-obvious design choices.
 
   \item An \textbf{empirical evaluation} comparing PROTEA predictions against
@@ -423,7 +423,7 @@ abstraction and the OperationRegistry, the plugin contract system and the
 contracts-first split across seven repositories, the job lifecycle and the ten-queue
 RabbitMQ topology, the versioned data model, the embedding and prediction pipelines,
 the ArtifactStore, and the public REST API with its seventeen routers. The ADR index
-D1--D31 cross-references the major design decisions to this narrative.
+(the D-series, D01 through D41) cross-references the major design decisions to this narrative.
 
 \Cref{chap:implementation} describes how the design materialises across the seven
 repositories. It covers the technology stack, the database schema and Alembic
