@@ -755,7 +755,9 @@ to trust each of them for each prediction.
   \item \textbf{Averaging away luck.} That predictor is trained several times from
     different starting points and its proposals are pooled. A single unlucky run
     can then no longer drive a prediction, which steadies the rarer and harder
-    calls in particular.
+    calls in particular. This pooling is, by construction, a Deep Ensemble; the
+    ensembling rationale and its trade-offs are discussed in
+    \cref{subsec:seed-ensemble}.
   \item \textbf{Using what a protein is already known to do.} For a protein that
     is already partly characterised, the system asks a simple question: which
     functions habitually accompany the ones this protein is already known to
@@ -963,6 +965,95 @@ similarity carry information not present in the raw protein-sequence embedding
 alone. A clean per-feature re-derivation under full ground-truth
 information-accretion scoring is provided by the score-ablation study reported
 as future work.
+
+\subsection{The Seed-Averaged Classifier as a Deep Ensemble}
+\label{subsec:seed-ensemble}
+
+The "averaging away luck" step of Experiment~13
+(\cref{subsec:exp13-lafa-number-one}, item~2) deserves to be read against the
+ensembling literature, because what it does has a precise name and a set of
+known trade-offs. This subsection makes that connection explicit. It concerns
+only the trained block of the pipeline, the M2 \texttt{anc2vec} classifier: a
+hybrid multilayer perceptron that reads the 8320-dimensional concatenation of
+the six protein language model embeddings and proposes GO terms across the whole
+catalogue at once. The other two blocks ensemble under different physics and are
+not the subject here. The composite KNN scorer is a similarity search, not a
+trained model, so it has no optimisation noise to decorrelate by reseeding; its
+diversity axes are instead $k$, the distance metric, the choice of PLM, the
+pooling, and the aggregation rule, and in the leakage-clean validation of this
+chapter those axes were explored and largely did not move the score. The
+per-category LightGBM combiners do carry boosting randomness through row and
+column subsampling, but their reported figures are seed-stable
+(\cref{tab:exp9-champion-replication}), so the analysis below is specific to the
+neural classifier.
+
+What PROTEA does is train $K$ copies of that classifier from independent random
+initialisations, with both a different initial weight draw and a different data
+ordering per copy, and combine their \emph{output} probabilities: the candidate
+set is the union of each member's top proposals, and a candidate's score is the
+sum over the members that proposed it divided by the number of members. This is,
+by construction, a Deep Ensemble in the sense of
+Lakshminarayanan, Pritzel and Blundell~\cite{lakshminarayanan2017deepensembles}.
+The class is attractive for two reasons that matter here: it is a strong
+predictor, and its averaged probabilities are better calibrated than those of any
+single member, which is the right property for a system whose downstream metric
+thresholds confidence scores.
+
+The choice to average in output space rather than weight space is deliberate, not
+incidental. Independently initialised networks converge to different basins of
+the loss landscape; their parameters are not coordinatewise comparable, and a
+naive average of two such weight vectors generally lands in a high-loss region
+between basins rather than at a sensible compromise. Weight-space averaging is
+valid only when the points being averaged lie in a single basin, which is exactly
+the regime that Stochastic Weight Averaging~\cite{izmailov2018swa} and Model
+Soups~\cite{wortsman2022modelsoups} construct, the former by averaging iterates
+along one trajectory, the latter by averaging fine-tunes that share an
+initialisation. PROTEA's members share neither a trajectory nor an
+initialisation, so output-space averaging is the only sound option for the
+ensemble as built.
+
+The size of the gain is governed by the bias-variance-ambiguity decomposition of
+Krogh and Vedelsby~\cite{krogh1995ambiguity}: the ensemble's error is the average
+member error minus an ambiguity term that grows with the diversity of the
+members. Reseeding decorrelates only the optimisation noise, the part of each
+member that depends on where it started and the order it saw the data, so it buys
+a modest ambiguity, enough to steady the rarer and harder calls but not to change
+the representation the members reason over. Larger ambiguity comes from
+representation diversity. PROTEA's classifier already fuses the six PLMs by
+\emph{early} fusion, concatenating them at the input, which is one diversity
+mechanism baked into a single member; a \emph{late} fusion variant, a per-PLM
+head whose outputs are averaged, would let the members disagree more and is the
+natural way to raise ambiguity further. That direction is noted in the future
+work (\cref{sec:conclusion-future-work}) rather than claimed here.
+
+This framing also settles a reproducibility point that recurs through the thesis.
+PROTEA does not search for and report a lucky seed; it fixes a converged set of
+seeds and reports the average over them. The reported figure is therefore a
+converged estimator of the ensemble mean, reproducible from zero by a third party
+using \emph{any} seeds, and it carries a seed-variance interval rather than a
+point that depends on a private random draw. This is the same principle that
+governs the confidence-interval reporting elsewhere in this chapter: the quantity
+of interest is an estimator with a stated uncertainty, not a single fortunate
+run. The specific width of that interval is an empirical property of the trained
+ensemble and is not asserted here.
+
+The efficiency cost of a Deep Ensemble is honest to state: inference runs every
+member, so the cost scales linearly in $K$, and the deployment carries $K$ sets
+of weights rather than one. PROTEA accepted that cost because the objective was
+predictive quality and calibration on a benchmark, not inference latency. Several
+methods trade some of the predictive benefit for a single cheap forward pass, and
+they are the natural design alternatives for a latency-bound deployment rather
+than anything PROTEA did. Stochastic Weight Averaging~\cite{izmailov2018swa} and
+an exponential moving average of the weights both collapse a trajectory of
+iterates into one parameter set; Snapshot Ensembles~\cite{huang2017snapshot}
+harvest several members from a single training run under a cyclic learning rate;
+Model Soups~\cite{wortsman2022modelsoups} average a family of fine-tunes into one
+model; and Monte Carlo Dropout~\cite{gal2016dropout} approximates an ensemble at
+test time by sampling dropout masks. Of these, weight averaging (SWA or EMA) is
+the most direct successor for PROTEA, since it would reduce the deployment to one
+forward pass and one artifact, with the standing caveat that it is sound only
+within a single basin and so would require the members to share a training
+trajectory rather than being independently initialised as they are today.
 
 \subsection{Limitations}
 \label{subsec:limitations}
