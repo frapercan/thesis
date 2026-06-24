@@ -791,34 +791,58 @@ leak any answer into the no-knowledge setting. A direct audit confirms this, the
 known-term partition the signal reads from coincides exactly with the benchmark's
 own definition of which proteins count as partly known.
 
+\paragraph{Two figures: the research result and the productized result.}
+This experiment reports two distinct numbers, and the thesis keeps them apart.
+The first is the \emph{offline research result}: the sealed champion of the
+project's offline laboratory, which reaches a mean IA-weighted micro-$F$ of
+\textbf{0.391} on the official frame, ahead of the previously leading learned
+systems. This is the method's sealed best and a first-class result, but it
+carries the optimism that any single-window measurement does and its exact
+training artefacts are no longer byte-for-byte reproducible, so it is reported
+as a research result rather than as a figure the platform serves. The second is
+the \emph{native productized result}: the same method reproduced end to end on
+the PROTEA platform and scored through the live \texttt{/benchmark} surface,
+which reaches a mean of \textbf{0.3745} (NK~0.4645, LK~0.4526, PK~0.2065). This
+is the figure the application actually serves and that any reader can verify on
+the running system. The offline research result is the headline; the native
+productized result is the one the platform stands behind.
+
 \paragraph{Result.}
 \Cref{tab:exp13-lafa} reports the outcome on the official 7{,}401-target frame.
-PROTEA places first overall, ahead of the previously leading learned systems. It
-leads by a wide margin where no prior knowledge is available, draws level with the
-best method where knowledge is limited, and trails only in the hardest setting,
-the rare, newly assigned functions of partly known proteins, which is where the
-remaining headroom now sits.
+The offline research result places first overall, ahead of the previously
+leading learned systems. It leads by a wide margin where no prior knowledge is
+available, draws level with the best method where knowledge is limited, and
+trails only in the hardest setting, the rare, newly assigned functions of partly
+known proteins, which is where the remaining headroom now sits. The native
+productized reproduction, served live from \texttt{/benchmark}, reaches a mean of
+0.3745 on the same frame; the gap to the offline figure is concentrated in the
+two partly-known settings, where the sources that the offline champion fitted are
+not yet fully reproduced on the platform.
 
 \begin{table}[htbp]
   \centering
-  \caption[LAFA continuous benchmark: PROTEA reaches first place]{%
+  \caption[LAFA continuous benchmark: the learned re-ranker]{%
     LAFA continuous benchmark (September~2025~$\to$~March~2026), IA-weighted
     micro-$F$ ($f_{\mu,w}$) averaged over the three namespaces, on the official
-    7{,}401-target frame. PROTEA is the full system of this work (homology
-    transfer, the complementary predictor, and the learned combiner); the
-    remaining rows are the public leaderboard. Same sealed window and exact
-    harness as \cref{tab:exp12-lafa}.}
+    7{,}401-target frame. The PROTEA \emph{offline research} row is the sealed
+    champion of the project's offline laboratory (homology transfer, the
+    complementary predictor, and the learned combiner). The PROTEA
+    \emph{native productized} row is the same method reproduced end to end on the
+    platform and served live from \texttt{/benchmark}. The intermediate rows are
+    the public leaderboard. Same sealed window and exact harness as
+    \cref{tab:exp12-lafa}.}
   \label{tab:exp13-lafa}
   \begin{tabular}{l rrr r}
     \toprule
     \textbf{Method} & \textbf{NK} & \textbf{LK} & \textbf{PK} & \textbf{Mean} \\
     \midrule
-    \textbf{PROTEA (this work)}    & \textbf{0.477} & \textbf{0.482} & \textbf{0.215} & \textbf{0.391} \\
-    TransFew                       & 0.428 & 0.485 & 0.230 & 0.381 \\
-    FunBind                        & 0.441 & 0.451 & 0.205 & 0.366 \\
-    GOA non-experimental           & 0.426 & 0.390 & 0.158 & 0.325 \\
+    PROTEA (offline research)       & 0.477 & 0.482 & 0.215 & \textbf{0.391} \\
+    TransFew                        & 0.428 & 0.485 & 0.230 & 0.381 \\
+    FunBind                         & 0.441 & 0.451 & 0.205 & 0.366 \\
+    \textbf{PROTEA (native productized)} & \textbf{0.4645} & \textbf{0.4526} & \textbf{0.2065} & \textbf{0.3745} \\
+    GOA non-experimental            & 0.426 & 0.390 & 0.158 & 0.325 \\
     PROTEA (homology only, Exp.~12) & 0.412 & 0.394 & 0.165 & 0.324 \\
-    DeepGOPlus                     & 0.384 & 0.392 & 0.157 & 0.311 \\
+    DeepGOPlus                      & 0.384 & 0.392 & 0.157 & 0.311 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -841,11 +865,16 @@ rather than a headline margin reported to the last digit.
 
 \paragraph{Reproducibility.}
 The full recipe, the trained combiners, and the exact-harness scorer are preserved
-as a self-contained, reproducible package in the project's offline laboratory, and
-the sealed result is served from the \texttt{/benchmark} surface alongside the
-homology-only figure of Experiment~12, marked with the LAFA frame and the sealed
-($227 \to 230$) window. As elsewhere in this chapter, the application is the single
-source of truth for the reported figure.
+as a self-contained package in the project's offline laboratory. That offline
+package is what produced the sealed 0.391 research figure; because its original
+training artefacts have since been removed, that exact figure is a sealed research
+result rather than a byte-for-byte reproducible one. The figure the platform
+serves is the native productized reproduction (0.3745), which runs end to end on
+the PROTEA platform and is exposed through the \texttt{/benchmark} surface
+alongside the homology-only figure of Experiment~12, marked with the LAFA frame
+and the sealed ($227 \to 230$) window. For that productized figure the
+application is, as elsewhere in this chapter, the single source of truth: it is
+the number a reader can confirm live on the running system.
 
 % ────────────────────────────────────────────────────────────
 \section{Discussion}

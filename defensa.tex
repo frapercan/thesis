@@ -588,10 +588,10 @@
 \end{frame}
 
 % ── Slide 15: Re-Ranker Evolution ────────────────────────────
-\begin{frame}{LightGBM Re-Ranker: Evolution v1 to v3}
+\begin{frame}{LightGBM Re-Ranker: Per-Aspect to Full-Feature}
   \begin{columns}[t]
     \column{0.50\textwidth}
-      \textbf{v1 (Exp.~4): Per-Aspect Models}
+      \textbf{Per-aspect models (Exp.~4)}
       \begin{itemize}
         \item 9 models: NK/LK/PK $\times$ BPO/MFO/CCO
         \item Problem: extreme class imbalance ($<$0.2\%)
@@ -599,7 +599,7 @@
         \item CCO improves, MFO \emph{degrades} vs heuristic
       \end{itemize}
       \vspace{0.5em}
-      \textbf{v2 (Exp.~5): Per-Category + IA Weighting}
+      \textbf{Per-category + IA weighting (Exp.~5)}
       \begin{itemize}
         \item 3 models: NK, LK, PK (3$\times$ more training data)
         \item IA-weighted loss aligns with evaluation metric
@@ -607,7 +607,7 @@
         \item But: alignment/taxonomy were NULL during training!
       \end{itemize}
     \column{0.46\textwidth}
-      \textbf{v3 (Exp.~6): Full Feature Set, Leakage-Free}
+      \textbf{Full feature set, leakage-free (Exp.~6)}
       \begin{itemize}
         \item Full 52-feature schema (NW, SW, taxonomy, anc2vec)
         \item Leakage-free dataset \texttt{bench-v1-K5-filtered}
@@ -628,7 +628,7 @@
 % ============================================================
 
 % ── Slide 16: Full Results Table (v3) ───────────────────────
-\begin{frame}{Experiment 6: Re-Ranker v3 Full Results}
+\begin{frame}{Experiment 6: Full-Feature Re-Ranker Results}
   \begin{center}
     \begin{tabular}{l ccc ccc ccc}
       \toprule
@@ -638,26 +638,26 @@
       \midrule
       Baseline (emb.~only)$^\dagger$ & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 & 0.187 & 0.278 & 0.325 \\
       Alignment weighted$^\dagger$    & 0.428 & 0.611 & 0.683 & 0.500 & 0.598 & 0.699 & 0.201 & 0.285 & 0.337 \\
-      Re-ranker v2$^\dagger$          & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
+      Per-category re-ranker$^\dagger$ & 0.425 & 0.607 & 0.689 & 0.486 & 0.575 & 0.707 & 0.199 & 0.297 & 0.335 \\
       \rowcolor{proteagreen!15}
-      \textbf{Re-ranker v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & 0.165 & 0.293 & 0.346 \\
+      \textbf{Full-feature re-ranker} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} & 0.165 & 0.293 & 0.346 \\
       \bottomrule
     \end{tabular}
   \end{center}
   \vspace{0.3em}
-  {\small $^\dagger$ Pre-leakage-fix dataset (22-feature schema, GOA 220$\to$229); not directly comparable with v3 row.}
+  {\small $^\dagger$ Pre-leakage-fix dataset (22-feature schema, GOA 220$\to$229); not directly comparable with the full-feature row.}
   \vspace{0.3em}
   \begin{itemize}
-    \item v3 shows large NK and LK gains (leakage-free, full feature set)
-    \item PK-BPO lower in v3: leakage-fix tightens PK positive criterion
+    \item Full-feature re-ranker shows large NK and LK gains (leakage-free, full feature set)
+    \item PK-BPO lower: leakage-fix tightens PK positive criterion
   \end{itemize}
 \end{frame}
 
 % ── Slide 17: v9 Study and cafaeval ─────────────────────────
-\begin{frame}{Experiment 8: Re-Ranker v9 Study and cafaeval Validation}
+\begin{frame}{Experiment 8: 56-Feature Re-Ranker and cafaeval Validation}
   \begin{columns}[t]
     \column{0.50\textwidth}
-      \textbf{Study v9 (2026-05-01): 56-feature schema}
+      \textbf{56-feature schema study (2026-05-01)}
       \begin{itemize}
         \item 3-seed replication (42, 7, 137); std $\leq 0.003$
         \item Validated with \texttt{cafaeval} (prop=fill, norm=cafa)
@@ -672,7 +672,7 @@
         \item Most impactful for PK-MFO (4.1$\times$ ratio)
       \end{itemize}
     \column{0.46\textwidth}
-      \textbf{Selected cafaeval \fmax (v9):}
+      \textbf{Selected cafaeval \fmax (56-feature):}
       \vspace{0.3em}
       \begin{tabular}{lrr}
         \toprule
@@ -688,15 +688,15 @@
         \bottomrule
       \end{tabular}
       \vspace{0.3em}
-      {\small v9 vs KNN baseline: all 9 cells $p < 0.0001$ (paired bootstrap, 2000 resamples).}
+      {\small 56-feature vs KNN baseline: all 9 cells $p < 0.0001$ (paired bootstrap, 2000 resamples).}
   \end{columns}
 \end{frame}
 
 % ── Slide 18: Feature Importance ─────────────────────────────
-\begin{frame}{Feature Importance Analysis (v3/v9)}
+\begin{frame}{Feature Importance Analysis}
   \begin{columns}[t]
     \column{0.50\textwidth}
-      \textbf{Top features by LightGBM gain (v3, seed 42)}
+      \textbf{Top features by LightGBM gain (full-feature, seed 42)}
       \begin{itemize}
         \item \highlight{\texttt{nb\_vote\_frac}}: top in NK and LK
         \item \highlight{\texttt{go\_term\_freq}}: top in PK
@@ -707,7 +707,7 @@
       \textbf{Key insight:} Re-ranker uses embedding primarily as a candidate-generation
       filter, not as a final ranking signal.
     \column{0.46\textwidth}
-      \textbf{Leave-one-family-out ablation (v9, 3 cells)}
+      \textbf{Leave-one-family-out ablation (56-feature, 3 cells)}
       \vspace{0.3em}
       \begin{tabular}{lr}
         \toprule
@@ -740,7 +740,7 @@
         eggNOG-m.$^\ddagger$ & 0.247 & 0.359 & 0.386 & 0.382 & 0.334 & 0.450 \\
         PROTEA base.$^\dagger$ & 0.412 & 0.590 & 0.668 & 0.467 & 0.558 & 0.675 \\
         \rowcolor{proteagreen!15}
-        \textbf{v3} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} \\
+        \textbf{Full-feature} & \textbf{0.599} & \textbf{0.646} & \textbf{0.775} & \textbf{0.620} & \textbf{0.606} & \textbf{0.794} \\
         \bottomrule
       \end{tabular}
       \vspace{0.3em}
@@ -759,14 +759,14 @@
 \end{frame}
 
 % ── Slide 20: LB.2 / LB.3 Leakage-Fixed Champion ───────────
-\begin{frame}{Leakage-Fixed Champion: v27-binary Multiseed (LB.2/LB.3)}
+\begin{frame}{Leakage-Fixed Champion: Multiseed Binary Re-Ranker (LB.2/LB.3)}
   \begin{columns}[c]
     \column{0.55\textwidth}
-      \textbf{v27-binary recipe (anc2vec retrofix)}
+      \textbf{Leakage-fixed binary recipe (anc2vec retrofix)}
       \begin{itemize}
         \item 3 seeds $\times$ 6 cells (NK+LK only)
         \item Selective avg: \highlight{0.6215 $\pm$ 0.0014} on v226
-        \item Selective deploy: NK+LK $\to$ v27-binary, PK $\to$ KNN baseline
+        \item Selective deploy: NK+LK $\to$ binary re-ranker, PK $\to$ KNN baseline
       \end{itemize}
       \vspace{0.5em}
       \textbf{Paired bootstrap CI (N=10,000, bench-v1-K5-v226-lineage)}
@@ -812,12 +812,45 @@
     \column{0.40\textwidth}
       \textbf{PROTEA as post-CAFA productisation}
       \begin{itemize}
-        \item CAFA \#2 belongs to the research
+        \item CAFA~6 \#19 belongs to the research
         \item PROTEA is the platform enabling this and future work
         \item The pipeline is designed to be re-evaluable as new PLMs and GOA releases arrive
       \end{itemize}
-      \vspace{0.5em}
-      \todo{Confirm CAFA 6 team ranking number/citation with supervisors before defence}
+  \end{columns}
+\end{frame}
+
+% ── Slide 21b: LAFA Result ───────────────────────────────────
+\begin{frame}{LAFA Continuous Benchmark: First-Place Result}
+  \begin{columns}[t]
+    \column{0.52\textwidth}
+      \textbf{Official 7{,}401-target frame (Sep~2025 $\to$ Mar~2026)}
+      \begin{itemize}
+        \item IA-weighted micro-$F$, mean over NK/LK/PK
+        \item Homology backbone + learned combiner (complementary predictor + cross-aspect association)
+        \item Ingredients chosen on an earlier window, sealed once on the target frame
+      \end{itemize}
+      \vspace{0.4em}
+      \begin{block}{Two figures, kept apart}
+        \textbf{Offline research:} \highlight{0.391} (sealed champion, first place vs TransFew 0.381).
+        Single-window measurement; original training artefacts no longer byte-reproducible.\\[0.3em]
+        \textbf{Native productized:} \highlight{0.3745} (NK~0.4645 / LK~0.4526 / PK~0.2065).
+        Reproduced end to end on the platform, served live from \texttt{/benchmark}.
+      \end{block}
+    \column{0.44\textwidth}
+      \begin{tabular}{lr}
+        \toprule
+        Method & Mean \\
+        \midrule
+        PROTEA (offline research) & \highlight{0.391} \\
+        TransFew & 0.381 \\
+        FunBind & 0.366 \\
+        \textbf{PROTEA (native productized)} & \textbf{0.3745} \\
+        GOA non-exp. & 0.325 \\
+        DeepGOPlus & 0.311 \\
+        \bottomrule
+      \end{tabular}
+      \vspace{0.4em}
+      {\small The platform serves and stands behind 0.3745; 0.391 is the sealed offline research result.}
   \end{columns}
 \end{frame}
 
@@ -838,7 +871,7 @@
       \begin{itemize}
         \item bench-v1-K5-v226-lineage-\{plm\}
         \item $K \in \{3, 5, 10\}$
-        \item v27-binary recipe per PLM
+        \item leakage-fixed binary recipe per PLM
         \item \texttt{allplm}: derived multi-manifest trainer
       \end{itemize}
     \column{0.44\textwidth}
@@ -890,8 +923,8 @@
         \item NK-BPO $F_{\max}$: $0.412 \to 0.599$ (+0.187, leakage-free)
         \item v9 cafaeval avg \fmax: \highlight{0.5427}
         \item Outperforms eggNOG-mapper in 8/9 cells
-        \item v27-binary selective: \highlight{0.6215 $\pm$ 0.0014}
-        \item CAFA~6 \#2 (team result)
+        \item Leakage-fixed binary selective: \highlight{0.6215 $\pm$ 0.0014}
+        \item CAFA~6 \#19 (team result)
         \item Bootstrap CI: 6/6 NK+LK cells significant at 95\%
       \end{itemize}
   \end{columns}
