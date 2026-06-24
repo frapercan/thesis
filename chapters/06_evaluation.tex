@@ -4,7 +4,17 @@
 This chapter describes the experimental protocol used to assess PROTEA's
 prediction quality. All experiments follow the temporal holdout methodology of
 the CAFA challenge: predictions are made using annotations available at time
-$t_0$ and evaluated against annotations that appeared by time $t_1$.
+$t_0$ and evaluated against annotations that appeared by time $t_1$. The holdout
+is expressed as a window between two dated GOA releases (the public EBI archive
+records the release dates), and it is the same protocol LAFA uses for its rolling
+submission windows: predict from the annotations known at the earlier date and
+score against the later date. CAFA~6 was a one-shot evaluation over a fixed
+target set; the continuously re-runnable temporal-evaluation environment
+described here is post-CAFA follow-up work. Its contribution is not a single
+score but an environment that measures honestly, without temporal leakage, and
+that lets the system keep closing the gap to the state of the art as new GOA
+releases land. In keeping with the discipline of this thesis, every reported
+number has a live source on the PROTEA user interface.
 
 % ────────────────────────────────────────────────────────────
 \section{Experimental Setup}
@@ -38,15 +48,16 @@ codes (\texttt{EXP}, \texttt{IDA}, \texttt{IMP}, \texttt{IGI}, \texttt{IEP},
     \textbf{Role} & \textbf{Snapshots} \\
     \midrule
     Training splits (re-ranker) & 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 211, 215 \\
-    Primary reference ($t_0$) & 220 \\
-    Primary test ($t_1$) & 229 \\
+    Primary reference ($t_0$) & 220 (2024-04-16) \\
+    Primary test ($t_1$) & 229 (2025-12-04) \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \subsection{Evaluation Set Construction}
 
-The primary evaluation uses the temporal split GOA~220~$\to$~229. PROTEA's
+The primary evaluation uses the temporal holdout from the GOA release of
+2024-04-16 to that of 2025-12-04 (releases~220 and~229). PROTEA's
 \texttt{generate\_evaluation\_set} operation computes the delta between the two
 annotation sets, applying NOT-qualifier propagation through the GO \gls{dag}
 and classifying each (protein, namespace) pair into the CAFA categories
@@ -54,7 +65,8 @@ NK/LK/PK (\cref{subsec:nk-lk-pk}).
 
 \begin{table}[htbp]
   \centering
-  \caption{Evaluation set statistics for the GOA~220~$\to$~229 split.}
+  \caption{Evaluation set statistics for the 2024-04-16~$\to$~2025-12-04
+  temporal holdout (GOA releases~220 and~229).}
   \label{tab:eval-set-stats}
   \begin{tabular}{lrr}
     \toprule
@@ -155,8 +167,9 @@ UI is the single source of truth for every figure reported here.
 The methodology presented here is the outcome of a longer development path whose
 early stages predate the anc2vec look-up leakage fix and the adoption of the
 \texttt{cafaeval} protocol. Those historical runs (Experiments~1 to~7, on the
-retired 22-feature \texttt{bench-v1-K5} schema over the GOA~220~$\to$~229
-split) have no live \texttt{/benchmark} or \texttt{/evaluation} source: their
+retired 22-feature \texttt{bench-v1-K5} schema over the 2024-04-16~$\to$~2025-12-04
+holdout, GOA releases~220 and~229) have no live \texttt{/benchmark} or
+\texttt{/evaluation} source: their
 only provenance is the frozen lab CSV and commit cited in each figure caption.
 To keep the body free of any number without a live UI source, the full trace,
 including its dead-ends and the eggNOG-mapper positioning run, is preserved in
