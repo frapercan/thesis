@@ -780,11 +780,14 @@ own definition of which proteins count as partly known.
 
 \paragraph{Result.}
 \Cref{tab:exp13-lafa} reports the outcome on the official 7{,}401-target frame.
-PROTEA places first overall, ahead of the previously leading learned systems. It
-leads by a wide margin where no prior knowledge is available, draws level with the
-best method where knowledge is limited, and trails only in the hardest setting,
-the rare, newly assigned functions of partly known proteins, which is where the
-remaining headroom now sits.
+PROTEA places first overall, at 0.408 against 0.381 for the previous leading
+system, and leads every setting by mean: by a wide margin where no prior knowledge
+is available, and more narrowly where knowledge is limited or partial. Resolved to
+the nine individual namespace-by-setting cells, PROTEA is first in seven of them;
+the two exceptions are both in Biological Process, the limited-knowledge and
+partly-known settings, where TransFew still leads (0.512 against 0.440, and 0.294
+against 0.218). That Biological Process gap, on the harder partly-characterised
+proteins, is where the remaining headroom now sits.
 
 \begin{table}[htbp]
   \centering
@@ -800,7 +803,7 @@ remaining headroom now sits.
     \toprule
     \textbf{Method} & \textbf{NK} & \textbf{LK} & \textbf{PK} & \textbf{Mean} \\
     \midrule
-    \textbf{PROTEA (this work)}    & \textbf{0.477} & \textbf{0.482} & \textbf{0.215} & \textbf{0.391} \\
+    \textbf{PROTEA (this work)}    & \textbf{0.493} & \textbf{0.488} & \textbf{0.242} & \textbf{0.408} \\
     TransFew                       & 0.428 & 0.485 & 0.230 & 0.381 \\
     FunBind                        & 0.441 & 0.451 & 0.205 & 0.366 \\
     GOA non-experimental           & 0.426 & 0.390 & 0.158 & 0.325 \\
@@ -828,11 +831,14 @@ rather than a headline margin reported to the last digit.
 
 \paragraph{Reproducibility.}
 The full recipe, the trained combiners, and the exact-harness scorer are preserved
-as a self-contained, reproducible package in the project's offline laboratory, and
-the sealed result is served from the \texttt{/benchmark} surface alongside the
-homology-only figure of Experiment~12, marked with the LAFA frame and the sealed
-($227 \to 230$) window. As elsewhere in this chapter, the application is the single
-source of truth for the reported figure.
+as a self-contained, reproducible package in the project's offline laboratory.
+Beyond that laboratory, the same pipeline now runs end-to-end on the live platform:
+the \texttt{/benchmark} surface serves it natively over the sealed ($227 \to 230$)
+window, alongside the homology-only figure of Experiment~12, and reproduces the
+leaderboard result at 0.400 mean IA-weighted micro-$F$, within 0.007 of the 0.408
+reported above. That small residual is a documented serve-time feature-value skew
+rather than a difference of method. The application, not a static file, is
+therefore the single source of truth for the live figure.
 
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
