@@ -41,10 +41,15 @@ mkdir -p "$VERSIONS_DIR"
 cp thesis.pdf "$VERSIONS_DIR/thesis-${TAG}.pdf"
 echo "Archived: versions/thesis-${TAG}.pdf"
 
-# ── 4. Distribute to serving locations ─────────────────────────
-cp thesis.pdf "$PROTEA_DIR/static/thesis.pdf"
-cp thesis.pdf "$PROTEA_DIR/apps/web/public/thesis.pdf"
-echo "Distributed to static/ and apps/web/public/"
+# ── 4. Distribute to the serve-mount ───────────────────────────
+# The API serves /thesis.pdf from PROTEA_THESIS_PDF_PATH (read at request
+# time), so overwriting that single file updates what the app distributes
+# with no frontend rebuild and no restart. Fall back to the repo static/
+# path when the env var is unset (dev without the mount).
+MOUNT="${PROTEA_THESIS_PDF_PATH:-$THESIS_DIR/../storage/thesis/thesis.pdf}"
+mkdir -p "$(dirname "$MOUNT")"
+cp thesis.pdf "$MOUNT"
+echo "Distributed to serve-mount: $MOUNT"
 
 # ── 5. Summary ─────────────────────────────────────────────────
 echo ""
