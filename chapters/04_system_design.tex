@@ -263,6 +263,68 @@ helper. The legacy column is retained until the audit window closes; new
 registrations write only the \texttt{feature\_schema\_sha\_v2} column. The episode is recorded in
 \gls{adr} D10.
 
+\subsection{The Producer Seam and the Feature Registry}
+\label{subsec:feature-registry}
+
+The canonical fingerprint pins the \emph{names} of the features and their
+order. It cannot see their \emph{values}, nor which code produced them,
+nor whether a producer ran at all. That blind spot is a second, subtler
+failure mode, recorded in \gls{adr} D45. A feature family can be declared
+in the canonical list, carry its columns on every row, and still be
+semantically empty, because the export writes a well-defined default (a
+zero) for any family whose producer was not wired into that export path.
+The digest is identical whether the column holds a measurement or a
+placeholder, so a booster can be trained on three families of constant
+zeros and nothing complains. This is not hypothetical: two datasets in
+the offline lab carry the same fingerprint and differ only in that one
+has these families switched on and the other zero-filled.
+
+The remedy separates three states that the zero convention had conflated.
+A produced family carries real values. A declared-absent family, one
+whose producer is not active in this export, now emits a missing value
+rather than a zero, so a downstream model reads it as absent rather than
+as a measured zero, and the dataset manifest records, per family, which
+producer emitted it. A degenerate family, one that claims to be produced
+yet is constant across an entire shard, fails the export loudly instead
+of shipping silently. The distinction matters because a constant zero and
+a genuine measurement are indistinguishable to the consumer, which is
+exactly the confusion the seam exploited.
+
+Reading the sealed champion's boosters confirms why this governance is
+worth the effort. Measured by LightGBM split gain, sixteen of the
+sixty-four features carry ninety-five percent of the total, and
+twenty-eight have a gain of exactly zero. Some of those zeros are honest:
+the per-\gls{plm} \gls{pca} projections are populated yet contribute
+nothing, because the learned retrieval encoder already carries what they
+would encode. Others are a bug wearing the mask of a dead feature: the
+InterPro columns score zero only because their database tables are
+unpopulated in the current deployment, while the same InterPro evidence,
+entering the pipeline through a separate noisy-OR graft, is worth
+$0.0179$ in $f_{\mu,w}$ and secures seven of the nine evaluation cells.
+An operator who saw only the zeros would retire a working signal and bury
+the real defect. The lineage family tells the complementary story: it is
+inert for no-knowledge proteins, where by construction there is no prior
+annotation to be an ancestor of, and it is the second most important
+feature of the sixty-four in the previously-known regime. A single
+aggregate table would have hidden all of this, which is the argument for
+reporting per regime rather than in the mean.
+
+Because the fingerprint cannot say what a column means or whether it is
+live, that knowledge is kept as data rather than prose, in one registry
+that the whole stack reads and none restates. Each canonical column has a
+single entry giving its definition, its producer, its unit and range, its
+status (produced, declared-absent, or pool-injected), and any caveat such
+as the empty InterPro tables. Three renderers consume that one source. A
+build-time directive turns it into the reference page of the platform's
+generated documentation; an endpoint serves it as structured data to an
+operator-facing page in the deployed interface; and this manuscript draws
+on the same entries. A drift check fails continuous integration if the
+registry and the declared schema disagree, so the three surfaces cannot
+diverge from each other or from the code. The intent is that a technician
+who has cloned and deployed the system can ask what any feature is, who
+computes it, and whether it currently carries signal, and receive the
+same answer wherever they look.
+
 \subsection{Why a Separate Package, Not Just a Module}
 \label{subsec:contracts-rationale}
 
