@@ -296,11 +296,13 @@ sixty-four features carry ninety-five percent of the total, and
 twenty-eight have a gain of exactly zero. Some of those zeros are honest:
 the per-\gls{plm} \gls{pca} projections are populated yet contribute
 nothing, because the learned retrieval encoder already carries what they
-would encode. Others are a bug wearing the mask of a dead feature: the
-InterPro columns score zero only because their database tables are
-unpopulated in the current deployment, while the same InterPro evidence,
-entering the pipeline through a separate noisy-OR graft, is worth
-$0.0179$ in $f_{\mu,w}$ and secures seven of the nine evaluation cells.
+would encode. Others are a defect wearing the mask of a dead feature: the
+InterPro columns score zero only because their source, an
+environment-gated GO-prediction table loaded from a file, was not
+configured when this dataset was exported, so the join fell back to a
+default; the same InterPro evidence, entering the pipeline through a
+separate noisy-OR graft that reads its own files, is worth $0.0179$ in
+$f_{\mu,w}$ and secures seven of the nine evaluation cells.
 An operator who saw only the zeros would retire a working signal and bury
 the real defect. The lineage family tells the complementary story: it is
 inert for no-knowledge proteins, where by construction there is no prior
@@ -314,7 +316,7 @@ live, that knowledge is kept as data rather than prose, in one registry
 that the whole stack reads and none restates. Each canonical column has a
 single entry giving its definition, its producer, its unit and range, its
 status (produced, declared-absent, or pool-injected), and any caveat such
-as the empty InterPro tables. Three renderers consume that one source. A
+as the unconfigured InterPro source. Three renderers consume that one source. A
 build-time directive turns it into the reference page of the platform's
 generated documentation; an endpoint serves it as structured data to an
 operator-facing page in the deployed interface; and this manuscript draws
