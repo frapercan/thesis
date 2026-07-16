@@ -795,6 +795,53 @@ partly-known settings, where TransFew still leads (0.512 against 0.440, and 0.29
 against 0.218). That Biological Process gap, on the harder partly-characterised
 proteins, is where the remaining headroom now sits.
 
+\paragraph{Where the Biological Process gap lives.}
+It is tempting to read those two cells as a limit of the available evidence, and an
+earlier account of this work did exactly that. The measurement does not support it.
+Three facts, obtained on a retrained booster over an exported partly-known dataset
+and therefore reported as internal deltas rather than as benchmark absolutes, locate
+the loss precisely. First, the evidence is present: of the true partly-known protein
+to Biological Process term pairs the system fails to predict, 97\% use a term that
+already exists in the vocabulary visible before the target window opens, so only 3\%
+are genuinely novel. Second, retrieval is not what binds, even though the candidate
+pool recovers only 0.322 of the true pairs. Scoring that same pool with the true
+label, which asks what a perfect ordering of the candidates already retrieved would
+be worth, yields $f_{\mu,w}=0.608$ where the reranker delivers 0.126: the system
+captures a fifth of what its own shortlist allows. Third, and consequently, the
+candidate-side levers are inert. Expanding the pool by term co-occurrence lifts
+recall by half, from 0.322 to 0.480, and converts to $+0.002$, because additional
+candidates do not help a ranker that cannot order the ones it already holds.
+
+The gap is therefore one of ranking, and part of it is self-inflicted. The reranker
+is trained with a listwise objective that optimises the order of candidates within a
+single protein, whereas the benchmark's metric sweeps one global threshold across
+every protein at once. A listwise objective is invariant to any per-protein monotone
+rescaling of its scores, so it can order each protein well and still leave scores
+mutually incomparable across proteins, which is precisely the observed symptom: a
+global ranking quality of 0.79 by area under the curve converting to an $f_{\mu,w}$
+of only 0.126. Retraining the identical rows and features with a pointwise,
+globally calibrated objective raises that area to 0.823 and $f_{\mu,w}$ to 0.152, a
+gain of $+0.026$ obtained without a single new feature.
+
+That correction is real but does not, on its own, close a gap of 0.076, and the
+signal that would is not yet identified. The two structural hypotheses testable with
+the resources of this work are both eliminated by measurement: term co-occurrence as
+a candidate generator ($+0.002$) and Gene Ontology hierarchical proximity as a
+feature (area under the curve 0.550, decorrelated from the reranker yet contributing
+$+0.000$ when blended). A text-aligned representation adds $+0.002$ on this cell and
+a domain-signature graft is actively harmful on Biological Process, while a larger
+base representation reorders the same candidates and so cannot help where recall is
+not the constraint. The honest statement, and the one this work makes, is that the
+frontier is characterised rather than crossed: its location is known, its magnitude
+is quantified at roughly a fivefold ranking headroom inside the existing shortlist,
+and the levers currently available are demonstrably insufficient to reach it.
+
+A methodological note deserves preservation, because it generalises beyond this
+cell. The first reading of the 0.322 recall figure was that the system was recall
+limited, and that reading was published internally before the oracle test was run. A
+recall number alone does not identify what binds a pipeline; the ceiling of the pool
+does, and obtaining it costs one evaluation with the labels used as the score.
+
 \begin{table}[htbp]
   \centering
   \caption[LAFA continuous benchmark: PROTEA reaches first place]{%
