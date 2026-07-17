@@ -819,55 +819,61 @@ productized reproduction, served live from \texttt{/benchmark}, reaches a mean o
 two partly-known settings, where the sources that the offline champion fitted are
 not yet fully reproduced on the platform.
 
-\paragraph{Where the remaining headroom actually lives.}
-It is tempting to read the two unwon Biological Process cells as a limit of the
-available evidence, and an earlier account of this work did exactly that. The
-measurement does not support it. Three figures, obtained on a retrained booster
-over an exported partly-known dataset and therefore reported as internal deltas
-rather than as benchmark absolutes, locate the loss precisely. First, the evidence
-is present: of the true partly-known protein to Biological Process term pairs the
-system fails to predict, 97\% use a term that already exists in the vocabulary
-visible before the target window opens, so only 3\% are genuinely novel. Second,
-retrieval is not what binds, even though the candidate pool recovers only 0.322 of
-the true pairs. Scoring that same pool with the true label, which asks what a
-perfect ordering of the candidates already retrieved would be worth, yields
-$f_{\mu,w}=0.608$ where the reranker delivers 0.126: the system captures a fifth
-of what its own shortlist allows. Third, and consequently, the candidate-side
-levers are inert. Expanding the pool by term co-occurrence lifts recall by half,
-from 0.322 to 0.480, and converts to $+0.002$, because additional candidates do
-not help a ranker that cannot order the ones it already holds.
+\paragraph{Where the remaining headroom lives.}
+The two unwon Biological Process cells are a limit of the ranking stage, not of the
+available evidence. Four measurements locate it, each on one harness against the
+full ground truth of the partly-known cell, on a booster retrained over the exported
+dataset. That booster reproduces the deployed recipe at $f_{\mu,w}=0.213$ against the
+benchmark's 0.218 on the same cell, so the figures below track the board closely.
 
-The headroom is therefore one of ranking, and part of it is self-inflicted. The
-reranker is trained with a listwise objective that optimises the order of
-candidates within a single protein, whereas the benchmark's metric sweeps one
-global threshold across every protein at once. A listwise objective is invariant
-to any per-protein monotone rescaling of its scores, so it can order each protein
-well and still leave scores mutually incomparable across proteins, which is
-precisely the observed symptom: a global ranking quality of 0.79 by area under the
-curve converting to an $f_{\mu,w}$ of only 0.126. Retraining the identical rows
-and features with a pointwise, globally calibrated objective raises that area to
-0.823 and $f_{\mu,w}$ to 0.152, a gain of $+0.026$ obtained without a single new
-feature.
+First, the evidence is present: of the true partly-known protein to Biological
+Process term pairs the system fails to predict, 97\% use a term that already exists
+in the vocabulary visible before the target window opens, and only 3\% are genuinely
+novel. Second, retrieval is not what binds, even though the candidate pool recovers
+only 0.322 of the true pairs. Scoring that same pool with the true label, which asks
+what a perfect ordering of the candidates already retrieved would be worth, yields
+$f_{\mu,w}=0.608$ against the 0.213 the system delivers: it extracts about a third of
+what its own shortlist allows. Consequently the candidate-side levers are inert, and
+expanding the pool by term co-occurrence lifts recall by half, from 0.322 to 0.480,
+for a small fraction of the gap, because additional candidates do not help a ranker
+that cannot order the ones it already holds.
 
-That correction is real but does not, on its own, close the gap, and the signal
-that would is not yet identified. The two structural hypotheses testable with the
-resources of this work are both eliminated by measurement: term co-occurrence as a
-candidate generator ($+0.002$) and Gene Ontology hierarchical proximity as a
-feature (area under the curve 0.550, decorrelated from the reranker yet
-contributing $+0.000$ when blended). A text-aligned representation adds $+0.002$ on
-this cell and a domain-signature graft is actively harmful on Biological Process,
-while a larger base representation reorders the same candidates and so cannot help
-where recall is not the constraint. The honest statement, and the one this work
-makes, is that the frontier is characterised rather than crossed: its location is
-known, its magnitude is quantified at roughly a fivefold ranking headroom inside
-the existing shortlist, and the levers currently available are demonstrably
-insufficient to reach it.
+Third, the limit is not where the list is cut. A single global threshold cannot
+express a per-protein term count: every protein is cut at the same point whether it
+deserves three terms or thirty. Freezing the system's own ordering and granting each
+protein its true count, an oracle no method could possess, moves $f_{\mu,w}$ from
+0.202 to 0.238, which is $+0.036$ of a 0.406 gap, about a tenth. The other nine
+tenths is ordering, and no clue the system carries separates the true candidates from
+the rest: on this cell no feature exceeds an area under the curve of 0.68 against a
+2.47\% positive rate.
 
-A methodological note deserves preservation, because it generalises beyond this
-cell. The first reading of the 0.322 recall was that the system was recall
-limited, and that reading was recorded before the oracle test was run. A recall
-number alone does not identify what binds a pipeline; the ceiling of the pool
-does, and obtaining it costs one evaluation with the labels used as the score.
+Fourth, the technique levers available to this work are exhausted, because the
+deployed recipe already sits at their optimum. Every variation tested scores below
+it: training one model per cell rather than pooling the three namespaces reaches
+0.202; a pointwise objective in place of the listwise one reaches 0.152; adding
+within-protein rank and standardised features reaches 0.147; class weighting reaches
+0.144; and pruning the classifier-proposed candidates from the pool leaves the score
+unchanged while costing coverage. The pointwise result is worth isolating, because it
+is the one a practitioner would expect to help and it carries a \emph{better} area
+under the curve than the deployed recipe (0.823 against 0.790) together with a worse
+$f_{\mu,w}$. Area under the curve orders these recipes against the metric that
+decides, which is a warning this work records: ranking levers cannot be triaged by it.
+
+The frontier is therefore characterised rather than crossed. Its location is known,
+its magnitude is quantified at roughly a threefold ranking headroom inside the
+existing shortlist, the structural hypotheses testable with these resources are
+eliminated (term co-occurrence as a candidate generator; Gene Ontology hierarchical
+proximity as a feature, at an area under the curve of 0.550 and contributing nothing
+when blended), and the signal that would cross it is not identified.
+
+Two methodological rules generalise beyond this cell and both are load-bearing here.
+A recall number alone does not identify what binds a pipeline; the ceiling of the
+pool does, and obtaining it costs one evaluation with the labels used as the score.
+And a monotone rescaling of a score is not free under a threshold-swept metric:
+because the sweep runs on a fixed grid, remapping the score distribution changes
+which cuts the sweep can reach, and on this cell scoring one booster with its raw
+output rather than with a global rank percentile of that output differs by 0.088. Any
+transform applied before evaluation is part of the measurement.
 
 \begin{table}[htbp]
   \centering
