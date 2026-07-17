@@ -826,13 +826,16 @@ measurement does not support it. Three figures, obtained on a retrained booster
 over an exported partly-known dataset and therefore reported as internal deltas
 rather than as benchmark absolutes, locate the loss precisely. First, the evidence
 is present: of the true partly-known protein to Biological Process term pairs the
-system fails to predict, 97\% use a term that already exists in the vocabulary
-visible before the target window opens, so only 3\% are genuinely novel. Second,
+system fails to predict, 97.0\% use a term that some protein in the same cohort
+already carried before the target window opens, and 95.2\% once each term is
+weighted by the information accretion the metric scores by, so only 3\% of the
+pairs and 4.8\% of the weight are genuinely novel. Second,
 retrieval is not what binds, even though the candidate pool recovers only 0.322 of
-the true pairs. Scoring that same pool with the true label, which asks what a
-perfect ordering of the candidates already retrieved would be worth, yields
-$f_{\mu,w}=0.608$ where the reranker delivers 0.126: the system captures a fifth
-of what its own shortlist allows. Third, and consequently, the candidate-side
+the true pairs. Submitting every pool cell that belongs to the propagated ground
+truth, which asks what a perfect ordering of the candidates already retrieved would
+be worth, yields $f_{\mu,w}=0.7519$ at precision 1.000, and the best achievable
+ordering of that same pool reaches 0.7764. The reranker delivers 0.2131: the system
+captures 27.4\% of what its own shortlist allows. Third, and consequently, the candidate-side
 levers are inert. Expanding the pool by term co-occurrence lifts recall by half,
 from 0.322 to 0.480, and converts to $+0.002$, because additional candidates do
 not help a ranker that cannot order the ones it already holds.
