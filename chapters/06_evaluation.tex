@@ -826,42 +826,71 @@ measurement does not support it. Three figures, obtained on a retrained booster
 over an exported partly-known dataset and therefore reported as internal deltas
 rather than as benchmark absolutes, locate the loss precisely. First, the evidence
 is present: of the true partly-known protein to Biological Process term pairs the
-system fails to predict, 97\% use a term that already exists in the vocabulary
-visible before the target window opens, so only 3\% are genuinely novel. Second,
+system fails to predict, 97.0\% use a term that some protein in the same cohort
+already carried before the target window opens, and 95.2\% once each term is
+weighted by the information accretion the metric scores by, so only 3\% of the
+pairs and 4.8\% of the weight are genuinely novel. Second,
 retrieval is not what binds, even though the candidate pool recovers only 0.322 of
-the true pairs. Scoring that same pool with the true label, which asks what a
-perfect ordering of the candidates already retrieved would be worth, yields
-$f_{\mu,w}=0.608$ where the reranker delivers 0.126: the system captures a fifth
-of what its own shortlist allows. Third, and consequently, the candidate-side
+the true pairs. Submitting every pool cell that belongs to the propagated ground
+truth, which asks what a perfect ordering of the candidates already retrieved would
+be worth, yields $f_{\mu,w}=0.7519$ at precision 1.000, and the best achievable
+ordering of that same pool reaches 0.7764. The reranker delivers 0.2131: the system
+captures 27.4\% of what its own shortlist allows. Third, and consequently, the candidate-side
 levers are inert. Expanding the pool by term co-occurrence lifts recall by half,
 from 0.322 to 0.480, and converts to $+0.002$, because additional candidates do
 not help a ranker that cannot order the ones it already holds.
 
-The headroom is therefore one of ranking, and part of it is self-inflicted. The
+The headroom is therefore one of ranking: 0.2131 against a shortlist worth 0.7764
+to its best ordering, a factor of 3.6. Part of the mismatch is structural. The
 reranker is trained with a listwise objective that optimises the order of
 candidates within a single protein, whereas the benchmark's metric sweeps one
 global threshold across every protein at once. A listwise objective is invariant
 to any per-protein monotone rescaling of its scores, so it can order each protein
-well and still leave scores mutually incomparable across proteins, which is
-precisely the observed symptom: a global ranking quality of 0.79 by area under the
-curve converting to an $f_{\mu,w}$ of only 0.126. Retraining the identical rows
-and features with a pointwise, globally calibrated objective raises that area to
-0.823 and $f_{\mu,w}$ to 0.152, a gain of $+0.026$ obtained without a single new
-feature.
+well and still leave those scores mutually incomparable across proteins.
 
-That correction is real but does not, on its own, close the gap, and the signal
-that would is not yet identified. The two structural hypotheses testable with the
-resources of this work are both eliminated by measurement: term co-occurrence as a
-candidate generator ($+0.002$) and Gene Ontology hierarchical proximity as a
-feature (area under the curve 0.550, decorrelated from the reranker yet
-contributing $+0.000$ when blended). A text-aligned representation adds $+0.002$ on
-this cell and a domain-signature graft is actively harmful on Biological Process,
-while a larger base representation reorders the same candidates and so cannot help
-where recall is not the constraint. The honest statement, and the one this work
-makes, is that the frontier is characterised rather than crossed: its location is
-known, its magnitude is quantified at roughly a fivefold ranking headroom inside
-the existing shortlist, and the levers currently available are demonstrably
-insufficient to reach it.
+The remedy that diagnosis suggests does not work. Retraining the identical rows
+and features with a pointwise, globally calibrated objective scores $0.1518$ where
+the deployed recipe scores $0.2121$ on the same rows: it costs $-0.06$ rather than
+recovering anything. The reasoning is sound and the treatment it recommends is
+measurably harmful, which is the first of several places in this section where a
+convincing mechanism and a working lever part company.
+
+What does pay is not calibration but abstention, and it follows from how the
+metric reads a candidate that was never submitted. The evaluator propagates each
+submission through the ontology and fills any term it did not receive with the
+score of that term's best descendant, so a candidate withheld from the submission
+does not score zero: its cell inherits, and those inherited ancestors arrive at a
+weighted precision of 0.2967 against the arm's own 0.1801. A candidate submitted
+with a low score is stored instead, and the fill leaves it alone, which forfeits
+the inheritance. Submitting a weak candidate is therefore worse than submitting
+nothing, and the deployed recipe had been exploiting this by accident: its scores
+are unbounded margins, four in every five are at or below zero, and the evaluator
+discards those, so the pipeline was abstaining on most of its own shortlist
+without anyone choosing to.
+
+Choosing it deliberately is worth a little more. Withholding the reranker's
+weakest candidates at a threshold selected on nine of ten disjoint protein folds
+and applied blind to the tenth gains $+0.0092$, with a fold-to-fold standard
+deviation of $0.0034$ and a positive result in all ten folds. Scoring the
+candidates proposed by the sparse classifier with that classifier's own output,
+rather than with a reranker that never sees the features describing them, gains
+$+0.0084$ (standard deviation $0.0058$, positive in nine of ten folds). The two
+compose to $+0.016$. They are real, they cost nothing, and they do not close a
+factor of 3.6.
+
+The signal that would close it is not yet identified. The two structural
+hypotheses testable with the resources of this work are both eliminated by
+measurement: term co-occurrence as a candidate generator ($+0.002$) and Gene
+Ontology hierarchical proximity as a feature (area under the curve 0.550,
+decorrelated from the reranker yet contributing $+0.000$ when blended). A
+text-aligned representation adds $+0.002$ on this cell and a domain-signature
+graft is actively harmful on Biological Process, while a larger base
+representation reorders the same candidates and so cannot help where recall is
+not the constraint. The honest statement, and the one this work makes, is that
+the frontier is characterised rather than crossed: its location is known, its
+magnitude is quantified at a 3.6-fold ranking headroom inside the existing
+shortlist, and the levers currently available are demonstrably insufficient to
+reach it.
 
 A methodological note deserves preservation, because it generalises beyond this
 cell. The first reading of the 0.322 recall was that the system was recall
