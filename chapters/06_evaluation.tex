@@ -835,10 +835,13 @@ the true pairs. Submitting every pool cell that belongs to the propagated ground
 truth, which asks what a perfect ordering of the candidates already retrieved would
 be worth, yields $f_{\mu,w}=0.7519$ at precision 1.000, and the best achievable
 ordering of that same pool reaches 0.7764. The reranker delivers 0.2131: the system
-captures 27.4\% of what its own shortlist allows. Third, and consequently, the candidate-side
-levers are inert. Expanding the pool by term co-occurrence lifts recall by half,
-from 0.322 to 0.480, and converts to $+0.002$, because additional candidates do
-not help a ranker that cannot order the ones it already holds.
+captures 27.4\% of what its own shortlist allows. Third, and consequently, feeding
+the reranker more candidates is inert. Expanding the pool by term co-occurrence lifts
+recall by half, from 0.322 to 0.480, and converts to $+0.002$, because additional
+candidates do not help a ranker that cannot order the ones it already holds. The one
+candidate-side lever that does pay routes around the reranker rather than into it,
+scoring a generator's own proposals with the generator's own output, and is quantified
+below at $+0.0084$.
 
 The headroom is therefore one of ranking: 0.2131 against a shortlist worth 0.7764
 to its best ordering, a factor of 3.6. Part of the mismatch is structural. The
