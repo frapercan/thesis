@@ -839,9 +839,9 @@ captures 27.4\% of what its own shortlist allows. Third, and consequently, feedi
 the reranker more candidates is inert. Expanding the pool by term co-occurrence lifts
 recall by half, from 0.322 to 0.480, and converts to $+0.002$, because additional
 candidates do not help a ranker that cannot order the ones it already holds. The one
-candidate-side lever that does pay routes around the reranker rather than into it,
-scoring a generator's own proposals with the generator's own output, and is quantified
-below at $+0.0084$.
+apparent exception, scoring a generator's own proposals with the generator's own output,
+gains only in the looser offline frame and reverses once scored in the benchmark's own
+partly-known frame, as quantified below.
 
 The headroom is therefore one of ranking: 0.2131 against a shortlist worth 0.7764
 to its best ordering, a factor of 3.6. Part of the mismatch is structural. The
@@ -876,9 +876,11 @@ weakest candidates at a threshold selected on nine of ten disjoint protein folds
 and applied blind to the tenth gains $+0.0092$, with a fold-to-fold standard
 deviation of $0.0034$ and a positive result in all ten folds. Scoring the
 candidates proposed by the sparse classifier with that classifier's own output,
-rather than with a reranker that never sees the features describing them, gains
-$+0.0084$ (standard deviation $0.0058$, positive in nine of ten folds). The two
-compose to $+0.016$. They are real, they cost nothing, and they do not close a
+rather than with a reranker that never sees the features describing them, appears to
+gain in that offline frame but reverses to a loss of about $-0.01$ once scored in the
+benchmark's own partly-known frame, which excludes the already-known annotations that
+apparent gain leaned on. It is an artefact of the looser frame, not a lever. Only the
+abstention gain survives; it is real, it costs nothing, and it does not close a
 factor of 3.6.
 
 The signal that would close it is not yet identified. The two structural
@@ -889,7 +891,17 @@ decorrelated from the reranker yet contributing $+0.000$ when blended). A
 text-aligned representation adds $+0.002$ on this cell and a domain-signature
 graft is actively harmful on Biological Process, while a larger base
 representation reorders the same candidates and so cannot help where recall is
-not the constraint. The honest statement, and the one this work makes, is that
+not the constraint. A systematic sweep of candidate generation across orthogonal
+evidence channels closes the question from the other side. Each channel that could
+propose the missing terms, term co-occurrence, the protein's own literature, and a
+protein-interaction network drawn from a release predating the benchmark, reaches a
+fraction of the genuinely missing tail, but adds it at a precision between one and
+six percent, so those terms are discarded by the same fill that rewards abstention.
+The interaction network, the channel most directly aligned with Biological Process
+as a property of a protein's cellular partners, is the strongest of the three and
+still nets negative once its proposals are submitted. The missing tail is reachable
+but not separable by any signal available to this work. The honest statement, and
+the one this work makes, is that
 the frontier is characterised rather than crossed: its location is known, its
 magnitude is quantified at a 3.6-fold ranking headroom inside the existing
 shortlist, and the levers currently available are demonstrably insufficient to
