@@ -955,6 +955,144 @@ and the sealed ($227 \to 230$) window. For that productized figure the
 application is, as elsewhere in this chapter, the single source of truth: it is
 the number a reader can confirm live on the running system.
 
+
+% ────────────────────────────────────────────────────────────
+\subsection{Experiment~14: The First Ablation, and What a Broken Instrument Taught Us}
+\label{subsec:exp14-first-plm-ablation}
+
+The experiments so far fixed the protein language model and varied what was built
+on top of it. This one does the opposite. It holds the pipeline constant and
+sweeps the two choices that were never justified by measurement: which
+representation the neighbour search runs over, and how many neighbours it
+consults. Eight models and four neighbourhood sizes are scored under seven
+scoring configurations on a single sealed frame, giving 224 measurements over the
+same 6{,}216 evaluation proteins.
+
+It is reported here in full, including a defect that invalidated an earlier
+version of it, because the defect turned out to be the more instructive half.
+
+\paragraph{The grid.}
+The eight representations span two orders of magnitude in size, from an
+8-million-parameter model at 320 dimensions to a 1.2-billion-parameter model at
+1{,}536. The neighbourhood size $K$ takes the values 3, 5, 10 and 30. Every cell
+is scored under all seven configurations, which range from alignment identity
+alone to a composite of embedding distance, alignment, taxonomy and neighbour
+vote. The evaluation set is the temporal delta between two annotation releases,
+partitioned into no-knowledge (523 proteins), limited-knowledge (622) and
+partial-knowledge (5{,}331) following the protocol of
+\cref{subsec:nk-lk-pk}.
+
+\paragraph{Result: the neighbourhood should be small, without exception.}
+\Cref{tab:exp14-grid} reports the mean IA-weighted micro-$F$ over the three
+aspects in the no-knowledge partition, the setting in which a protein's own prior
+annotations cannot help it.
+
+\begin{table}[htbp]
+  \centering
+  \caption[First PLM ablation]{No-knowledge mean IA-weighted micro-$F$ across the
+  three aspects, averaged over the seven scoring configurations. $K=3$ wins in
+  every row.}
+  \label{tab:exp14-grid}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Representation & $K{=}3$ & $K{=}5$ & $K{=}10$ & $K{=}30$ \\
+    \midrule
+    ProtST-esm1b   & \textbf{0.4111} & 0.3261 & 0.3282 & 0.3513 \\
+    ankh-large     & \textbf{0.4106} & 0.3975 & 0.3827 & 0.3482 \\
+    prot\_t5       & \textbf{0.4087} & 0.3960 & 0.3760 & 0.3492 \\
+    ankh-base      & \textbf{0.4050} & 0.3917 & 0.3736 & 0.2805 \\
+    ProstT5        & \textbf{0.4022} & 0.3910 & 0.3700 & 0.3393 \\
+    esm2\_650M     & \textbf{0.4003} & 0.3850 & 0.3529 & 0.3144 \\
+    esmc\_600M     & \textbf{0.3987} & 0.3839 & 0.3589 & 0.3211 \\
+    esm2\_8M       & \textbf{0.3923} & 0.3721 & 0.3444 & 0.3061 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The smallest neighbourhood wins for all eight representations, with no exception
+and no near-miss. Seven of the eight decay monotonically as $K$ grows. This is not
+a marginal preference: between $K{=}3$ and $K{=}30$ the typical model loses
+between a fifth and a third of its score. Consulting more neighbours admits more
+wrong ones, and the scoring configurations that weight neighbour agreement most
+heavily are the ones that suffer most.
+
+\paragraph{The result that matters is the one the table does not emphasise.}
+At the winning $K$, the eight representations span \textbf{0.0188}. An
+8-million-parameter model sits 0.019 below the best, and models a hundred and
+fifty times larger do not clear two points of separation from it. Read across the
+row rather than down the column, this is not a finding about which representation
+wins. It is a finding about how little the representation matters in this regime,
+and it sets a ceiling on what the remaining rungs of this thesis can hope to gain
+by substituting one language model for another.
+
+\paragraph{An instrument that was measuring itself.}
+An earlier execution of this same grid reported one representation, ankh-base,
+far below the others, and the gap survived several attempts to explain it as a
+property of the model. It was not. The neighbour search dropped queries.
+
+On a graphics card out-of-memory error the search halved its query chunk,
+processed only the first half, and then advanced its loop by the original stride,
+stepping over the half it had discarded. Those queries were never scored. Because
+the results are positional, and the caller paired them with its own accession list
+without checking length, the shortfall did not truncate the tail: it shifted the
+alignment, so every query after the first failure was assigned a later query's
+neighbours and then scored against its own ground truth. Nothing raised, and the
+run completed successfully. The observable symptom was a representation that
+appeared to retrieve badly.
+
+Two properties of this failure are worth stating, because they generalise beyond
+this system.
+
+\begin{enumerate}
+  \item \textbf{A safety guard selected which models were damaged.} The search
+    falls back to the processor when the reference corpus would fill most of the
+    card's memory. The corpus scales with representation width; the distance
+    matrix, which is what actually overflowed, does not. So the widest
+    representations tripped the guard, ran on the processor, and were untouched,
+    while the narrowest passed the guard, ran on the card, and met the failure.
+    The split is exact at 768 against 1{,}024 dimensions with no exceptions in
+    eight models. A guard intended to protect the risky cases diverted the ones
+    that would have failed deterministically and admitted the ones that failed
+    intermittently, and the selection it performed correlates with the very
+    property the experiment set out to measure.
+  \item \textbf{The damage is measurable after the fact.} In this protocol most
+    query proteins are present in the donor bank, so a correct search retrieves
+    each query as its own nearest neighbour at distance zero. The share of queries
+    that do so is therefore a direct integrity check, requiring no reference
+    result. Applied to the 42 prediction sets that predate the correction, it
+    grades 12 of them as damaged, with the worst at 46 per cent against a healthy
+    99 per cent, and it recovers the ordering of the damage exactly.
+\end{enumerate}
+
+\paragraph{The correction, and the control that makes it credible.}
+The whole grid was recomputed on a corrected search. Recomputing damaged runs is
+not by itself evidence that the correction is sound, since the pipeline changed at
+the same time. The control is a representation the audit graded as undamaged:
+re-running ankh-large at $K{=}3$ through the corrected pipeline, with a different
+search backend, moved every one of the seven scoring configurations by between
+$-0.0001$ and $+0.0008$. A clean measurement is therefore reproduced to within
+noise, which is what licenses reading the large movements elsewhere as the
+correction of damage rather than as an artefact of the change.
+
+The apparent weakness of ankh-base does not survive. Recomputed, it places fourth
+of eight and four thousandths from second.
+
+\paragraph{Limitation: this frame measures near-identical retrieval.}
+The result above should not be read as a statement about remote homology. In this
+evaluation set 99.7 per cent of queries have a donor above 90 per cent sequence
+identity available to them, because the query protein is itself in the donor bank
+and is retrieved first. Excluding each query's own record, the identity of the
+best remaining donor distributes across the conventional bands as 1{,}149,
+1{,}487, 1{,}653 and 1{,}908 proteins, so the axis exists and is reportable, but
+only 287 queries fall below the 20 per cent threshold against which the
+embedding-transfer literature reports its central claim.
+
+That is too thin a population to carry a claim of the same kind, and it is a
+property of how the evaluation window was chosen rather than of the method. The
+next rung addresses it directly, by widening the temporal window, which raises the
+no-knowledge partition from 523 proteins to 3{,}031 and the sub-20 per cent cell
+from 287 to 928.
+
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
 \label{sec:discussion}
