@@ -1,0 +1,240 @@
+\subsection{Experiment~14: Where the Sparse Code Is Formed}
+\label{sec:exp14-residue-sparse}
+
+The encoder deployed in this system projects a protein's pooled embedding into a
+sparse, ontology-aligned code, and retrieval then runs on that code rather than on
+the dense vector. This experiment asks a question the deployed design never puts:
+whether the sparse selection should happen \emph{before} the residues are pooled
+rather than after.
+
+The question is not cosmetic, because selection and averaging do not commute. Taking
+the largest entries of an average is a different operation from averaging the largest
+entries of each term, and the two disagree whenever an atom is a narrow runner-up in
+many residues and a decisive winner in few. Pooling first lets such an atom bank
+every second place it never won; selecting first never admits a second place at all.
+Once a pooled vector exists the distinction is unrecoverable, since which residue
+activated which atom has already been averaged away, so the two orders cannot be
+compared by any post-hoc transformation of the stored embeddings. They can only be
+compared by running the language model again.
+
+\subsubsection{Design}
+
+All encoders are fitted on the same proteins, with the same objective, budget and
+random seed, and scored on the same held-out proteins that no encoder has seen. The
+population being scored is the temporal evaluation delta; the proteins that the
+deployed encoder was itself fitted on are removed before anything is measured, since
+scoring it on those would credit it with an advantage that has nothing to do with the
+mechanism under test.
+
+Two references are reported for every arm, because there are two questions with
+different answers. Against a \emph{pooled control}, an encoder fitted on the same
+proteins with the same objective and budget, the comparison isolates the mechanism:
+whatever an arm wins there is not explained by having seen more data or a different
+loss. Against the \emph{deployed encoder}, frozen, the comparison asks whether any of
+it improves on what the system currently runs, a coarser question in which the
+training budget is part of the comparison rather than a confound to be removed.
+
+The primary screen is the mean functional similarity between a protein and its ten
+nearest neighbours by code cosine, over ancestor closures propagated through the
+ontology. It is used because it is what nearest-neighbour transfer consumes, and its
+validity as a proxy is tested rather than assumed in
+Section~\ref{sec:exp14-fmax}. Every difference carries a bootstrap interval paired on
+proteins, and every result is reported by protein length band.
+
+\subsubsection{A resolution floor, measured rather than assumed}
+\label{sec:exp14-floor}
+
+Before any arm is ranked, the study's own reproducibility is measured. The same
+recipe, the same seed, fitted twice on two extractions verified identical to the
+last bit, produces encoders that differ by $0.0013$ in mean purity, with a paired
+interval that excludes zero.
+
+That number is not noise in the estimator; it is variance in the fit. A bootstrap
+paired on proteins resamples the population and is silent about the optimiser, and
+two mechanisms feed the gap: the order in which minibatches arrive, and the fact that
+a selection of the largest entries is unstable under it. A shift of one part in ten
+million swaps a near-tied atom, and the code then differs by that atom's whole
+magnitude. An independent estimate agrees: two aggregation routes that are
+algebraically identical for proteins occupying a single window score $0.0006$ apart,
+again with a separating interval.
+
+Every difference below roughly $0.0015$ is therefore reported as unresolved
+regardless of its interval. Three of the intervals in this section exclude zero and
+are nonetheless declared inconclusive on that basis. Stating the floor first, rather
+than discovering it when a favourable difference needs defending, is what makes the
+ranking that follows meaningful.
+
+\subsubsection{The mechanism}
+
+Table~\ref{tab:exp14-mechanism} gives the ordering. Selecting atoms per residue
+before pooling is worth more than three hundredths of purity against the pooled
+control, roughly a quarter of the control's own absolute score, and the advantage
+survives at every neighbourhood size from one to fifty and grows with it.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Encoding mechanisms against a pooled control fitted on the same proteins
+  with the same objective and budget. Held out on 2{,}646 proteins.
+  $^{\dagger}$~below the resolution floor of Section~\ref{sec:exp14-floor}.}
+  \label{tab:exp14-mechanism}
+  \input{chapters/tables_experiment14/mechanism}
+\end{table}
+
+The number of atoms retained per residue behaves as a plateau rather than an optimum.
+Moving from 128 to 32 is worth five times the resolution floor; from 32 to 16, less
+than twice it; and the steps from 16 to 8 and from 8 to 4 fall below it. Since four
+atoms per residue is not measurably worse than sixteen and is thirty-two times
+cheaper than the deployed 128, the choice inside the plateau is made on cost and not
+on signal. This is the rare case where the recommended setting is defended by an
+absence of difference, which is only admissible because the floor was measured first.
+
+\subsubsection{Interventions that did not help}
+
+Table~\ref{tab:exp14-negatives} collects the changes that were expected to help and
+did not. They are reported because each one closes a direction, and because two of
+them contradict standard practice.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Interventions measured against the identical arm without them.
+  $^{\dagger}$~below the resolution floor.}
+  \label{tab:exp14-negatives}
+  \input{chapters/tables_experiment14/negatives}
+\end{table}
+
+Hard negative mining, which the deployed encoder uses, costs accuracy here. The
+mechanism is specific rather than mysterious: the objective is a regression that asks
+the code cosine to equal a functional similarity, and the calibration of that scale
+is carried by the mass of easy pairs. Oversampling the pairs the code currently gets
+wrong biases the estimate toward suppressing cosines and distorts the scale it is
+trying to fit. A ranking loss, tried as the natural alternative, was worse still, and
+because it was worse for signed codes as well as for binary ones the failure is
+attributable to the objective and not to an interaction with the code. The lesson is
+that the objective and the sampling scheme are one decision and cannot be chosen
+apart.
+
+Binary residue values fail for a reason that is geometric and was confirmed by direct
+measurement rather than inferred from the score. A code whose entries cannot be
+negative has cosines confined to a narrow, high band, while the functional
+similarities it is asked to reproduce are concentrated near zero. It is not that the
+representation is imprecise; it is that it cannot express dissimilarity at all. The
+practical consequence is that a quantised code must keep its sign, and that a
+representation of this kind cannot be trained by ordinary backpropagation at all,
+since replacing a value by a membership indicator leaves the output independent of
+the weights and the backward pass finds no path.
+
+Aggregating at the window rather than the residue also loses, and it loses most
+clearly where it can act: on the proteins long enough to occupy more than one window
+it is five times worse than its diluted figure over the whole population. Giving each
+window equal weight discards the fact that windows hold different numbers of
+residues, which per-residue pooling already respected.
+
+Finally, the size of the training corpus saturates early. Four thousand proteins to
+fifteen thousand is worth about twice the floor; fifteen thousand to sixty thousand
+is indistinguishable from zero, and pre-training on the larger corpus and adapting
+afterwards is indistinguishable from not using it at all. What does matter, by a
+factor of six, is whether the training proteins are drawn from the population being
+scored. The lever that the literature would reach for first is the one that is
+already exhausted, and the lever that is not usually described as a lever carries the
+effect.
+
+\subsubsection{Do the layers of the language model carry different signal?}
+
+A comparison across layers is impossible on raw activations, and the reason is worth
+recording. The middle layers of the backbone used here carry activations four orders
+of magnitude larger than the last: typical vector norms run from under two at the
+output to nearly one hundred thousand in the middle. A map initialised and optimised
+identically across such a range is not in the same regime for each layer, so a first
+comparison ranked the input scale and not the layer, and it silently broke the
+dictionary comparison as well, since a concatenation of four layers at those relative
+scales simply is the two largest of them.
+
+After standardising each layer with statistics fitted on the training split alone,
+the ordering is monotone in depth and the last layer wins. A learned mixture over
+layers, initialised at an equal average and free to move, converges to weights that
+increase monotonically with depth and places nearly half its mass on the final layer;
+no combination of layers beats that layer alone, and the best of them merely ties it
+within the floor. The practical consequence is that extracting further layers is not
+worth its cost, and that a single layer is both the best and the cheapest input.
+
+This disagrees with an earlier measurement in this work, which placed the middle
+layers ahead. That measurement was made on pooled embeddings and a different task,
+and the two are not the same question. The disagreement is recorded rather than
+resolved, because resolving it would require rerunning the earlier protocol under the
+present one and no such run was made.
+
+\subsubsection{From the screen to the metric}
+\label{sec:exp14-fmax}
+
+Every result above is measured on a functional screen. The screen was chosen because
+it is what nearest-neighbour transfer consumes, but the claim being made is about
+annotation quality, and no amount of purity is evidence for it until the two are put
+side by side.
+
+The full task was therefore run: a reference bank of sixty thousand annotated
+proteins, the held-out queries retrieving their nearest neighbours in it, terms
+transferred with a score proportional to the similarity mass supporting them, and the
+result scored by the maximum F-measure per aspect. The retrieval and the transfer are
+identical across arms; only the encoder differs.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Maximum F-measure on the full retrieval and transfer task, against the
+  deployed encoder. Intervals are 2{,}000 bootstrap draws paired on proteins, with
+  the measure recomputed on each draw.}
+  \label{tab:exp14-fmax}
+  \input{chapters/tables_experiment14/fmax}
+\end{table}
+
+All three aspects improve and every interval excludes zero. The largest gain falls on
+biological process, which is the aspect this thesis has characterised as the
+frontier, and it is more than three times the gain on molecular function.
+
+Two features of the comparison make the result stronger rather than weaker. The
+reference bank is the corpus the deployed encoder was fitted on, so it encodes that
+bank in the domain it was trained for, while the proposed encoder encodes it out of
+domain. And the ordering the screen produced is the ordering the task produces, which
+retroactively justifies refining eleven axes on a screen that costs minutes instead
+of on a metric that costs hours. That the proxy held is a methodological result in its
+own right, and it is one that could only be claimed after the fact.
+
+\subsubsection{Length is not a nuisance parameter}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Change in maximum F-measure against the deployed encoder, by protein
+  length in residues. $^{*}$~the 95\,\% interval excludes zero.}
+  \label{tab:exp14-fmax-bands}
+  \input{chapters/tables_experiment14/fmax_bands}
+\end{table}
+
+Table~\ref{tab:exp14-fmax-bands} is the reason this thesis reports nothing in
+aggregate. The three aspects have opposite length profiles. On molecular function the
+advantage is absent in short proteins and grows monotonically with length until it is
+five times its own average. On biological process it is largest in short proteins and
+fades. On cellular component it exists only in short proteins and is indistinguishable
+from zero beyond a thousand residues.
+
+A single pooled figure would have reported a flat improvement three times over and
+would have been wrong about the mechanism in all three cases. The profiles also point
+somewhere: the aspect whose advantage grows with length is the one whose evidence is
+most likely to be local to a domain rather than distributed over the chain, which is
+exactly what a code that selects per residue should be able to keep and a pooled
+average should be expected to lose.
+
+\subsubsection{What this establishes, and what it does not}
+
+The mechanism is worth more than the data. At a matched corpus, matched size, and
+with the deployed encoder additionally enjoying a mining scheme the proposed one does
+not use, moving the selection to the residue level is worth roughly four times what
+multiplying the training corpus by fifteen is worth. That ratio, rather than any
+single score, is the finding.
+
+Three limitations bound it. The evaluation population is one temporal window and one
+reference bank, so the result is a measurement of this environment and not a general
+claim about protein language models. The screen and the metric agree here, which is
+evidence that the proxy was adequate for this ordering and not that it is adequate in
+general. And the comparison holds the backbone fixed throughout; nothing here says
+whether a different backbone would move the same axes in the same directions, and the
+one axis that was varied within the backbone, the choice of layer, was enough to show
+that such questions can invert when a confound of scale is removed.
