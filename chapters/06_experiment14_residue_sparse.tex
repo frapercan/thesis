@@ -222,6 +222,61 @@ most likely to be local to a domain rather than distributed over the chain, whic
 exactly what a code that selects per residue should be able to keep and a pooled
 average should be expected to lose.
 
+\subsubsection{How many bits a stored value needs}
+\label{sec:exp14-bits}
+
+A code that is better is only deployable if it is also affordable to store and to
+scan. The retrieval format holds a code as pairs of an atom index and its value, so a
+dictionary of this width costs eleven bits to name an atom and the value precision is
+what remains negotiable.
+
+Two ways of reducing it were compared. Quantising the code after training is free to
+implement and loses whatever it loses. Training with the quantiser inside the forward
+pass, with the gradient routed straight through it, is the standard remedy and is
+expected to recover most of that loss.
+
+It does the opposite. Training with the quantiser is worse at four bits, at two and
+at one, and by an increasing margin as the levels get coarser. Two mechanisms are
+plausible and neither was verified: the straight-through gradient ignores that the
+scale is itself a function of the code being quantised, so the objective moves with
+the map; and the estimator here must pass through two stacked discrete operations
+rather than one, since a selection of the largest entries already sits below the
+quantiser. The finding is reported as an empirical negative, because a plausible
+mechanism for a result is not the same as having measured it.
+
+Applied after training, the picture is favourable and aspect-dependent
+(Table~\ref{tab:exp14-quantisation}). Four bits is indistinguishable from half
+precision on all three aspects while removing forty-four per cent of the bytes, and
+it still improves on the deployed encoder on all three with separating intervals. Two
+bits removes half the bytes and costs nothing measurable on biological process, which
+is the aspect this thesis cares most about, but it gives back the whole gain on
+molecular function and lands in a tie with the deployed system there. Four bits is
+therefore the operating point, and two bits is available when storage is the binding
+constraint and that trade is acceptable.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Maximum F-measure against the bits kept per stored value, with the bytes a
+  code occupies in the sparse retrieval format. $^{*}$~the 95\,\% interval excludes
+  zero.}
+  \label{tab:exp14-quantisation}
+  \input{chapters/tables_experiment14/quantisation}
+\end{table}
+
+One accounting caveat belongs with the byte figures. They describe the sparse format
+that a retrieval scan reads, where a code is a list of indices and values. Stored as a
+dense vector in the database column, the same code occupies its full width regardless
+of how few atoms are non-zero and regardless of their precision, so this saving is one
+on the served bank and on scan bandwidth, not on the table.
+
+This also settles, for a second time and by a cleaner contrast, what went wrong with
+the binary residue values of Table~\ref{tab:exp14-negatives}. A signed one-bit code
+scores far above the non-negative binary one at the same precision. The obstruction
+was never how few levels there are; it was that a code confined to non-negative
+values cannot express dissimilarity. Two remedies proposed for that diagnosis, a
+ranking objective and quantisation-aware training, were both measured and both failed.
+A correct account of a mechanism does not license the first cure that follows from it.
+
 \subsubsection{What this establishes, and what it does not}
 
 The mechanism is worth more than the data. At a matched corpus, matched size, and
