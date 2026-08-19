@@ -180,15 +180,21 @@ identical across arms; only the encoder differs.
 \begin{table}[htbp]
   \centering
   \caption{Maximum F-measure on the full retrieval and transfer task, against the
-  deployed encoder. Intervals are 2{,}000 bootstrap draws paired on proteins, with
-  the measure recomputed on each draw.}
+  deployed encoder, scored against propagated reference closures over the whole
+  evaluation set. Intervals are 2{,}000 bootstrap draws paired on proteins.
+  \textbf{These figures do not survive the stratification of
+  Section~\ref{sec:exp14-category}} and are kept because the size of the difference
+  between the two protocols is itself the result.}
   \label{tab:exp14-fmax}
   \input{chapters/tables_experiment14/fmax}
 \end{table}
 
-All three aspects improve and every interval excludes zero. The largest gain falls on
-biological process, which is the aspect this thesis has characterised as the
-frontier, and it is more than three times the gain on molecular function.
+All three aspects improve and every interval excludes zero, and the largest gain falls
+on biological process. Section~\ref{sec:exp14-category} takes this back: scored on the
+window's own ground truth, with the prior-knowledge exclusion applied and split by
+knowledge category, no cell separates. The figures are kept here because the gap
+between the two protocols is the finding, and because an aggregate of this shape is
+easy to produce and easy to believe.
 
 One feature of the comparison makes the result stronger rather than weaker: the
 reference bank is the corpus the deployed encoder was fitted on, so it encodes that
@@ -199,6 +205,52 @@ On this population the ordering the screen produced is the ordering the task
 produces. Section~\ref{sec:exp14-confirmation} shows that this agreement does not
 survive a change of population, so it is recorded here as a fact about these
 proteins and not as a validation of the proxy.
+
+\subsubsection{The cell the system is for}
+\label{sec:exp14-category}
+
+The figures above are aggregates over an evaluation set, and an evaluation set is not
+the population this system serves. Everything scored so far carries annotation
+already, because scoring requires it. The system exists for proteins that carry none.
+
+The measurable stand-in is the no-knowledge cell, and it is small. In the window used
+here it holds 588 protein-by-aspect cells against 942 with limited knowledge and 7,059
+with prior knowledge; inside the held-out subset, 208 against 343 and 2,502. **So an
+aggregate over this set is nineteen parts in twenty a prior-knowledge score**, and it
+is silent about the cell the work is for. Reporting by category is not a refinement of
+the result, it is the difference between measuring the task and measuring something
+adjacent to it.
+
+Two protocol details separate a real evaluation from a flattering one, and both were
+wrong in the aggregate reported earlier. The truth must be what a protein GAINED over
+the window and not the propagated closure of the reference release, because that
+closure contains everything already known about a protein and a neighbour transfer
+reproduces it trivially. And the prior-knowledge cell carries an exclusion list of
+terms already known, 307,011 of them here, about forty-three per cell. Applying it
+drops the prior-knowledge maximum F-measure from roughly 0.53 to 0.13, and that drop
+is the size of the credit an unexcluded evaluation gives away.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Maximum F-measure on the window's own ground truth, by knowledge category
+  and aspect, with the prior-knowledge exclusion applied. Intervals are paired
+  bootstrap draws with the measure recomputed on each. No cell separates.}
+  \label{tab:exp14-category}
+  \input{chapters/tables_experiment14/by_category}
+\end{table}
+
+Under that protocol none of the nine cells separates, and in the no-knowledge cell the
+proposed encoder is if anything slightly behind on molecular function. The aggregate
+improvement reported in Section~\ref{sec:exp14-fmax} does not survive it, and the
+reason is now identifiable rather than mysterious: it was largely credit for
+predicting terms the protein was already known to carry.
+
+It does not follow that the proposed encoder is worse. Every interval includes zero,
+and with fifty to eighty-eight cells the interval is about six hundredths wide, so only
+effects above roughly three hundredths would be visible. This is a null with weak
+power, not a demonstrated absence, and the cell cannot be enlarged by sampling harder
+because a window contains what it contains. Pooling windows is the only way to
+sharpen it, and it is left as future work rather than claimed.
 
 \subsubsection{Length is not a nuisance parameter}
 
