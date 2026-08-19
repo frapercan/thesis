@@ -287,14 +287,63 @@ about half the time. \textbf{This is an absence of demonstration and not a demon
 absence}, and the distinction is not pedantry: it decides whether the next thing to buy
 is a better encoder or a bigger evaluation.
 
-It is the latter. The evaluation window supplies six hundred and forty nine no-knowledge
-proteins and the split holds out one hundred and forty of them. No refinement of the
-encoder can be seen through a cell that small, and the same delta material that the
-previous section proposed as training data would serve first as evaluation data. Until
-that cell is enlarged, the honest summary of this experiment is that it establishes a
-representation, a recipe and a storage cost with receipts, and that the question of
-whether the representation reaches the task remains open at the resolution the frame
-currently allows.
+It is the latter, and enlarging it turned out to cost less than the argument for doing
+it. The split was stratified by length, which was right for its purpose and happened to
+put half the no-knowledge proteins into training. Returning them to the evaluation, and
+extracting the two hundred and fifty the probe never carried, takes the cell from one
+hundred and forty proteins to six hundred and forty nine for thirty six seconds of card
+time. It also makes the measurement cleaner than it was, since no arm is then fitted on
+any protein of the category it is judged on, which is the situation at serving time: the
+one thing a query never has is experimental evidence about itself.
+
+\subsubsection{What the enlarged cell shows, and what it costs the argument}
+
+Two findings, and the second is the more important one.
+
+\textbf{The screen does predict the task, within an architecture.} Two arms differing
+only in how many proteins they were fitted on order the same way on both, in all three
+aspects, at slopes between a third and seven tenths. The null of the previous section was
+a failure of resolution and not a property of the encoder, exactly as its own interval
+warned it might be.
+
+\textbf{And the screen inverts between architectures.} The smaller arm has more neighbour
+purity than the deployed encoder and less maximum F-measure, and both of those
+differences separate.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Neighbour purity and maximum F-measure against the deployed encoder, in the
+  served no-knowledge cell of 649 proteins, at ten neighbours. Purity is measured on
+  proteins of other categories, so no arm is scored on what it was fitted on. Intervals
+  are a paired bootstrap with the measure recomputed inside every resample.}
+  \label{tab:exp14-screen-vs-task}
+  \input{chapters/tables_experiment14/fmax_big_cell}
+\end{table}
+
+Read the first row on its own and it is a contradiction: more of the quantity that is
+supposed to predict the task, significantly less of the task. Read the table as a whole
+and it is not a contradiction but a boundary. Neighbour purity counts how many retrieved
+neighbours share terms with the query. The transfer does not count neighbours, it weights
+them by similarity, and two architectures that retrieve equally good neighbour sets can
+distribute similarity over them quite differently. Within one architecture that
+distribution is roughly fixed and the count predicts the outcome. Across architectures it
+is not, and the count stops meaning the same thing on both sides of the comparison.
+
+The consequence for this chapter is direct and it is not comfortable. The headline it
+opened with, that a residue-level sparse code beats the deployed pooled encoder by
+between two and three hundredths, is a purity statement made across exactly the boundary
+where purity stops being comparable. On the task, in the cell the system serves, the
+recipe ties what is deployed: molecular function, biological process and cellular
+component all fail to separate.
+
+What survives is smaller and firmer than what it replaces. The representation reaches the
+deployed encoder's task performance while occupying two hundred and fifty six bytes per
+protein against four hundred and thirty two, or seventy seven at one bit with a calibrated
+margin. Parity at a fraction of the storage is a result worth having, and it is one a
+storage-blind screen could never have established either way. The methodological lesson
+generalises past this chapter: a screen chosen because it is what the downstream consumer
+reads is safe for ranking variants of one design and unsafe the moment the design itself
+is the variable.
 
 \subsubsection{Do the layers of the language model carry different signal?}
 
