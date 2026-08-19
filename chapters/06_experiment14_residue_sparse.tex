@@ -190,13 +190,15 @@ All three aspects improve and every interval excludes zero. The largest gain fal
 biological process, which is the aspect this thesis has characterised as the
 frontier, and it is more than three times the gain on molecular function.
 
-Two features of the comparison make the result stronger rather than weaker. The
+One feature of the comparison makes the result stronger rather than weaker: the
 reference bank is the corpus the deployed encoder was fitted on, so it encodes that
-bank in the domain it was trained for, while the proposed encoder encodes it out of
-domain. And the ordering the screen produced is the ordering the task produces, which
-retroactively justifies refining eleven axes on a screen that costs minutes instead
-of on a metric that costs hours. That the proxy held is a methodological result in its
-own right, and it is one that could only be claimed after the fact.
+bank in the domain it was trained for while the proposed encoder encodes it out of
+domain.
+
+On this population the ordering the screen produced is the ordering the task
+produces. Section~\ref{sec:exp14-confirmation} shows that this agreement does not
+survive a change of population, so it is recorded here as a fact about these
+proteins and not as a validation of the proxy.
 
 \subsubsection{Length is not a nuisance parameter}
 
@@ -277,19 +279,91 @@ values cannot express dissimilarity. Two remedies proposed for that diagnosis, a
 ranking objective and quantisation-aware training, were both measured and both failed.
 A correct account of a mechanism does not license the first cure that follows from it.
 
+\subsubsection{A population nobody looked at, and what it took back}
+\label{sec:exp14-confirmation}
+
+Roughly forty encoding arms were compared on one held-out set. Held out is not the
+same as untouched: every choice in this section, the number of atoms, the layer, the
+sampling, the precision, was made while looking at that set, and with forty
+comparisons on a fixed sample a winner wins partly by chance. No interval repairs
+that, because the bias is in the selection and not in the estimate.
+
+The corpus contains half a million annotated proteins that no arm of this study and
+no version of the deployed encoder has seen. Three thousand were drawn from them by a
+fixed stride, a prediction was written down before the draw, and three encoders were
+run once with no tuning of any kind.
+
+\paragraph{The prediction failed, and then failed differently than expected.} The
+proposed encoder had beaten the deployed one by three hundredths of purity on the
+tuning population. On the confirmation population it scored below the resolution
+floor. That collapse was neither a change in the mix of protein lengths, since it
+happened within every length band, nor a ceiling, since the deployed encoder's own
+margin over the dense vector was larger there and not smaller.
+
+It was the training population. The same architecture fitted on corpus-like proteins,
+for which the confirmation set is in domain, retrieves neighbours far better than the
+deployed encoder there, by nine hundredths of purity with a wide separating interval,
+about three times the largest advantage ever measured on the tuning set. An encoder
+fitted on one population simply does not transfer to another, which this section had
+already measured in a weaker form and which the author had failed to draw the
+consequence from.
+
+\paragraph{And the metric did not move at all.} That is the finding of this section,
+and it is uncomfortable. Nine hundredths of neighbour purity produced no change in the
+maximum F-measure. On the confirmation population the proposed encoder and the
+deployed one are indistinguishable on all three aspects, while both remain clearly
+above the dense vector (Table~\ref{tab:exp14-confirmation}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Maximum F-measure on two populations: the evaluation delta this section
+  was developed on, and a confirmation set drawn from the general corpus that no arm
+  had seen. Intervals are paired bootstrap draws with the measure recomputed on each.}
+  \label{tab:exp14-confirmation}
+  \input{chapters/tables_experiment14/confirmation}
+\end{table}
+
+The mechanism is visible in the relationship itself. From the dense vector to the
+deployed encoder, two hundredths of purity buy nearly two hundredths of F-measure. From
+the deployed encoder to the in-domain proposal, nine hundredths of purity buy nothing.
+The confirmation population is easier in absolute terms, with F-measures above eight
+tenths against five to seven on the delta, and once the reference bank holds close
+homologs any competent encoder finds them. Beyond that point the ceiling is set by the
+transfer and not by the retrieval, and better neighbours stop being worth anything.
+
+\paragraph{What has to be withdrawn.} Neighbour purity is not a reliable proxy for the
+maximum F-measure. It tracked the task on one population and saturated on another, and
+the claim in Section~\ref{sec:exp14-fmax} that the ordering transfers holds for those
+proteins only. Eleven axes of this study were refined on that screen, so each of the
+recommendations that follows from them is a recommendation about retrieval quality and
+is only a recommendation about annotation quality where the two were checked to agree.
+The recipe was checked, on both populations, and its result is stated with the
+population named.
+
 \subsubsection{What this establishes, and what it does not}
 
-The mechanism is worth more than the data. At a matched corpus, matched size, and
-with the deployed encoder additionally enjoying a mining scheme the proposed one does
-not use, moving the selection to the residue level is worth roughly four times what
-multiplying the training corpus by fifteen is worth. That ratio, rather than any
-single score, is the finding.
+Two claims survive both populations, and they are narrower than the tuning set alone
+would have supported.
+
+The mechanism is worth more than the data. At a matched corpus, matched size, and with
+the deployed encoder additionally enjoying a mining scheme the proposed one does not
+use, moving the selection to the residue level improves retrieval, and it does so by
+roughly four times what multiplying the training corpus by fifteen is worth. That
+ratio, rather than any single score, is the finding.
+
+What that buys in annotation quality depends on the population, and the dependence is
+not a caveat but a result. On the evaluation delta, the population that is actually
+submitted, the maximum F-measure improves on all three aspects with separating
+intervals. On the general corpus it does not move, while retrieval improves sharply.
+The honest statement is therefore conditional, and any deployment of this encoder has
+to name the population it serves and check the metric there rather than inheriting a
+number from here.
 
 Three limitations bound it. The evaluation population is one temporal window and one
 reference bank, so the result is a measurement of this environment and not a general
-claim about protein language models. The screen and the metric agree here, which is
-evidence that the proxy was adequate for this ordering and not that it is adequate in
-general. And the comparison holds the backbone fixed throughout; nothing here says
+claim about protein language models. The screen and the metric agree on one of the two
+populations tested and disagree on the other, so every axis refined on the screen
+alone is established for retrieval and open for annotation. And the comparison holds the backbone fixed throughout; nothing here says
 whether a different backbone would move the same axes in the same directions, and the
 one axis that was varied within the backbone, the choice of layer, was enough to show
 that such questions can invert when a confound of scale is removed.
