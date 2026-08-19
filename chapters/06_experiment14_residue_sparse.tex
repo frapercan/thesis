@@ -245,6 +245,57 @@ now survives the corrected protocol: adapting from the converged sixty thousand 
 rather than the starved one moves the result by thirteen ten thousandths, below the
 floor.
 
+\subsubsection{Does the training population convert into the task?}
+
+Every result to this point is neighbour purity, and this chapter has already recorded one
+occasion where a large gain on that screen produced none on maximum F-measure. The
+training-population axis is the widest the study has: nearly three hundredths of purity
+separate its smallest arm from its largest, so if the screen predicts the task anywhere
+it predicts it here, and if it fails here the axis carries nothing.
+
+The measurement is the task itself. A reference bank of the sixty thousand annotated
+corpus proteins, each held-out query retrieving its nearest neighbours by code cosine,
+their propagated terms transferred with a score that is the similarity mass supporting
+each term over the total, scored by maximum F-measure. Three things separate it from the
+chapter's earlier attempt. It is stratified by knowledge category, because the served
+population is roughly one twentieth of an evaluation window and an aggregate over the
+whole of one is nine tenths a prior-knowledge score. The prior-knowledge exclusion is
+applied, so a protein that already had annotations is scored on what it gained. And it
+retrieves ten neighbours rather than thirty, following the earlier finding in this
+chapter.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Maximum F-measure against the deployed encoder in the served, no-knowledge
+  cell, at ten neighbours. Intervals are a paired bootstrap over proteins with the
+  measure recomputed inside every resample.}
+  \label{tab:exp14-fmax-serving}
+  \input{chapters/tables_experiment14/fmax_serving}
+\end{table}
+
+Nothing separates. Every interval spans zero, molecular function is negative in almost
+every arm, and, more tellingly than any single comparison, the arms do not order: the
+three hundredths of purity that separate the smallest training set from the largest
+produce no consistent difference between them on the task, with conversion slopes running
+from a fifth negative to a half positive across aspects and neighbour counts.
+
+The temptation is to report that as a result, and it is not one. The served cell holds
+between fifty five and eighty eight proteins depending on aspect, the paired interval is
+forty six thousandths wide, and the effect the purity gain predicts is one and one fifth
+times its half width. At that ratio a real effect of the expected size would be seen
+about half the time. \textbf{This is an absence of demonstration and not a demonstration of
+absence}, and the distinction is not pedantry: it decides whether the next thing to buy
+is a better encoder or a bigger evaluation.
+
+It is the latter. The evaluation window supplies six hundred and forty nine no-knowledge
+proteins and the split holds out one hundred and forty of them. No refinement of the
+encoder can be seen through a cell that small, and the same delta material that the
+previous section proposed as training data would serve first as evaluation data. Until
+that cell is enlarged, the honest summary of this experiment is that it establishes a
+representation, a recipe and a storage cost with receipts, and that the question of
+whether the representation reaches the task remains open at the resolution the frame
+currently allows.
+
 \subsubsection{Do the layers of the language model carry different signal?}
 
 A comparison across layers is impossible on raw activations, and the reason is worth
@@ -322,8 +373,8 @@ already, because scoring requires it. The system exists for proteins that carry 
 
 The measurable stand-in is the no-knowledge cell, and it is small. In the window used
 here it holds 588 protein-by-aspect cells against 942 with limited knowledge and 7,059
-with prior knowledge; inside the held-out subset, 208 against 343 and 2,502. **So an
-aggregate over this set is nineteen parts in twenty a prior-knowledge score**, and it
+with prior knowledge; inside the held-out subset, 208 against 343 and 2,502. \textbf{So an
+aggregate over this set is nineteen parts in twenty a prior-knowledge score}, and it
 is silent about the cell the work is for. Reporting by category is not a refinement of
 the result, it is the difference between measuring the task and measuring something
 adjacent to it.
