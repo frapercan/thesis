@@ -306,9 +306,9 @@ aspects, at slopes between a third and seven tenths. The null of the previous se
 a failure of resolution and not a property of the encoder, exactly as its own interval
 warned it might be.
 
-\textbf{And the screen inverts between architectures.} The smaller arm has more neighbour
-purity than the deployed encoder and less maximum F-measure, and both of those
-differences separate.
+\textbf{And the screen's advantage does not survive the target the evaluation uses.} The
+recipe stands two and three quarter hundredths above the deployed encoder on the screen
+and ties it on the task, and the reason is neither the architecture nor the population.
 
 \begin{table}[htbp]
   \centering
@@ -320,30 +320,54 @@ differences separate.
   \input{chapters/tables_experiment14/fmax_big_cell}
 \end{table}
 
-Read the first row on its own and it is a contradiction: more of the quantity that is
-supposed to predict the task, significantly less of the task. Read the table as a whole
-and it is not a contradiction but a boundary. Neighbour purity counts how many retrieved
-neighbours share terms with the query. The transfer does not count neighbours, it weights
-them by similarity, and two architectures that retrieve equally good neighbour sets can
-distribute similarity over them quite differently. Within one architecture that
-distribution is roughly fixed and the count predicts the outcome. Across architectures it
-is not, and the count stops meaning the same thing on both sides of the comparison.
+Two mechanisms suggest themselves and both are wrong, which is worth recording because
+each was plausible enough to have been written down as an explanation before it was
+tested.
 
-The consequence for this chapter is direct and it is not comfortable. The headline it
-opened with, that a residue-level sparse code beats the deployed pooled encoder by
-between two and three hundredths, is a purity statement made across exactly the boundary
-where purity stops being comparable. On the task, in the cell the system serves, the
-recipe ties what is deployed: molecular function, biological process and cellular
-component all fail to separate.
+The first is the weighting. Purity counts neighbours; the transfer weights them by
+similarity, so two architectures might retrieve equally good sets and spend their
+similarity mass differently. Transplanting the deployed encoder's similarity profile onto
+the recipe's neighbours recovers eighteen ten thousandths in one aspect and loses
+thirty four in another, none separating, and the two profiles turn out to have nearly the
+same shape in any case: the nearest neighbour carries 13.7 per cent of the mass against
+13.1, and stands 1.55 times the tenth against 1.46. The second is reach. A transfer
+cannot predict a term no neighbour carries, so the share of a query's true terms present
+anywhere in the retrieved union is the ceiling any transfer could reach, and it too
+declines to separate the two architectures.
+
+What separates them is the target, and Table~\ref{tab:exp14-screen-target} isolates it.
+The screen scores against the full propagated closure, everything a protein is known to
+do; the evaluation scores against what it GAINED over the window.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Neighbour purity of the recipe against the deployed encoder, with the
+  population and the target varied one at a time. $^{\dagger}$~does not separate.}
+  \label{tab:exp14-screen-target}
+  \input{chapters/tables_experiment14/screen_target}
+\end{table}
+ Holding the population fixed and changing only that, the advantage falls from
+one hundred and thirty nine ten thousandths to forty nine and stops separating. Holding
+the target fixed and changing only the population costs nineteen ten thousandths. Five
+sixths of the effect is the target and almost none of it is the population.
+
+So the recipe's advantage is credit for what its queries were already known to do, and
+the evaluation does not award that. Against what a protein gains, the two architectures
+tie on neighbour purity, tie on the reach of their neighbourhoods and tie on maximum
+F-measure in all three aspects. Three independent measures and one verdict, which is a
+firmer position than the disagreement it replaces.
 
 What survives is smaller and firmer than what it replaces. The representation reaches the
 deployed encoder's task performance while occupying two hundred and fifty six bytes per
 protein against four hundred and thirty two, or seventy seven at one bit with a calibrated
 margin. Parity at a fraction of the storage is a result worth having, and it is one a
 storage-blind screen could never have established either way. The methodological lesson
-generalises past this chapter: a screen chosen because it is what the downstream consumer
-reads is safe for ranking variants of one design and unsafe the moment the design itself
-is the variable.
+generalises past this chapter, and it is not the one about populations that this thesis
+has already recorded twice: a screen is safe when it scores against the same target the
+evaluation scores, and everything else about it, which proteins, which neighbours, which
+weighting, matters an order of magnitude less. A cheap screen aimed at the wrong target
+is not a cheap approximation of the evaluation. It is a measurement of something else
+that happens to be correlated with it until it is not.
 
 \subsubsection{Do the layers of the language model carry different signal?}
 
