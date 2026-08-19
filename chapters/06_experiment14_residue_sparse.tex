@@ -357,6 +357,48 @@ tie on neighbour purity, tie on the reach of their neighbourhoods and tie on max
 F-measure in all three aspects. Three independent measures and one verdict, which is a
 firmer position than the disagreement it replaces.
 
+\subsubsection{Then align the objective with the target, and watch it lose}
+
+If the screen was aimed at the wrong thing, so was the loss: every map in this chapter
+regresses cosine similarity onto the Jaccard of full propagated closures, while the
+evaluation scores what a protein gained. Aligning the objective with the metric is the
+correction a reader will reach for, and it is available to be measured rather than
+argued about.
+
+It is worth checking first whether the correct target can be learned at all, because a
+pairwise objective needs pairs that agree. Over the training population, gained-term sets
+have a median of five terms against eighty seven for closures, and 93.3 per cent of
+protein pairs share nothing they gained, against none at all for closures. Six per cent of
+a batch carries signal.
+
+\begin{table}[htbp]
+  \centering
+  \caption{The same map fitted against three targets, with everything else held: same
+  seed, same proteins, same passes. Screen is neighbour purity against gained terms on
+  the served cell, which is the target the lower two arms were built for.}
+  \label{tab:exp14-train-target}
+  \input{chapters/tables_experiment14/train_target}
+\end{table}
+
+Aiming the objective at the evaluation's target makes the encoder worse on the
+evaluation's target. It loses two and a half hundredths of maximum F-measure in molecular
+function against the arm it was meant to correct, loses on all three aspects, and is the
+only arm in this chapter that separates negatively from the deployed encoder. Blending the
+two at half weight buys nothing either. The sparsity is the reason: with nineteen pairs in
+twenty at zero, almost all of the gradient is spent pushing unrelated proteins apart and
+almost none of it learning what belongs together.
+
+So the full closure is not a mistaken target that happened to work. It is a dense
+surrogate for a target too sparse to learn from, and it beats the thing it approximates.
+The rule that this chapter has been circling therefore splits by role, and both halves are
+now measured rather than assumed: score against what the evaluation scores, because
+anything else awards credit for prior knowledge, and train against the dense surrogate,
+because the evaluation's own target does not carry enough pairwise signal to fit a metric
+on. The two are not in tension; they are answers to different questions, and conflating
+them is how a plausible correction becomes a regression.
+
+\subsubsection{What this experiment establishes}
+
 What survives is smaller and firmer than what it replaces. The representation reaches the
 deployed encoder's task performance while occupying two hundred and fifty six bytes per
 protein against four hundred and thirty two, or seventy seven at one bit with a calibrated
