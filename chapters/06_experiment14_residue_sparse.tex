@@ -249,8 +249,13 @@ It does not follow that the proposed encoder is worse. Every interval includes z
 and with fifty to eighty-eight cells the interval is about six hundredths wide, so only
 effects above roughly three hundredths would be visible. This is a null with weak
 power, not a demonstrated absence, and the cell cannot be enlarged by sampling harder
-because a window contains what it contains. Pooling windows is the only way to
-sharpen it, and it is left as future work rather than claimed.
+because a window contains what it contains. Nor can it be enlarged by combining the
+available windows: they are nested, the longest containing the shorter ones, so they
+hold the same proteins under different truth and pooling them would count each twice.
+Only further windows in time, which the campaign produces, add independent cells.
+
+Section~\ref{sec:exp14-conversion} turns this null into a target rather than leaving
+it as an absence.
 
 \subsubsection{Length is not a nuisance parameter}
 
@@ -391,6 +396,56 @@ recommendations that follows from them is a recommendation about retrieval quali
 is only a recommendation about annotation quality where the two were checked to agree.
 The recipe was checked, on both populations, and its result is stated with the
 population named.
+
+\subsubsection{How far short, measured in the units that matter}
+\label{sec:exp14-conversion}
+
+A null invites two readings and they lead to opposite decisions. Either better
+retrieval stops paying beyond some point, in which case this line of work is finished,
+or the improvements obtained here are simply too small to register, in which case the
+line is open and the useful question is how much larger they would have to be.
+
+The two are separated by putting every method on one axis. The horizontal coordinate
+is the quality of the neighbours a method actually returns, measured as the functional
+overlap between those neighbours and what the query gained, under the same aspect
+restriction and the same exclusion the metric uses. The vertical coordinate is the
+maximum F-measure that method reaches. Adding the oracle of
+Section~\ref{sec:exp14-category} gives the far end of the axis, and the shape between
+the points answers the question.
+
+\begin{table}[htbp]
+  \centering
+  \caption{The conversion from neighbour quality into maximum F-measure. Slope is
+  measured between the deployed encoder and the oracle. \emph{Best gain} is the
+  largest improvement in neighbour quality any encoder here achieves over the deployed
+  one; \emph{needed} is the improvement at which the difference would reach half the
+  width of that cell's confidence interval.}
+  \label{tab:exp14-conversion}
+  \input{chapters/tables_experiment14/conversion}
+\end{table}
+
+The conversion is linear with a median slope of 0.94. One unit of neighbour quality is
+worth about one unit of maximum F-measure across the whole range, so nothing saturates
+and there is no point beyond which better neighbours stop paying. The first reading is
+therefore wrong, and the second is right: the improvements are too small.
+
+How small is now a number rather than an impression. Against the deployed encoder the
+best arm here gains between seven and fifteen thousandths of neighbour quality, and
+the smallest gain that would be visible in the no-knowledge cell is between
+twenty-four and thirty-seven thousandths. That is a factor of between two and four,
+and the oracle leaves more than a third of the axis unused in the cell that matters
+most.
+
+\paragraph{An inflation this exposes in the study's own screen.} The functional screen
+used to refine the eleven axes above reports the same encoders as gaining nine
+hundredths. It scores the mean overlap with the FULL propagated closure of the
+reference release, pooled over aspects, and a protein's closure contains everything
+already known about it. Measured the way the metric defines functional similarity,
+that gain is roughly ten times smaller. The screen was not wrong about the ORDER of
+the arms, which is what it was used for, but it was wrong about the SIZE by an order
+of magnitude, and any target set from it would have been set an order of magnitude too
+low. The lesson generalises past this study: a proxy has to be calibrated in the
+target's units before a quantity measured on it is treated as a quantity.
 
 \subsubsection{What this establishes, and what it does not}
 
