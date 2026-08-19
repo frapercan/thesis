@@ -129,14 +129,121 @@ it is five times worse than its diluted figure over the whole population. Giving
 window equal weight discards the fact that windows hold different numbers of
 residues, which per-residue pooling already respected.
 
-Finally, the size of the training corpus saturates early. Four thousand proteins to
-fifteen thousand is worth about twice the floor; fifteen thousand to sixty thousand
-is indistinguishable from zero, and pre-training on the larger corpus and adapting
-afterwards is indistinguishable from not using it at all. What does matter, by a
-factor of six, is whether the training proteins are drawn from the population being
-scored. The lever that the literature would reach for first is the one that is
-already exhausted, and the lever that is not usually described as a lever carries the
-effect.
+Finally, the size of the training corpus appeared to saturate early, and the
+appearance was a property of the control rather than of the corpus. Fifteen thousand
+proteins to sixty thousand moved less than the resolution floor, which invited the
+conclusion that the size lever was exhausted. Two choices in that measurement cut the
+same way. The arms were scored on a population they had not been trained on, and this
+study measures separately that a population mismatch costs an encoder its entire
+advantage. The training budget was held at a fixed number of steps, which is the
+natural control for separating data diversity from compute, and which also grants the
+small arm five hundred and seventy six passes over its data and the large arm thirty
+eight.
+
+Repeating the comparison as a factorial over both choices settles it, and settles it
+cheaply, because the fits were already on disk and every cell is therefore a scoring
+pass rather than a training run. Table~\ref{tab:exp14-size-factorial} gives the same
+step, measured four times.
+
+\begin{table}[htbp]
+  \centering
+  \caption{The step from fifteen thousand to sixty thousand training proteins,
+  measured in all four combinations of scoring population and training budget. Every
+  cell is a scoring pass over maps fitted beforehand, through one code path.
+  $^{\dagger}$~below the resolution floor of Section~\ref{sec:exp14-floor}.}
+  \label{tab:exp14-size-factorial}
+  \input{chapters/tables_experiment14/size_factorial}
+\end{table}
+
+Neither factor accounts for the result on its own. Each moves the step by about three
+thousandths, and together they move it by eighteen. The mechanism is plain once it is
+stated: additional data pays only if the budget lets the model absorb it, and what was
+absorbed shows only where it applies. Starve either and the curve looks flat. A fixed
+step count is not a neutral control when the arms differ in how much data they hold,
+and the conclusion drawn from it was drawn in the one cell of four where the effect
+cannot be seen.
+
+What the corrected curve does not do is overturn the decision it was asked to inform.
+On the population the system actually serves, four times the corpus buys under four
+thousandths of neighbour quality, and the smallest difference this study can convert
+into a detectable change in maximum F-measure is six times larger than that. The
+corpus is worth extending, and it is not worth extending for this. That conclusion is
+now measured rather than assumed, which is the only respect in which it improves on
+the one it replaces.
+
+A second axis was never varied at all. The training signal is a similarity between
+annotation sets, so a protein carrying a combination of terms already present adds
+sequence diversity at unchanged supervision, while one carrying a new combination adds
+supervision as well. Counting them apart separates the two. The vocabulary grows
+sublinearly, with an exponent near one third, and the number of terms per protein is
+flat at forty six across every corpus size, so quadrupling the corpus adds about forty
+five per cent more vocabulary and no density at all. Yet of the proteins the step adds,
+seven in eight carry no term that was absent before, yet more than a third carry a
+combination of terms never seen. What a larger corpus supplies is not new functions. It
+is new arrangements of known ones, which is the protein-by-term incidence relation and
+not either of the two sets that compose it.
+
+\subsubsection{Does capacity pay once there is enough data to feed it?}
+
+An earlier section of this experiment established that capacity is not the constraint:
+a non-linear map, a wider dictionary and a second learned stage each fit the training
+set better and none of them generalised. Every one of those arms was fitted on under
+four thousand proteins. Since the corpus axis turned out to be alive after all, the
+cross that neither measurement made is the one that matters, and a non-linear map at
+sixty thousand proteins answers it.
+
+\begin{table}[htbp]
+  \centering
+  \caption{A non-linear map against a linear one, both fitted on sixty thousand
+  proteins for the same hundred passes, scored on both populations without refitting.
+  $^{\dagger}$~below the resolution floor of Section~\ref{sec:exp14-floor}.}
+  \label{tab:exp14-capacity}
+  \input{chapters/tables_experiment14/capacity}
+\end{table}
+
+Capacity pays, and it pays only where the training data lies. On the corpus-like
+population the non-linear map is worth four and a half times the resolution floor, a
+gain the same architecture could not produce at four thousand proteins because there
+was not enough data for the extra parameters to have anything to fit. On the population
+the system serves the same two maps are indistinguishable. The result is not that the
+earlier finding was wrong, but that it was stated more generally than it had been
+measured: capacity is not the constraint for anything visible at serving time, and that
+is the claim the recipe rests on. The deployable map therefore stays linear, at half the
+parameters, because it ties where ties are decided.
+
+The mechanism is worth recording because it is not the usual one. The non-linear arm
+does not fit the training objective better: both arms finish within a ten thousandth of
+each other on training loss. Whatever the extra capacity buys, it is not memorisation of
+the training set, and by length the whole of the in-domain gain sits in the proteins
+shorter than five hundred residues while the longer bands fall below the floor.
+
+\subsubsection{What the whole corpus would be worth}
+
+The three measured sizes support an extrapolation one decade beyond the largest of them,
+which is what the full pool of five hundred and fifty seven thousand candidates would
+represent. A logarithmic model, two parameters against three points, tracks them to
+within four ten thousandths, under the resolution floor. It puts the full corpus at
+between four and seven thousandths of neighbour quality above sixty thousand, which
+would take the advantage over the deployed encoder from about fourteen thousandths to
+around twenty.
+
+The question that settles the matter is the inverse one. A map fitted on 3,964 proteins
+drawn from the population being scored beats a map fitted on sixty thousand corpus
+proteins by nearly thirteen thousandths on that population. Asking what corpus size
+would close that gap, under the model that assumes the curve never saturates and is
+therefore the generous one, returns three and three quarter million proteins: seven
+times every candidate that exists. Asking what size would convert into a detectable
+change in maximum F-measure returns a number two orders of magnitude larger than that.
+
+So the corpus axis closes by arithmetic rather than by a measurement that a better
+experiment could overturn, and it closes in the opposite direction from the one the
+first measurement suggested. The corpus is not exhausted. It is simply the wrong thing
+to buy, because the quantity it competes against, agreement between the training and
+serving populations, is available at fifteen times less data and is worth six times more.
+Pre-training on the large corpus and adapting in domain remains worth nothing, and this
+now survives the corrected protocol: adapting from the converged sixty thousand map
+rather than the starved one moves the result by thirteen ten thousandths, below the
+floor.
 
 \subsubsection{Do the layers of the language model carry different signal?}
 
