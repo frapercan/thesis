@@ -216,8 +216,8 @@ and no absolute reachability figure is quoted in this work for that
 reason.
 
 \paragraph{What a code has to keep.}
-One result from this rung is directly actionable in what is served, and it
-is not monotone in the way an engineer would assume.
+One result from this rung is directly actionable in what is served, and
+reaching it required correcting the same measurement twice.
 
 Quantising the served sparse code and measuring retrieval over the whole
 no-knowledge cell, against a bank of eighty-six thousand experimentally
@@ -238,37 +238,73 @@ maximum  & 1 & 192 & $-0.0003$ & 1 of 4 \\
 \end{tabular}
 \end{center}
 
-One bit is free and two bits are not. Less precision retrieves better, and
-the reason is measured rather than argued: what costs is deleting atoms,
-not coarsening their magnitudes.
+Two bits cost and one bit does not, which is not monotone and has a
+measured cause: what costs is deleting atoms, not coarsening their
+magnitudes. At two bits the signed grid is $\{-1, 0, +1\}$, so every atom
+below half the scale rounds to zero and the code loses most of its
+support; sign-only has no zero level to fall into and deletes nothing. Of
+the $127.9$ atoms a code carries, four-bit clipping deletes none, two-bit
+deletes $81.8$ per cent, and two-bit under max-scaling deletes $91.3$ per
+cent, and those figures order exactly with the three losses.
 
-At two bits the signed grid is $\{-1, 0, +1\}$, so every atom below half
-the scale rounds to zero and the code loses most of its support. Sign-only
-has no zero level to fall into, so it deletes nothing. Of the $127.9$
-atoms a code carries on average, four-bit clipping at the 99th percentile
-deletes none, two-bit deletes $81.8$ per cent, and two-bit under
-max-scaling deletes $91.3$ per cent. Those three figures order exactly with
-the three losses.
+\paragraph{Why the recommendation is four bits and not one.}
+On this table one bit is free and saves most, and that is the wrong
+reading. It was reached, and then abandoned, for a reason worth reporting.
 
-This also reconciles an earlier result rather than overturning it. A
-previous measurement recorded that max-scaling deletes $88.7$ per cent of
-atoms at one bit. That scheme rounded onto $\{-1, 0, +1\}$, which is the
-two-bit row above and requires two bits to store; true sign-only was never
-tested. The earlier finding was right about the phenomenon and wrong about
-which width produces it, and that error concealed the best configuration
-for as long as it stood.
+The apparent $+0.0015$ at one bit is not the quantisation. Decomposed, the
+percentile clip alone carries $+0.0012$ with no quantisation applied at
+all, and every configuration containing the clip carries about that much
+while every configuration without it sits at zero. The clip's own effect
+is not distinguishable from nothing, and it was being attributed to the
+width.
 
-The served code can therefore be $128$ atoms of eleven-bit index plus one
-sign bit: $192$ bytes against $688$ for float32 indices and values, a
-saving of seventy-two per cent, with no detectable cost in any identity
-band including the twilight band. Four bits at $240$ bytes is the
-conservative alternative and is equally free.
+Chasing that offset surfaced the real objection. Sign-only under the two
+clips should be mathematically identical, because the scale is a positive
+per-row scalar that a cosine normalises away, and the two code matrices do
+agree to $1.5 \times 10^{-8}$. Their retrieval nonetheless differed. The
+only thing a perturbation that small can change is a tie:
 
-One limit belongs with it rather than after it. This says the magnitudes
-carry almost nothing beyond sign and support \emph{for a cosine}. The same
-code has a second consumer, a learner that reads every column, and these
-two consumers have been measured disagreeing before. Nothing here licenses
-a one-bit code as a feature vector.
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Variant & Donors tied at the cut & Neighbours differing of 30 \\
+\midrule
+Unquantised & 1.0 & 0 \\
+4 bits & 1.0 & 4.5 \\
+8 bits & 1.1 & 4.0 \\
+1 bit & 8.4 & 9.6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+At one bit every code carries the same magnitudes and differs only in
+sign, so the cosine takes few distinct values and the ranking degenerates.
+Eight donors sit tied exactly at the cut, and a third of the returned
+neighbourhood is decided by floating-point noise rather than by
+similarity.
+
+Set reachability does not notice, because it averages over which donors
+arrive. Everything downstream does: the re-ranker sees a different
+candidate set, a rerun returns different neighbours, and the interface
+shows the donor to a reader as the evidence for a prediction. A
+neighbourhood that is one third arbitrary is not servable at any size.
+
+So the recommendation is four bits: $240$ bytes against $688$ for float32
+indices and values, a saving of sixty-five per cent, free on the metric in
+every identity band including twilight, and preserving the tie structure
+of the unquantised code exactly.
+
+The one-bit row is worth keeping in the table as an illustration rather
+than as an option. A metric that is insensitive to \emph{which} donors
+arrive cannot certify a retrieval system whose purpose is to surface them,
+and a configuration can be free on the measurement and unusable in the
+product for reasons the measurement was never able to see.
+
+One further limit belongs with the result rather than after it. This says
+the magnitudes carry little beyond sign and support \emph{for a cosine}.
+The same code has a second consumer, a learner that reads every column,
+and these two consumers have been measured disagreeing before. Nothing
+here licenses a narrow code as a feature vector.
 
 % ────────────────────────────────────────────────────────────
 \paragraph{What this leaves.}
