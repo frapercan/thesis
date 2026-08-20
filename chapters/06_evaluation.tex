@@ -160,8 +160,16 @@ make a number traceable, each result is anchored by its temporal split, its
 $F_{\max}$ versus cafaeval). The binary-label champion
 (\cref{tab:exp9-champion-replication}) and the multi-PLM grid
 (\cref{tab:exp9-multiplm-grid}) are reproducible from these surfaces directly.
-The body of this chapter cites only numbers that carry such a live source; the
-UI is the single source of truth for every figure reported here.
+The body of this chapter cites only numbers that carry such a live source, and
+the UI is the single source of truth for them.
+
+Two figures are excepted and are named as exceptions where they appear. The LAFA
+submissions of Experiments~12 and~13 were scored by the public board on its own
+ground truth, and the platform holds that frame's ground-truth artifact without
+holding a result computed against it. An external board's score is stronger
+evidence for a submission than a self-computed number would be, so the exception
+is not a weakness of those two results. It is a limit on where a reader can go to
+check them, and a pointer to an empty surface is worse than no pointer.
 
 \paragraph{Development trace.}
 The methodology presented here is the outcome of a longer development path whose
@@ -733,13 +741,25 @@ the self-prior would require a learned re-ranker that models source agreement an
 cross-aspect association rather than a score-level blend
 (\cref{sec:conclusion-future-work}).
 
-\paragraph{Reproducibility.}
-The aligned frame is live in the PROTEA app: the query set, the composite
-prediction set, and the evaluation set carrying the benchmark's official ground
-truth are persisted artifacts, and the scored result is served from the
-\texttt{/benchmark} surface marked with the LAFA frame and the sealed
-($227 \to 230$) window. As elsewhere in this chapter, the UI is the single source
-of truth for the reported figure.
+\paragraph{Reproducibility, and what the platform does and does not hold.}
+The figure above is LAFA's rather than ours. It is the score the public board
+assigned to a submitted container, computed on the board's own ground truth,
+and that is what makes it verifiable: an external evaluation of a sealed
+submission is stronger evidence than any number a system reports about itself.
+
+What the platform holds of this frame is the evaluation set carrying the
+benchmark's official ground truth, persisted with its stored URI. What it does
+not hold is a scored result. No prediction set in the platform draws its donors
+from release~227: all 202 of them use release~220 or release~226. The aligned
+frame has therefore never been run here, the \texttt{/benchmark} surface carries
+no row for the sealed ($227 \to 230$) window, and there is nothing for a reader
+to open.
+
+So the UI is not the source of truth for this figure, and the exception is
+stated here rather than left to be discovered by a reader who follows the
+pointer and finds an empty surface. Reproducing the number in-platform requires
+a prediction set built on the 227 donor bank over the 7{,}401-target list. That
+is a run which has not been made, and not a run whose artifacts were lost.
 
 % ── Experiment 13 ─────────────────────────────────────────────
 \subsection{Experiment~13: A Learned Re-Ranker Reaches First Place}
@@ -947,13 +967,18 @@ The full recipe, the trained combiners, and the exact-harness scorer are preserv
 as a self-contained package in the project's offline laboratory. That offline
 package is what produced the sealed 0.391 research figure; because its original
 training artefacts have since been removed, that exact figure is a sealed research
-result rather than a byte-for-byte reproducible one. The figure the platform
-serves is the native productized reproduction (0.3745), which runs end to end on
-the PROTEA platform and is exposed through the \texttt{/benchmark} surface
-alongside the homology-only figure of Experiment~12, marked with the LAFA frame
-and the sealed ($227 \to 230$) window. For that productized figure the
-application is, as elsewhere in this chapter, the single source of truth: it is
-the number a reader can confirm live on the running system.
+result rather than a byte-for-byte reproducible one. The native productized
+reproduction, which runs end to end on the PROTEA platform, reaches 0.3745, and
+that is the figure this work stands behind rather than the sealed 0.391.
+
+It is not at present a figure a reader can confirm on the running system, and
+saying so is part of what the figure is worth. The sealed ($227 \to 230$) window
+carries no evaluation result at all, and no stored result is marked with the
+LAFA frame: the provenance column the surface would filter on is null on all
+1{,}136 results the platform holds, which is why the application's own curation
+treats its LAFA rule as a no-op and says so in place. Both LAFA figures in this
+chapter are therefore claims about runs that were performed, and not pointers to
+a surface a reader can open.
 
 % ────────────────────────────────────────────────────────────
 \section{Discussion}
