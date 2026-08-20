@@ -151,6 +151,53 @@ cohort from forty-one per cent to one hundred, and places the great
 majority of the cohort in the near-identical band, which empties every
 other band and makes the axis unreadable.
 
+\paragraph{What carries the band where help is needed.}
+Naming the axis is not the same as saying what moves along it, and the two
+answers a reader would guess are both wrong.
+
+Inside the band where no donor exceeds thirty per cent identity, the
+precision at the head of each protein's own ranking is as follows, against
+a chance rate of $0.031$:
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+Score & Precision at rank 1 \\
+\midrule
+Composite            & 0.239 \\
+Neighbour agreement  & 0.220 \\
+Embedding similarity & 0.156 \\
+Alignment identity   & 0.059 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Alignment identity is the weakest by a wide margin, at less than twice
+chance where the others reach five to seven times it. This is not a failure
+to discriminate: measured on the same proteins, that score resolves
+twenty-six distinct values per protein where neighbour agreement resolves
+fourteen, and it is the coarser of the two that ranks better. What it does
+is order the candidates almost independently of whether they are correct,
+which is what one should expect of a similarity that is not there: below
+thirty per cent identity there is no alignment worth reading.
+
+The result that matters is the third row. The embedding's own similarity is
+itself a weak ranker in this band. What ranks well is the agreement among
+the neighbours the embedding retrieved, a quantity derived from the
+embedding and distinct from it.
+
+So in the regime this work exists to serve, the useful signal is neither
+sequence identity nor embedding similarity. It is neighbourhood consensus.
+That is a narrower claim than the one the method is usually described by,
+and it is the one the measurements support.
+
+It also sets what a retrieval strategy has to be judged on. If consensus is
+what carries the hard band, then the question about any retriever is
+whether the neighbourhood it returns agrees, not whether its first result
+is correct. Those are different objectives, and a retriever can satisfy one
+while failing the other.
+
+% ────────────────────────────────────────────────────────────
 \paragraph{What the identity band is not.}
 It is not a setting. Nothing the method chooses moves a protein from one
 band to another, because the band is a property of the query and of what
