@@ -215,6 +215,62 @@ is in the reference set rather than of protein function or of the method,
 and no absolute reachability figure is quoted in this work for that
 reason.
 
+\paragraph{What a code has to keep.}
+One result from this rung is directly actionable in what is served, and it
+is not monotone in the way an engineer would assume.
+
+Quantising the served sparse code and measuring retrieval over the whole
+no-knowledge cell, against a bank of eighty-six thousand experimentally
+annotated donors, with bands over the full population:
+
+\begin{center}
+\begin{tabular}{llrrl}
+\toprule
+Clip & Bits & Bytes & Change & Bands separating \\
+\midrule
+99th pct & 8 & 304 & $+0.0014$ & 0 of 4 \\
+99th pct & 4 & 240 & $-0.0001$ & 0 of 4 \\
+99th pct & 2 & 208 & $-0.0243$ & 4 of 4 \\
+99th pct & 1 & 192 & $+0.0015$ & 0 of 4 \\
+maximum  & 2 & 208 & $-0.0528$ & 4 of 4 \\
+maximum  & 1 & 192 & $-0.0003$ & 1 of 4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+One bit is free and two bits are not. Less precision retrieves better, and
+the reason is measured rather than argued: what costs is deleting atoms,
+not coarsening their magnitudes.
+
+At two bits the signed grid is $\{-1, 0, +1\}$, so every atom below half
+the scale rounds to zero and the code loses most of its support. Sign-only
+has no zero level to fall into, so it deletes nothing. Of the $127.9$
+atoms a code carries on average, four-bit clipping at the 99th percentile
+deletes none, two-bit deletes $81.8$ per cent, and two-bit under
+max-scaling deletes $91.3$ per cent. Those three figures order exactly with
+the three losses.
+
+This also reconciles an earlier result rather than overturning it. A
+previous measurement recorded that max-scaling deletes $88.7$ per cent of
+atoms at one bit. That scheme rounded onto $\{-1, 0, +1\}$, which is the
+two-bit row above and requires two bits to store; true sign-only was never
+tested. The earlier finding was right about the phenomenon and wrong about
+which width produces it, and that error concealed the best configuration
+for as long as it stood.
+
+The served code can therefore be $128$ atoms of eleven-bit index plus one
+sign bit: $192$ bytes against $688$ for float32 indices and values, a
+saving of seventy-two per cent, with no detectable cost in any identity
+band including the twilight band. Four bits at $240$ bytes is the
+conservative alternative and is equally free.
+
+One limit belongs with it rather than after it. This says the magnitudes
+carry almost nothing beyond sign and support \emph{for a cosine}. The same
+code has a second consumer, a learner that reads every column, and these
+two consumers have been measured disagreeing before. Nothing here licenses
+a one-bit code as a feature vector.
+
+% ────────────────────────────────────────────────────────────
 \paragraph{What this leaves.}
 The honest reading of the first rung is that the levers it was built to
 sweep are small at the point where the method is actually operated, and
