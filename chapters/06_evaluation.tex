@@ -85,6 +85,81 @@ Only the 20,281 delta proteins are used as queries for prediction, ensuring
 that compute is not wasted on proteins with no ground-truth signal.
 
 % ────────────────────────────────────────────────────────────
+\subsection{The Experimental Ladder}
+\label{subsec:ladder}
+
+The experiments in this chapter are not a survey. They are a sequence, and
+the sequence has a rule: each step varies one thing and holds everything
+else at a value an earlier step chose. A step is called a rung, and the
+constants a rung holds are the answers of the rungs below it.
+
+That rule is what makes the sequence load-bearing rather than decorative.
+If a rung's answer later changes, every rung that held it constant is
+invalidated, and the dependency is written down so that the invalidation is
+visible rather than remembered. A ladder whose steps do not declare what
+they stand on is a list of experiments in chronological order.
+
+The rungs are declared before they run, in a form that is checked
+automatically: what each one varies, named down to the field of the job
+payload that carries it, and what each one holds, named with the rung that
+decided it. A dispatched job whose varied axes contradict its declared rung
+is a mistake the declaration can catch.
+
+The cost of not having it is not hypothetical. A grid of forty-eight arms
+ran two of its rung's three declared axes; the third, the weighting that
+turns neighbour evidence into a score, was never varied. It was not set to
+a default that had been chosen, but to the value the code falls back on
+when no scoring configuration is supplied, which is arithmetically the
+weakest of the seven the system offers. Nothing in the grid, the artifacts
+or the published tables recorded that a declared axis had gone unswept,
+and the omission was found only when someone asked what the numbers were
+measuring.
+
+\paragraph{How every rung reports.}
+No result in this chapter is reported over the whole population. Every
+figure is given per stratum, and the stratum that matters most is the
+sequence identity of the query to its nearest annotated donor.
+
+The reason is measured rather than assumed. Across the eight
+representations at the winning neighbourhood size, in the no-knowledge
+category, the spread between the best and worst representation is
+$0.0848$ where no donor exceeds thirty per cent identity, and $0.0081$
+where one exceeds ninety. A single number over the whole population is
+dominated by the second case, which is the case that needs no help: there,
+a model of eight million parameters scores within four thousandths of one
+with six hundred and fifty million. Where no close donor exists, the same
+small model is last by eight and a half hundredths. A conclusion drawn from
+the pooled figure is therefore true of the proteins the method already
+handles and false of the proteins it exists for.
+
+Two consequences follow, and both are rules rather than observations.
+
+First, stratifying by sequence length does not discharge this requirement.
+Measured on the same arms, the representation spread by length band is
+$0.0323$ and $0.0388$ in the two bands that carry data, which is a tie,
+while the largest spread inside each of those bands is the same figure as
+the twilight maximum. Length does not separate the effect; it scatters it.
+A table stratified by length carries the appearance of the discipline
+without its content, which makes it worse than an unstratified table,
+because it invites the reader to believe the check has been done.
+
+Second, the identity band excludes the query's own sequence, and excludes
+it by sequence rather than by accession, because isoforms, re-annotations
+and cross-references place one sequence in the reference set under several
+names. Including the self match moves the median identity of the evaluation
+cohort from forty-one per cent to one hundred, and places the great
+majority of the cohort in the near-identical band, which empties every
+other band and makes the axis unreadable.
+
+\paragraph{What the identity band is not.}
+It is not a setting. Nothing the method chooses moves a protein from one
+band to another, because the band is a property of the query and of what
+the reference set happens to contain at the temporal cut. Every other axis
+in this chapter is something the method selects; this one is the regime it
+finds itself in. That difference is why the bands are reported alongside
+every result rather than optimised over.
+
+% ────────────────────────────────────────────────────────────
 \section{Evaluation Categories (NK/LK/PK)}
 \label{subsec:nk-lk-pk}
 
