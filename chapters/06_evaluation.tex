@@ -443,54 +443,75 @@ ESM-3 component encoder.
 
 This full (PLM $\times$ $K$) grid is the empirical evidence base for the
 generalisability claim. Rather than selecting a winner per cell and reporting
-only that winner (which would introduce a winner's-curse bias on the
-generalisation window), every cell is reported. To keep the selection
-leakage-clean, the grid is scored under the same SELECT-window protocol used
-for the champion: configurations are selected on the validation window and the
-frozen recipe is scored once on the held-out test window. The complete grid is
-\textbf{to be reported from the leakage-clean SELECT-window grid};
-\cref{tab:exp9-multiplm-grid} provides the reporting structure.
+only that winner, which would introduce a winner's-curse bias on the
+generalisation window, every cell is reported.
 
-% ============================================================
-%  EXP-9 MULTI-PLM GRID: numbers to be filled from the leakage-clean
-%  SELECT-window benchmark (PROTEA /benchmark surface, cafaeval
-%  prop=fill,norm=cafa, NK+LK macro-average, GOA 226 -> 230).
-%  Drop the cafaeval F_max per (PLM, K) cell into the table below,
-%  replacing each \gridna placeholder. Do NOT invent values; populate
-%  only from completed /benchmark runs. One number per (row=PLM,
-%  column=K) cell. ProstT5/K5 is the established champion (0.7291).
-% ============================================================
-\newcommand{\gridna}{\textit{n/a}}
+Two things about the grid differ from what was planned for it, and both are
+stated rather than quietly absorbed. The window that was run is
+GOA~220~$\to$~230 and not the $226 \to 230$ originally specified. The backbone
+set is also not the one anticipated: the campaign ran ProtST, both Ankh sizes,
+ESMC-600M and ESM-2 at 8M and 650M, so the two intermediate ESM-2 sizes and the
+ESM-3 component encoder are absent and two backbones are present that were not
+planned. What follows is what was measured.
+
 \begin{table}[htbp]
   \centering
-  \caption[Multi-PLM x K generalisation grid (to be reported)]{%
+  \caption[Multi-PLM x K generalisation grid]{%
     Multi-PLM $\times$ $K$ generalisation grid: NK+LK macro-average cafaeval
-    $F_{\max}$ per backend and neighbourhood size, selected and scored under
-    the leakage-clean SELECT-window protocol (GOA~226~$\to$~230). Values are
-    to be reported from the PROTEA \texttt{/benchmark} surface; placeholders
-    (\gridna) mark cells pending population.}
+    $F_{\max}$ per backbone and neighbourhood size, composite scorer, over the
+    GOA~220~$\to$~230 window. Each cell is the mean over the six
+    (category, aspect) cells the two categories and three aspects produce.
+    Bold marks the best $K$ in each row.}
   \label{tab:exp9-multiplm-grid}
-  \begin{tabular}{l ccc}
+  \begin{tabular}{l cccccc}
     \toprule
-    \textbf{PLM backend} & $K{=}3$ & $K{=}5$ & $K{=}10$ \\
+    \textbf{PLM backbone} & $K{=}1$ & $K{=}2$ & $K{=}3$ & $K{=}5$ & $K{=}10$ & $K{=}30$ \\
     \midrule
-    ESM-2 (8M)        & \gridna & \gridna & \gridna \\
-    ESM-2 (35M)       & \gridna & \gridna & \gridna \\
-    ESM-2 (150M)      & \gridna & \gridna & \gridna \\
-    ESMC-300M         & \gridna & \gridna & \gridna \\
-    ProstT5           & \gridna & \gridna & \gridna \\
-    ProtT5            & \gridna & \gridna & \gridna \\
-    Ankh-base         & \gridna & \gridna & \gridna \\
-    ESM-3 (encoder)   & \gridna & \gridna & \gridna \\
+    ProtST        & \textbf{0.5282} & 0.5187 & 0.5115 & 0.5049 & 0.4948 & 0.4755 \\
+    Ankh-base     & \textbf{0.5252} & 0.5144 & 0.5069 & 0.4999 & 0.4902 & 0.4691 \\
+    ProtT5        & \textbf{0.5250} & 0.5122 & 0.5059 & 0.4955 & 0.4872 & 0.4683 \\
+    Ankh-large    & \textbf{0.5246} & 0.5159 & 0.5074 & 0.4990 & 0.4894 & 0.4677 \\
+    ProstT5       & \textbf{0.5219} & 0.5118 & 0.5034 & 0.4963 & 0.4847 & 0.4622 \\
+    ESM-2 (650M)  & \textbf{0.5185} & 0.5064 & 0.5012 & 0.4926 & 0.4825 & 0.4638 \\
+    ESMC-600M     & \textbf{0.5131} & 0.5014 & 0.4938 & 0.4868 & 0.4782 & 0.4592 \\
+    ESM-2 (8M)    & \textbf{0.5052} & 0.4931 & 0.4852 & 0.4829 & 0.4781 & 0.4582 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The grid is the empirical breadth context for the thesis rather than a
-prerequisite for the primary result: the champion is established on ProstT5
-(\cref{tab:exp9-champion-replication}) and is unaffected by the grid outcome.
-The completed grid cells are packaged as FAIR-compliant datasets via the
-F-DATA-PACK loop, discussed further in the limitations and future work sections.
+\paragraph{What the completed grid says, and what the planned one could not have said.}
+The neighbourhood size matters more than the backbone, and not by a little. Across
+the eight backbones at their common best setting the spread is 0.0230. Within the
+strongest backbone, across $K$, it is 0.0527, more than twice as large. A reader
+looking for where the design choice lives should look at $K$ before looking at
+the encoder.
+
+$K{=}1$ is best in all eight rows, and every row declines monotonically from
+there. This is the result the originally specified grid could not have produced:
+its columns were $K \in \{3, 5, 10\}$, which excludes the maximum in every single
+row. That grid would have shown eight monotone declines with no indication that
+the peak lay outside the range sampled, and the natural reading of it, that
+smaller neighbourhoods help and the trend should be extrapolated, would have been
+right by accident rather than by measurement.
+
+The direction survives a change of window. Scored instead over
+GOA~226~$\to$~227, where only $K \in \{3, 5, 10, 30\}$ were run, the decline in
+$K$ is monotone in seven of the eight backbones, and the spread across backbones
+at $K{=}3$ is 0.0057.
+
+\paragraph{What this does and does not settle.}
+The generalisability claim holds, and holds more strongly than a per-cell winner
+table would have shown: no backbone changes the conclusion, and the ranking among
+them is compressed into a range narrower than the effect of a single
+hyperparameter. The champion is established on ProstT5
+(\cref{tab:exp9-champion-replication}) and is unaffected by the grid outcome,
+which is now a measured statement rather than an expectation.
+
+What it does not settle is why the backbones are so close, since a population
+average over a benchmark whose easy majority is carried by every method can
+compress differences that are real in a harder subpopulation. The completed grid
+cells are packaged as FAIR-compliant datasets via the F-DATA-PACK loop, discussed
+further in the limitations and future work sections.
 
 % ── Experiment 10 ─────────────────────────────────────────────
 \subsection{Experiment~10: Universal Reranker}
