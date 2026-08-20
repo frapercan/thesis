@@ -151,6 +151,71 @@ cohort from forty-one per cent to one hundred, and places the great
 majority of the cohort in the near-identical band, which empties every
 other band and makes the axis unreadable.
 
+\paragraph{What the swept axes are worth.}
+The ladder's first rung sweeps three things: the representation, the
+number of neighbours retrieved, and the weighting that turns neighbour
+evidence into a score. All three have now been measured on one frame, and
+the result is worth stating as a result rather than as preparation for a
+fourth.
+
+Taking the best configuration each axis can reach, against the best the
+others can reach without it, the three are worth the following:
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+Axis & Best-to-best difference \\
+\midrule
+Score weighting     & $0.0000$ to $0.0088$ \\
+Neighbourhood size  & a few thousandths \\
+Representation      & $0.0221$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+None of them moves the operating point by more than a hundredth. Against
+that, which identity band a query falls into is worth a factor of four,
+and it is not a setting: nothing the method chooses moves a protein from
+one band to another.
+
+Two of these figures are easy to misread and both were misread here first.
+
+The score weighting appears far larger than this when averaged over
+neighbourhood sizes, where the spread between weightings reaches $0.0485$.
+That average is dominated by configurations nobody would deploy. The
+spread between weightings is $0.0054$ at one neighbour and $0.1710$ at
+thirty, because at one neighbour there is a single donor per term and
+nothing for a weighting to discriminate between. What the weighting buys
+is therefore not accuracy but tolerance: under the weakest weighting,
+going from one neighbour to thirty costs sixty-eight per cent, and under
+the best it costs fourteen. It raises no ceiling.
+
+The representation is the reverse case. Aggregated it is the smallest
+interesting number in this chapter, and split by identity band it is the
+largest lever the campaign has found: $0.0848$ where no donor exceeds
+thirty per cent identity, against $0.0081$ where one exceeds ninety. In
+the easy band a model of eight million parameters scores within four
+thousandths of one with six hundred and fifty million; in the hard band
+the same model is last by eight and a half hundredths.
+
+An independent measurement agrees. Reachability of the gained terms from
+a short candidate list, computed from raw retrieval rows without any
+scoring or thresholding, gives a spread across the same eight
+representations of $0.0842$ in the same band. The two quantities are not
+the same and no mechanism is claimed for their proximity; they are
+reported as two measurements that agree rather than as one corroborating
+the other.
+
+\paragraph{What this leaves.}
+The honest reading of the first rung is that the levers it was built to
+sweep are small at the point where the method is actually operated, and
+that the one large effect it found is a property of the query rather than
+a choice available to the method. That is a finding about the shape of the
+problem, and it sets what a later rung has to clear: an intervention worth
+reporting must move the hard band, because the easy band has been shown to
+be insensitive to every choice measured here.
+
+% ────────────────────────────────────────────────────────────
 \paragraph{What carries the band where help is needed.}
 Naming the axis is not the same as saying what moves along it, and the two
 answers a reader would guess are both wrong.
