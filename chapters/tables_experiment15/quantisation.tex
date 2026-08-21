@@ -1,0 +1,13 @@
+\begin{tabular}{lrrrr}
+\toprule
+    \textbf{Value precision} & \textbf{Bytes} & \textbf{MFO} & \textbf{BPO} & \textbf{CCO} \\
+\midrule
+    Half precision & 432 & 0.7192 & 0.5293 & 0.6897 \\
+    Four bits & 240 & 0.7211 & 0.5289 & 0.6910 \\
+    Two bits & 208 & 0.7122 & 0.5279 & 0.6865 \\
+    Deployed encoder & 432 & 0.7126 & 0.5079 & 0.6798 \\
+\midrule
+    \quad Four bits against half precision & & $+0.0019$ & $-0.0005$ & $+0.0013$ \\
+    \quad Two bits against half precision & & $-0.0070$$^{*}$ & $-0.0014$ & $-0.0032$$^{*}$ \\
+\bottomrule
+\end{tabular}
