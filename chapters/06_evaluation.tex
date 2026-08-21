@@ -85,6 +85,294 @@ Only the 20,281 delta proteins are used as queries for prediction, ensuring
 that compute is not wasted on proteins with no ground-truth signal.
 
 % ────────────────────────────────────────────────────────────
+\subsection{The Experimental Ladder}
+\label{subsec:ladder}
+
+The experiments in this chapter are not a survey. They are a sequence, and
+the sequence has a rule: each step varies one thing and holds everything
+else at a value an earlier step chose. A step is called a rung, and the
+constants a rung holds are the answers of the rungs below it.
+
+That rule is what makes the sequence load-bearing rather than decorative.
+If a rung's answer later changes, every rung that held it constant is
+invalidated, and the dependency is written down so that the invalidation is
+visible rather than remembered. A ladder whose steps do not declare what
+they stand on is a list of experiments in chronological order.
+
+The rungs are declared before they run, in a form that is checked
+automatically: what each one varies, named down to the field of the job
+payload that carries it, and what each one holds, named with the rung that
+decided it. A dispatched job whose varied axes contradict its declared rung
+is a mistake the declaration can catch.
+
+The cost of not having it is not hypothetical. A grid of forty-eight arms
+ran two of its rung's three declared axes; the third, the weighting that
+turns neighbour evidence into a score, was never varied. It was not set to
+a default that had been chosen, but to the value the code falls back on
+when no scoring configuration is supplied, which is arithmetically the
+weakest of the seven the system offers. Nothing in the grid, the artifacts
+or the published tables recorded that a declared axis had gone unswept,
+and the omission was found only when someone asked what the numbers were
+measuring.
+
+\paragraph{How every rung reports.}
+No result in this chapter is reported over the whole population. Every
+figure is given per stratum, and the stratum that matters most is the
+sequence identity of the query to its nearest annotated donor.
+
+The reason is measured rather than assumed. Across the eight
+representations at the winning neighbourhood size, in the no-knowledge
+category, the spread between the best and worst representation is
+$0.0848$ where no donor exceeds thirty per cent identity, and $0.0081$
+where one exceeds ninety. A single number over the whole population is
+dominated by the second case, which is the case that needs no help: there,
+a model of eight million parameters scores within four thousandths of one
+with six hundred and fifty million. Where no close donor exists, the same
+small model is last by eight and a half hundredths. A conclusion drawn from
+the pooled figure is therefore true of the proteins the method already
+handles and false of the proteins it exists for.
+
+Two consequences follow, and both are rules rather than observations.
+
+First, stratifying by sequence length does not discharge this requirement.
+Measured on the same arms, the representation spread by length band is
+$0.0323$ and $0.0388$ in the two bands that carry data, which is a tie,
+while the largest spread inside each of those bands is the same figure as
+the twilight maximum. Length does not separate the effect; it scatters it.
+A table stratified by length carries the appearance of the discipline
+without its content, which makes it worse than an unstratified table,
+because it invites the reader to believe the check has been done.
+
+Second, the identity band excludes the query's own sequence, and excludes
+it by sequence rather than by accession, because isoforms, re-annotations
+and cross-references place one sequence in the reference set under several
+names. Including the self match moves the median identity of the evaluation
+cohort from forty-one per cent to one hundred, and places the great
+majority of the cohort in the near-identical band, which empties every
+other band and makes the axis unreadable.
+
+\paragraph{What the swept axes are worth.}
+The ladder's first rung sweeps three things: the representation, the
+number of neighbours retrieved, and the weighting that turns neighbour
+evidence into a score. All three have now been measured on one frame, and
+the result is worth stating as a result rather than as preparation for a
+fourth.
+
+Taking the best configuration each axis can reach, against the best the
+others can reach without it, the three are worth the following:
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+Axis & Best-to-best difference \\
+\midrule
+Score weighting     & $0.0000$ to $0.0088$ \\
+Neighbourhood size  & a few thousandths \\
+Representation      & $0.0221$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+None of them moves the operating point by more than a hundredth. Against
+that, which identity band a query falls into is worth a factor of four,
+and it is not a setting: nothing the method chooses moves a protein from
+one band to another.
+
+Two of these figures are easy to misread and both were misread here first.
+
+The score weighting appears far larger than this when averaged over
+neighbourhood sizes, where the spread between weightings reaches $0.0485$.
+That average is dominated by configurations nobody would deploy. The
+spread between weightings is $0.0054$ at one neighbour and $0.1710$ at
+thirty, because at one neighbour there is a single donor per term and
+nothing for a weighting to discriminate between. What the weighting buys
+is therefore not accuracy but tolerance: under the weakest weighting,
+going from one neighbour to thirty costs sixty-eight per cent, and under
+the best it costs fourteen. It raises no ceiling.
+
+The representation is the reverse case. Aggregated it is the smallest
+interesting number in this chapter, and split by identity band it is the
+largest lever the campaign has found: $0.0848$ where no donor exceeds
+thirty per cent identity, against $0.0081$ where one exceeds ninety. In
+the easy band a model of eight million parameters scores within four
+thousandths of one with six hundred and fifty million; in the hard band
+the same model is last by eight and a half hundredths.
+
+An independent measurement agrees. Reachability of the gained terms from
+a short candidate list, computed from raw retrieval rows without any
+scoring or thresholding, gives a spread across the same eight
+representations of $0.0842$ in the same band. The two quantities are not
+the same: one is a set membership before any threshold, the other a
+threshold-optimised F. Their proximity was examined and no mechanism was
+found for it, and it is not treated as evidence here. They are two
+measurements that agree, reported as such.
+
+Only the spread transfers, and this is worth stating because the
+temptation runs the other way. The same reachability measured against a
+different donor bank moves from $0.665$ to $0.602$ while the ordering and
+the band structure hold. The absolute level is therefore a property of who
+is in the reference set rather than of protein function or of the method,
+and no absolute reachability figure is quoted in this work for that
+reason.
+
+\paragraph{What a code has to keep.}
+One result from this rung is directly actionable in what is served, and
+reaching it required correcting the same measurement twice.
+
+Quantising the served sparse code and measuring retrieval over the whole
+no-knowledge cell, against a bank of eighty-six thousand experimentally
+annotated donors, with bands over the full population:
+
+\begin{center}
+\begin{tabular}{llrrl}
+\toprule
+Clip & Bits & Bytes & Change & Bands separating \\
+\midrule
+99th pct & 8 & 304 & $+0.0014$ & 0 of 4 \\
+99th pct & 4 & 240 & $-0.0001$ & 0 of 4 \\
+99th pct & 2 & 208 & $-0.0243$ & 4 of 4 \\
+99th pct & 1 & 192 & $+0.0015$ & 0 of 4 \\
+maximum  & 2 & 208 & $-0.0528$ & 4 of 4 \\
+maximum  & 1 & 192 & $-0.0003$ & 1 of 4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two bits cost and one bit does not, which is not monotone and has a
+measured cause: what costs is deleting atoms, not coarsening their
+magnitudes. At two bits the signed grid is $\{-1, 0, +1\}$, so every atom
+below half the scale rounds to zero and the code loses most of its
+support; sign-only has no zero level to fall into and deletes nothing. Of
+the $127.9$ atoms a code carries, four-bit clipping deletes none, two-bit
+deletes $81.8$ per cent, and two-bit under max-scaling deletes $91.3$ per
+cent, and those figures order exactly with the three losses.
+
+\paragraph{Why the recommendation is four bits and not one.}
+On this table one bit is free and saves most, and that is the wrong
+reading. It was reached, and then abandoned, for a reason worth reporting.
+
+The apparent $+0.0015$ at one bit is not the quantisation. Decomposed, the
+percentile clip alone carries $+0.0012$ with no quantisation applied at
+all, and every configuration containing the clip carries about that much
+while every configuration without it sits at zero. The clip's own effect
+is not distinguishable from nothing, and it was being attributed to the
+width.
+
+Chasing that offset surfaced the real objection. Sign-only under the two
+clips should be mathematically identical, because the scale is a positive
+per-row scalar that a cosine normalises away, and the two code matrices do
+agree to $1.5 \times 10^{-8}$. Their retrieval nonetheless differed. The
+only thing a perturbation that small can change is a tie:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Variant & Donors tied at the cut & Neighbours differing of 30 \\
+\midrule
+Unquantised & 1.0 & 0 \\
+4 bits & 1.0 & 4.5 \\
+8 bits & 1.1 & 4.0 \\
+1 bit & 8.4 & 9.6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+At one bit every code carries the same magnitudes and differs only in
+sign, so the cosine takes few distinct values and the ranking degenerates.
+Eight donors sit tied exactly at the cut, and a third of the returned
+neighbourhood is decided by floating-point noise rather than by
+similarity.
+
+Set reachability does not notice, because it averages over which donors
+arrive. Everything downstream does: the re-ranker sees a different
+candidate set, a rerun returns different neighbours, and the interface
+shows the donor to a reader as the evidence for a prediction. A
+neighbourhood that is one third arbitrary is not servable at any size.
+
+So the recommendation is four bits: $240$ bytes against $688$ for float32
+indices and values, a saving of sixty-five per cent, free on the metric in
+every identity band including twilight, and preserving the tie structure
+of the unquantised code exactly.
+
+The one-bit row is worth keeping in the table as an illustration rather
+than as an option. A metric that is insensitive to \emph{which} donors
+arrive cannot certify a retrieval system whose purpose is to surface them,
+and a configuration can be free on the measurement and unusable in the
+product for reasons the measurement was never able to see.
+
+One further limit belongs with the result rather than after it. This says
+the magnitudes carry little beyond sign and support \emph{for a cosine}.
+The same code has a second consumer, a learner that reads every column,
+and these two consumers have been measured disagreeing before. Nothing
+here licenses a narrow code as a feature vector.
+
+% ────────────────────────────────────────────────────────────
+\paragraph{What this leaves.}
+The honest reading of the first rung is that the levers it was built to
+sweep are small at the point where the method is actually operated, and
+that the one large effect it found is a property of the query rather than
+a choice available to the method. That is a finding about the shape of the
+problem, and it sets what a later rung has to clear: an intervention worth
+reporting must move the hard band, because the easy band has been shown to
+be insensitive to every choice measured here.
+
+% ────────────────────────────────────────────────────────────
+\paragraph{What carries the band where help is needed.}
+Naming the axis is not the same as saying what moves along it, and the two
+answers a reader would guess are both wrong.
+
+Inside the band where no donor exceeds thirty per cent identity, the
+precision at the head of each protein's own ranking is as follows, against
+a chance rate of $0.031$:
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+Score & Precision at rank 1 \\
+\midrule
+Composite            & 0.239 \\
+Neighbour agreement  & 0.220 \\
+Embedding similarity & 0.156 \\
+Alignment identity   & 0.059 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Alignment identity is the weakest by a wide margin, at less than twice
+chance where the others reach five to seven times it. This is not a failure
+to discriminate: measured on the same proteins, that score resolves
+twenty-six distinct values per protein where neighbour agreement resolves
+fourteen, and it is the coarser of the two that ranks better. What it does
+is order the candidates almost independently of whether they are correct,
+which is what one should expect of a similarity that is not there: below
+thirty per cent identity there is no alignment worth reading.
+
+The result that matters is the third row. The embedding's own similarity is
+itself a weak ranker in this band. What ranks well is the agreement among
+the neighbours the embedding retrieved, a quantity derived from the
+embedding and distinct from it.
+
+So in the regime this work exists to serve, the useful signal is neither
+sequence identity nor embedding similarity. It is neighbourhood consensus.
+That is a narrower claim than the one the method is usually described by,
+and it is the one the measurements support.
+
+It also sets what a retrieval strategy has to be judged on. If consensus is
+what carries the hard band, then the question about any retriever is
+whether the neighbourhood it returns agrees, not whether its first result
+is correct. Those are different objectives, and a retriever can satisfy one
+while failing the other.
+
+% ────────────────────────────────────────────────────────────
+\paragraph{What the identity band is not.}
+It is not a setting. Nothing the method chooses moves a protein from one
+band to another, because the band is a property of the query and of what
+the reference set happens to contain at the temporal cut. Every other axis
+in this chapter is something the method selects; this one is the regime it
+finds itself in. That difference is why the bands are reported alongside
+every result rather than optimised over.
+
+% ────────────────────────────────────────────────────────────
 \section{Evaluation Categories (NK/LK/PK)}
 \label{subsec:nk-lk-pk}
 
