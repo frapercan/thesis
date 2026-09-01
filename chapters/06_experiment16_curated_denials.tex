@@ -26,9 +26,12 @@ differ: the bank holds 5{,}603 negative annotations and the later truth set hold
 
 The predictions examined are one arm of the backbone sweep at retrieval depth thirty,
 2{,}441{,}584 candidate rows over 14{,}032 query proteins, scored under the deployed
-scoring configuration. Of the 5{,}603 denials in the bank, 956 concern a protein in the
-query set. Those 956 are the population of this experiment: statements the method could
-have consulted and did not.
+scoring configuration. Of the 5{,}603 denials in the bank, 936 distinct (protein, term) denials concern a
+protein in the query set. Those 936 are the population of this experiment: statements
+the method could have consulted and did not. Counting each evidence code separately
+gives 956, and the aspect breakdown below is reported that way because the evidence is
+part of what makes a denial informative; every count in the propagation analysis uses
+the distinct 936.
 
 \subsubsection{Half of the Denials Were Violated}
 
@@ -138,7 +141,7 @@ A second case has the same shape in a different aspect. \texttt{Q9Y468} carries
 \texttt{NOT|located\_in GO:0005730 nucleolus} by direct assay, and the method predicted
 nucleolar localisation at rank two, from \texttt{Q96JM7} at a distance of 0.0090.
 
-\subsubsection{A Denial Is Larger Than the Term It Names}
+\subsubsection{A Denial Constrains a Subtree, and What That Is Worth}
 
 A positive annotation propagates upward: a protein annotated with a child term is
 thereby annotated with the parent. The corresponding statement for a negative
@@ -146,28 +149,64 @@ annotation is its contrapositive, and it propagates in the opposite direction. I
 protein does not have the parent, it cannot have any descendant of the parent, since
 having the descendant would entail having the parent.
 
-Propagating the 943 denials whose term exists in the ontology the predictions were made
-under, along the two relations an annotation is defined to travel:
+The logic is sound, but its practical value is smaller than it first appears, and the
+reason is worth stating because it is easy to overcount. The evaluator closes
+predictions over the ontology before scoring. Once it has, checking the \emph{named}
+denied term against the closed prediction set is exactly equivalent to checking the
+downward-propagated denial against the raw one: both fire when the method predicted the
+denied term or any of its descendants. Downward propagation is therefore not an
+additional source of violations. It is the same test, performed at the other end.
+
+What it does buy is the violations that a check against raw, unclosed predictions would
+miss:
 
 \begin{table}[htbp]
 \centering
-\caption{Denials before and after downward propagation.}
+\caption{Denials violated, counted per denial rather than per predicted term.}
 \label{tab:exp16-propagation}
-\begin{tabular}{lr}
+\begin{tabular}{lrr}
 \toprule
-Direct denials on query proteins & 943 \\
-Denied (protein, term) pairs after descent & 39{,}105 \\
-Expansion & 41.5$\times$ \\
-Of those, predicted by the method & 1{,}190 \\
+ & Denials & Rate \\
+\midrule
+Distinct denials on query proteins & 936 & \\
+Violated at the named term, raw predictions & 465 & 49.7\% \\
+Violated once predictions are ancestor-closed & 527 & 56.3\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The visible violation, the 478 counted against the terms the curators named, is under
-half of the real one. Reasoning only over the named terms understates the defect by a
-factor of two and a half, and the understatement is not uniform: it is largest for
-general denials high in the ontology, which are exactly the denials that exclude the
-most.
+The increase is 62 denials, or 13 per cent, and not the multiple that a careless count
+would report. The careless count is worth naming, because it is the mistake this
+measurement invites: 1{,}185 candidate rows fall inside a denied subtree, and comparing
+that against 465 suggests a factor of two and a half. It is not one. The first number
+counts predicted \emph{pairs} and the second counts violated \emph{denials}, and a
+single denial violated by four predicted descendants contributes four to the one and one
+to the other. The pair count is the right quantity for sizing what a filter removes and
+the wrong one for sizing how often the method errs.
+
+The two framings also disagree about the density of the defect, and both are true:
+
+\begin{table}[htbp]
+\centering
+\caption{The same defect under two denominators.}
+\label{tab:exp16-density}
+\begin{tabular}{lrr}
+\toprule
+Question & Numerator & Denominator \\
+\midrule
+How often is a named denial violated & 465 & 936 \quad (49.7\%) \\
+How often is a denied pair predicted & 1{,}185 & 39{,}105 \quad (3.0\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Half of the named denials are violated, and three per cent of the pairs a denial
+excludes are predicted. The first answers how often the method contradicts a curator
+where a curator has spoken. The second answers how much of a guard a denial is once it
+is extended to everything it logically forbids, and the answer is that most of what a
+denial forbids was never at risk of being predicted. Reporting only the first overstates
+how much work the subtree does; reporting only the second understates how often the
+method is wrong where it has been warned.
 
 \subsubsection{The Remedy, and Three Choices It Records}
 
@@ -200,10 +239,11 @@ The 1{,}190 removed pairs are a small fraction of 2{,}441{,}584, and the change 
 move a headline measure. The filter was not built for the measure.
 
 What the experiment establishes is diagnostic, and it is three things. The method is
-confidently wrong precisely where the corpus has taken the trouble to say so. It is
-wrong there at rank one, which no threshold on distance or depth can reach. And the
-extent of the error is more than twice what a reading restricted to the named terms
-would report, because a denial constrains a subtree and not a term.
+confidently wrong precisely where the corpus has taken the trouble to say so, on half
+of the denials that concern its queries. It is wrong there at rank one, which no
+threshold on distance or depth can reach. And the subtree a denial forbids adds 13 per
+cent more violated denials than its named term alone, which is a real increase and a
+much smaller one than the pair count invites.
 
 Three things are left open, and the first is the one that matters for the method rather
 than for its bookkeeping.
@@ -221,4 +261,4 @@ ontology's own structure rather than its annotations.
 And the threefold difference in violation rate across aspects has no explanation. If
 cellular component stands at 68 per cent because localisation transfers badly between
 homologues in ways that function does not, that is a statement about the method reaching
-well beyond these 956 records, and it is measurable on the same corpus.
+well beyond these records, and it is measurable on the same corpus.
