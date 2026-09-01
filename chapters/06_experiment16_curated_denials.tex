@@ -176,7 +176,17 @@ Violated once predictions are ancestor-closed & 527 & 56.3\% \\
 \end{table}
 
 The increase is 62 denials, or 13 per cent, and not the multiple that a careless count
-would report. The careless count is worth naming, because it is the mistake this
+would report. Those 62 are not a hypothetical: they are the specification the deployed
+filter meets. It seeds on the direct denials and descends the graph, so it tests the
+subtree rather than the named term, and the 527 is therefore a contract the code
+satisfies by construction rather than a bound on what happens.
+
+The descent runs along \texttt{is\_a} and \texttt{part\_of} and no further, which is
+correct and not obvious. Those are the relations an annotation is defined to travel, so
+they are the ones along which the entailment that makes a denial descend actually
+holds. A regulation edge is not subsumption: a protein that does not have a process is
+not thereby barred from regulating it, and propagating a denial along that edge would
+assert something the ontology does not. The careless count is worth naming, because it is the mistake this
 measurement invites: 1{,}185 candidate rows fall inside a denied subtree, and comparing
 that against 465 suggests a factor of two and a half. It is not one. The first number
 counts predicted \emph{pairs} and the second counts violated \emph{denials}, and a
