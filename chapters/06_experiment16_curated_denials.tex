@@ -1,0 +1,274 @@
+\subsection{Experiment~16: What a Curated Denial Was Telling Us}
+\label{sec:exp16-curated-denials}
+
+A negative annotation is not a gap in the record. When a curator writes that a protein
+does \emph{not} have a function, that statement carries evidence, a reference and a
+date, exactly as a positive one does. It is also, almost always, a statement somebody
+took the trouble to make because there was a reason to believe the opposite, and in
+this field the reason is nearly always a homologue.
+
+That makes the negative annotation the one class of record in the corpus aimed squarely
+at the error a homology-transfer method makes. It marks the places where similarity is
+known to mislead. A method that transfers annotation between neighbours and ignores
+those marks is not merely uninformed: it is walking into traps whose locations have
+been published.
+
+This experiment asks how often that happens, and the answer is half the time.
+
+\subsubsection{Design, and Why It Cannot Leak}
+
+The denials are read from the reference bank alone, the annotation corpus as it stood
+at the start of the evaluation window. Nothing is read from the truth set. This matters
+because a denial recorded \emph{after} the cutoff would be a statement about the answer,
+and filtering with it would be reading the answer under another name. The two corpora
+differ: the bank holds 5{,}603 negative annotations and the later truth set holds
+5{,}397. Only the first is consulted, at prediction time and at every later step.
+
+The predictions examined are one arm of the backbone sweep at retrieval depth thirty,
+2{,}441{,}584 candidate rows over 14{,}032 query proteins, scored under the deployed
+scoring configuration. Of the 5{,}603 denials in the bank, 936 distinct (protein, term) denials concern a
+protein in the query set. Those 936 are the population of this experiment: statements
+the method could have consulted and did not. Counting each evidence code separately
+gives 956, and the aspect breakdown below is reported that way because the evidence is
+part of what makes a denial informative; every count in the propagation analysis uses
+the distinct 936.
+
+\subsubsection{Half of the Denials Were Violated}
+
+\begin{table}[htbp]
+\centering
+\caption{Curated denials on query proteins, and how many were predicted anyway.}
+\label{tab:exp16-by-aspect}
+\begin{tabular}{lrrr}
+\toprule
+Aspect & Denials & Predicted anyway & Rate \\
+\midrule
+Molecular function & 291 & 167 & 57.4\% \\
+Cellular component & 213 & 145 & 68.1\% \\
+Biological process & 452 & 166 & 36.7\% \\
+\midrule
+All & 956 & 478 & 50.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The aggregate is half, and the breakdown is worse than the aggregate for the aspects
+that matter most to this method. Molecular function and cellular component are where
+homology transfer is most confident, because catalytic activity and subcellular
+localisation are the properties that most reliably survive between close relatives.
+They are also, here, the two aspects where the method most often asserts precisely
+what a curator has denied. Biological process, the aspect where transfer is weakest
+and where the system's own measured performance is lowest, is the aspect where it
+violates fewest denials, because it proposes those terms less confidently in the first
+place.
+
+The ordering is therefore the opposite of reassuring. The error is not concentrated
+where the method is weak. It is concentrated where the method is strong.
+
+\subsubsection{The Violations Are Not at the Tail}
+
+A defect that lived among marginal candidates would be an argument for a stricter cut.
+This one does not.
+
+\begin{table}[htbp]
+\centering
+\caption{Where in the ranking the 478 violations occur.}
+\label{tab:exp16-position}
+\begin{tabular}{lr}
+\toprule
+Predicted in first place & 115 \\
+Predicted within the top five & 289 \\
+Median rank among the query's candidates & 4 \\
+Median distance to the transferring donor & 0.0129 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sixty per cent of the violations sit inside the query's own top five, and a quarter of
+them are the single best candidate the method produced for that protein. The donors
+carrying them are close: a median cosine distance of 0.0129 places them among the
+nearest neighbours in the reference bank, not at the edge of the retrieved
+neighbourhood. No threshold on distance and no reduction of retrieval depth reaches
+this error, because the error is made with the method's most confident evidence.
+
+\subsubsection{And the Evidence Against Them Is Direct}
+
+\begin{table}[htbp]
+\centering
+\caption{Evidence codes on the 478 violated denials.}
+\label{tab:exp16-evidence}
+\begin{tabular}{lrr}
+\toprule
+Code & Count & Share \\
+\midrule
+IDA, direct assay & 205 & 42.9\% \\
+IMP, mutant phenotype & 62 & 13.0\% \\
+RCA, reviewed computational analysis & 57 & 11.9\% \\
+ISO, sequence orthology & 52 & 10.9\% \\
+ISS, sequence similarity & 24 & 5.0\% \\
+IKR, key residues & 23 & 4.8\% \\
+IBA, biological ancestor & 21 & 4.4\% \\
+TAS, traceable author statement & 11 & 2.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+286 of the 478 carry an experimental code. Somebody performed the experiment, it came
+out negative, the result was recorded with its reference, and the system predicted the
+denied function anyway.
+
+\subsubsection{One Protein, in Full}
+
+The clearest case is \texttt{O94526}, the PTEN homologue of \emph{Schizosaccharomyces
+pombe}. The bank records:
+
+\begin{quote}
+\texttt{NOT|enables GO:0004439 phosphatidylinositol-4,5-bisphosphate\\ 5-phosphatase activity (IDA)}
+\end{quote}
+
+The method predicted that exact term, in first place, transferred from \texttt{P40559}
+at a cosine distance of 0.0151.
+
+The whole problem is in that row. PTEN homologues are lipid phosphatases; that is what
+the family is known for, and it is why a nearest neighbour carrying the activity is a
+persuasive donor. A curator assayed this particular protein directly, found that it
+does not have the activity, and published the negative result. The annotation exists
+\emph{because} the homology is misleading in this instance. The method used the
+homology, did not consult the annotation, and produced the error the annotation had
+been written to prevent.
+
+A second case has the same shape in a different aspect. \texttt{Q9Y468} carries
+\texttt{NOT|located\_in GO:0005730 nucleolus} by direct assay, and the method predicted
+nucleolar localisation at rank two, from \texttt{Q96JM7} at a distance of 0.0090.
+
+\subsubsection{A Denial Constrains a Subtree, and What That Is Worth}
+
+A positive annotation propagates upward: a protein annotated with a child term is
+thereby annotated with the parent. The corresponding statement for a negative
+annotation is its contrapositive, and it propagates in the opposite direction. If a
+protein does not have the parent, it cannot have any descendant of the parent, since
+having the descendant would entail having the parent.
+
+The logic is sound, but its practical value is smaller than it first appears, and the
+reason is worth stating because it is easy to overcount. The evaluator closes
+predictions over the ontology before scoring. Once it has, checking the \emph{named}
+denied term against the closed prediction set is exactly equivalent to checking the
+downward-propagated denial against the raw one: both fire when the method predicted the
+denied term or any of its descendants. Downward propagation is therefore not an
+additional source of violations. It is the same test, performed at the other end.
+
+What it does buy is the violations that a check against raw, unclosed predictions would
+miss:
+
+\begin{table}[htbp]
+\centering
+\caption{Denials violated, counted per denial rather than per predicted term.}
+\label{tab:exp16-propagation}
+\begin{tabular}{lrr}
+\toprule
+ & Denials & Rate \\
+\midrule
+Distinct denials on query proteins & 936 & \\
+Violated at the named term, raw predictions & 465 & 49.7\% \\
+Violated once predictions are ancestor-closed & 527 & 56.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The increase is 62 denials, or 13 per cent, and not the multiple that a careless count
+would report. Those 62 are not a hypothetical: they are the specification the deployed
+filter meets. It seeds on the direct denials and descends the graph, so it tests the
+subtree rather than the named term, and the 527 is therefore a contract the code
+satisfies by construction rather than a bound on what happens.
+
+The descent runs along \texttt{is\_a} and \texttt{part\_of} and no further, which is
+correct and not obvious. Those are the relations an annotation is defined to travel, so
+they are the ones along which the entailment that makes a denial descend actually
+holds. A regulation edge is not subsumption: a protein that does not have a process is
+not thereby barred from regulating it, and propagating a denial along that edge would
+assert something the ontology does not. The careless count is worth naming, because it is the mistake this
+measurement invites: 1{,}185 candidate rows fall inside a denied subtree, and comparing
+that against 465 suggests a factor of two and a half. It is not one. The first number
+counts predicted \emph{pairs} and the second counts violated \emph{denials}, and a
+single denial violated by four predicted descendants contributes four to the one and one
+to the other. The pair count is the right quantity for sizing what a filter removes and
+the wrong one for sizing how often the method errs.
+
+The two framings also disagree about the density of the defect, and both are true:
+
+\begin{table}[htbp]
+\centering
+\caption{The same defect under two denominators.}
+\label{tab:exp16-density}
+\begin{tabular}{lrr}
+\toprule
+Question & Numerator & Denominator \\
+\midrule
+How often is a named denial violated & 465 & 936 \quad (49.7\%) \\
+How often is a denied pair predicted & 1{,}185 & 39{,}105 \quad (3.0\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Half of the named denials are violated, and three per cent of the pairs a denial
+excludes are predicted. The first answers how often the method contradicts a curator
+where a curator has spoken. The second answers how much of a guard a denial is once it
+is extended to everything it logically forbids, and the answer is that most of what a
+denial forbids was never at risk of being predicted. Reporting only the first overstates
+how much work the subtree does; reporting only the second understates how often the
+method is wrong where it has been warned.
+
+\subsubsection{The Remedy, and Three Choices It Records}
+
+The filter removes candidates that the bank denies about the query, and it is
+implemented in the evaluation frame so that it applies to every arm without any
+retrieval being repeated. Three design decisions in it are worth recording, because
+each one addresses a defect this system has exhibited more than once.
+
+\paragraph{The policy reads its own inputs.} The reference bank and the ontology are
+resolved from the prediction set's own row rather than passed in by the caller. This is
+not a convenience. A depth restriction added earlier to this same pipeline spent an
+entire campaign silently unapplied because it was a field that two construction sites
+each had to remember to populate, and neither did. A check whose inputs come from the
+record it is about cannot be forgotten into being inactive.
+
+\paragraph{Every writer applies it.} There are three code paths that write predictions,
+and the one the campaign actually uses never constructs the cached candidate frame the
+other two share. A filter applied by some writers and not others is the same defect in
+different clothing, and it would have been invisible in exactly the configuration that
+matters.
+
+\paragraph{The ontology is the prediction set's own.} Propagation runs on the snapshot
+the predictions were made under, not on the snapshot the evaluation pivots to. The two
+disagree by 29 pairs. Using the later one would import ontology structure created after
+the cutoff, which is a small leak but a leak of the same kind as any other.
+
+\subsubsection{What This Settles and What It Does Not}
+
+The 1{,}190 removed pairs are a small fraction of 2{,}441{,}584, and the change does not
+move a headline measure. The filter was not built for the measure.
+
+What the experiment establishes is diagnostic, and it is three things. The method is
+confidently wrong precisely where the corpus has taken the trouble to say so, on half
+of the denials that concern its queries. It is wrong there at rank one, which no
+threshold on distance or depth can reach. And the subtree a denial forbids adds 13 per
+cent more violated denials than its named term alone, which is a real increase and a
+much smaller one than the pair count invites.
+
+Three things are left open, and the first is the one that matters for the method rather
+than for its bookkeeping.
+
+The 5{,}603 negative annotations constitute a labelled negative set, and nothing in this
+system learns from them. Filtering removes a wrong answer after it has been proposed. A
+method trained against these records would not propose it, and the difference between
+those two is the difference between a guard and a model.
+
+Nothing here tests whether a query carries an \emph{implicit} denial, meaning a term
+inconsistent with what the protein is already known to be rather than one a curator
+explicitly ruled out. That set is far larger than 5{,}603 and defining it requires the
+ontology's own structure rather than its annotations.
+
+And the threefold difference in violation rate across aspects has no explanation. If
+cellular component stands at 68 per cent because localisation transfers badly between
+homologues in ways that function does not, that is a statement about the method reaching
+well beyond these records, and it is measurable on the same corpus.

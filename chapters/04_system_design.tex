@@ -958,7 +958,9 @@ for evidence codes ranked by informativeness).
 \label{subsec:universal-ia-weighting}
 
 PROTEA's benchmark metric, and the metric used by the LAFA live board, is the
-IA-weighted micro-average $F_{\max}$ (\texttt{f\_micro\_w}). This metric
+IA-weighted pooled $F_{\max}$ (\texttt{f\_micro\_w}). It is not CAFA's metric:
+CAFA scores the protein-centric average, stored alongside as \texttt{fmax\_w},
+and Section~\ref{sec:metrics} sets out why the two are not interchangeable. This metric
 penalises misprediction of high-information GO terms more heavily than
 misprediction of generic terms (e.g.\ a missed annotation to
 \texttt{GO:0005488}~``binding'' incurs a smaller loss than a missed annotation
