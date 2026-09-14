@@ -1,0 +1,82 @@
+\section{Propósito y alcance}
+\label{sec:proposito}
+
+\subsection{La pregunta}
+
+La campaña responde a una sola pregunta, y está formulada de modo que su
+respuesta puede ser negativa:
+
+\begin{quote}
+\emph{Cuáles de las decisiones que definen un sistema de transferencia de
+anotación basado en modelos de lenguaje y vecinos más cercanos están separadas
+por evidencia sobre una ventana temporal sin fuga, y cuáles están simplemente
+elegidas.}
+\end{quote}
+
+La distinción entre \emph{separada por evidencia} y \emph{elegida} no es
+retórica. Está implementada: cada decisión del sistema recibe exactamente una
+de cinco palabras, y la más fuerte de las cinco solo es alcanzable cuando se
+declaró un umbral de comparación antes de medir y la comparación lo superó. La
+sección~\ref{sec:grafo} define las cinco palabras y el orden en que se prueban.
+
+De esto se sigue el compromiso central del diseño: la campaña se compromete por
+adelantado a publicar como \emph{elegida} cualquier decisión que no alcance la
+palabra fuerte, en lugar de presentarla como un hallazgo. Una campaña que solo
+puede producir hallazgos no está midiendo nada.
+
+\subsection{Lo que este documento no es}
+
+No es un informe de resultados. Las cifras que contiene son de tres clases y
+están marcadas como tales: poblaciones y costes medidos sobre el registro
+actual, que fijan la escala; cotas de resolución, que fijan lo que es
+observable; y valores de parámetro instanciados, que fijan la rejilla. No hay
+ninguna afirmación comparativa entre configuraciones.
+
+Tampoco es un plan de trabajo cerrado. Las decisiones que corresponden al
+investigador están recogidas en la sección~\ref{sec:procedimiento} como puertas
+que pueden fallar, con la entrada sobre la que fallan nombrada en cada caso.
+
+\subsection{Por qué el diseño se escribe antes de los resultados}
+
+Porque el defecto que esta campaña existe para corregir no es un error de
+cálculo. Es estructural, y se enuncia en una frase: \textbf{un proyecto de esta
+forma escribe sus decisiones en prosa y sus datos en tablas, y nada conecta las
+dos}. Cuando eso ocurre, una prohibición escrita en un documento no impide la
+comparación que prohíbe, un umbral declarado no puede negarse, y una fila
+retirada sigue gobernando la lectura de un resultado porque la consulta que la
+lee no menciona su estado.
+
+La consecuencia práctica es que \emph{declarar} algo tiene que costar más que
+escribirlo. En este diseño una declaración vale si y solo si tiene tres partes,
+y no vale nada con dos:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.25em]
+  \item \textbf{Una fila}, en una columna tipada, direccionable por el código
+        que debe obedecerla. Prosa en un fichero de texto no es una
+        declaración; tampoco lo es una clave libre en un blob que ninguna
+        consulta nombra.
+  \item \textbf{Un guardia que pueda negarse}, es decir, algún camino que lea
+        esa fila y \emph{levante una excepción} antes de que el número se
+        produzca o la comparación se responda. Un guardia que registra un aviso,
+        o que devuelve un valor por omisión, no es un guardia.
+  \item \textbf{Dos pruebas}: una de que se niega cuando la regla se viola, y
+        otra de que actúa cuando la regla se respeta. Las dos mitades son
+        necesarias. Un guardia probado solo en la negativa puede ser una
+        función que siempre levanta; probado solo en el camino feliz, puede ser
+        una que nunca dispara.
+\end{enumerate}
+
+Todo cambio de instrumentación que propone la sección~\ref{sec:procedimiento}
+se ajusta a esa plantilla, y la razón por la que este documento define cada
+término es la misma: un guardia solo puede negarse a algo que esté definido.
+
+\subsection{Audiencia y uso}
+
+El documento está escrito para ser leído por un grupo que no ha seguido el
+desarrollo. Por eso la sección~\ref{sec:definiciones} define todo el
+vocabulario antes de usarlo, incluidos los términos que parecen obvios. Los
+nombres técnicos se dejan en inglés, en \texttt{\small esta tipografía}, porque son los
+identificadores que existen en el código y en el esquema de la base de datos.
+Traducirlos crearía un segundo vocabulario que habría que mantener sincronizado
+con el primero, y un conjunto cerrado escrito dos veces es la forma más común de
+que las dos copias dejen de coincidir sin que nadie lo note.

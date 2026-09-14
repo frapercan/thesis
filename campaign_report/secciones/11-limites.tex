@@ -1,0 +1,74 @@
+\section{Límites: lo que la campaña no va a poder afirmar}
+\label{sec:limites}
+
+Esta sección existe para que ninguna de estas cosas se descubra al final. Cada una
+es una afirmación que el diseño \emph{no} soporta, con la razón.
+
+\subsection{Sobre comparaciones externas}
+
+\textbf{Ninguna comparación con las cifras publicadas previamente por el proyecto.}
+Son cantidades distintas en tres sentidos a la vez: en espacio de métrica, en
+ventana temporal y en arnés de ejecución. Varias de ellas son promedios sobre los
+nueve paneles o sobre categorías combinadas, que esta campaña no calcula por
+construcción. Ponerlas en la misma tabla sería un error de categoría, no una
+comparación desfavorable.
+
+\textbf{Ninguna afirmación frente a métodos basados en alineamiento.} No existe hoy
+un comparador de esa clase dentro de la plataforma: el único código que evalúa una
+herramienta externa no está registrado como operación y su salida no puede llegar a
+la tabla de resultados. La superficie de afirmación viva es \emph{interna y del lado
+de la recuperación}: puede ordenar configuraciones entre sí y todavía no puede
+situar ninguna frente a un método externo. Eso es exactamente lo que el despliegue
+en LAFA resuelve, y es la razón por la que el despliegue es parte del diseño y no un
+apéndice.
+
+\subsection{Sobre los nodos bloqueados}
+
+Seis de los diez nodos están bloqueados, cada uno por un cero o por un uno con
+nombre, y los ceros no son uno por nodo: no hay
+anotaciones de dominios, no hay mapeo de dominios a términos, no hay configuraciones
+de puntuación registradas, no hay modelos de reordenación, no hay conjuntos de
+datos exportados y no hay coocurrencia de términos. Que estén bloqueados no es un
+fallo de la campaña: es el estado del registro, y avanzar uno por uno es el plan.
+
+Lo que sí hay que corregir es que cuatro de esos seis bloqueos son literales en el
+código y no lecturas del registro, de modo que imprimirían la misma palabra con un
+millón de filas presentes. Un bloqueo estructural no debe poder leerse como
+evidencia. Es el cambio 10 de la sección~\ref{sec:procedimiento}.
+
+\subsection{Sobre reproducibilidad}
+
+Lo medido es que la \emph{puntuación} es determinista: 117 de 117 métricas se
+reproducen exactamente. Eso es más débil que decir que una corrida reproduce
+modelos idénticos, porque hoy no hay modelos. La afirmación correcta es sobre el
+scoring, y no debe ampliarse.
+
+\subsection{Sobre lo que no se ha establecido}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.3em]
+  \item \textbf{Las dos variantes de la ventana difieren} en un factor de 2.45 en
+        uno de los paneles y son idénticas en otro. El mecanismo \emph{no está
+        establecido}. Cualquier veredicto que las mezcle es nulo, y cualquiera que
+        se publique sobre una tiene que nombrar cuál.
+  \item \textbf{La ventana retira 426{,}385 anotaciones sobre 47{,}455 proteínas},
+        el doble de proteínas de las que ganan anotación, y nadie ha desglosado esa
+        cifra por causa: término obsoleto, cambio de relación, o retracción real.
+        Hasta que se desglose, la confianza en la ventana está acotada por un número
+        sin examinar mayor que las ganancias que la campaña mide.
+  \item \textbf{Tres configuraciones no son evaluables}: tres capas intermedias de
+        uno de los modelos producen puntuación constante. No deben entrar en ninguna
+        rejilla.
+  \item \textbf{La fracción de columnas vacías del vector de rasgos no está
+        establecida con precisión.} Dos muestreos sucesivos discrepan. Importa para
+        la ablación: retirar una columna que es nula en la mayoría de las filas
+        devuelve \emph{no contribuye} por una razón que no tiene nada que ver con la
+        señal.
+\end{itemize}
+
+\subsection{Y una propiedad del diseño que conviene no perder}
+
+El holdout se protege por ausencia y no por disciplina: las releases que no deben
+mirarse no están cargadas. Cualquier decisión futura que cargue una de ellas por
+comodidad convierte una garantía estructural en una promesa, y las promesas de esta
+clase ya se han incumplido en este proyecto sin que nadie lo notase. La fricción es
+la característica, no el defecto.

@@ -1,0 +1,446 @@
+\section{Definiciones}
+\label{sec:definiciones}
+
+Esta sección es normativa. Un término definido aquí tiene ese significado y
+ningún otro en el resto del documento, y cada definición nombra el sitio del
+código o del esquema donde el objeto existe de verdad. Las definiciones están
+numeradas para poder citarlas.
+
+\subsection{Nota sobre el vocabulario}
+
+Los nombres técnicos se conservan en inglés. No es un descuido de redacción: son
+los identificadores del código y de las columnas, y el documento se usa para
+discutir sobre ellos. Donde el castellano aporta claridad se usa la traducción
+como glosa, nunca como sustituto.
+
+\subsection{Los objetos del registro}
+
+\term{Protein}{Una secuencia de aminoácidos con un accession de UniProt. Es la
+entidad sobre la que se predice y la unidad sobre la que se estratifica.}
+
+\term{GO term}{Un nodo de la Gene Ontology, identificado por su \cod{go\_id}
+textual. Pertenece a exactamente uno de los tres aspectos (D\ref{def:aspect}).
+Un término existe siempre dentro de un \emph{ontology snapshot}: el mismo
+\cod{go\_id} es una fila distinta en dos snapshots, y confundir las dos es la
+forma habitual de comparar dos grafos distintos creyendo que es uno.}
+
+\term{Annotation}{La afirmación de que una proteína tiene una función, con un
+código de evidencia que dice cómo se supo. Vive en \cod{protein\_go\_annotation}
+y pertenece a un \emph{annotation set}.}
+
+\term{Annotation set}{El contenido de una release concreta de GOA, cargada
+completa. Es el objeto que la campaña fecha: una release nombra un fichero y no
+fecha nada por sí misma, de modo que la fecha de publicación se almacena aparte.}
+
+\term{Evidence code}{La etiqueta de tres letras que clasifica el soporte de una
+anotación. La campaña distingue dos grupos que importan para todo lo demás: los
+códigos \emph{experimentales} y de \emph{alto rendimiento} (\cod{EXP}, \cod{IDA},
+\cod{IPI}, \cod{IMP}, \cod{IGI}, \cod{IEP}, \cod{HTP}, \cod{HDA}, \cod{HMP},
+\cod{HGI}, \cod{HEP}, más \cod{IC} y \cod{TAS}), y el resto, que es
+mayoritariamente inferencia computacional (\cod{IEA}). La distinción es la que
+usan CAFA y LAFA para construir su verdad de referencia, y aquí se usa en dos
+sitios distintos que conviene no confundir: decide qué anotaciones pueden
+\emph{donar} (D\ref{def:bank}) y decide qué anotaciones cuentan como verdad al
+\emph{evaluar}.}
+
+\term{Query}{Una proteína para la que se pide predicción en una corrida. El
+conjunto de queries de la campaña es un \cod{query\_set} fijo.}
+
+\term{Donor}{Una proteína del banco cuya anotación se transfiere a una query
+porque su vector está cerca. Es el mecanismo entero del método base: no se
+predice una función, se copia la de un vecino.}
+
+\term{Candidate}{Un par (query, GO term) propuesto por el sistema, con una
+puntuación. La columna \cod{go\_prediction.ref\_protein\_accession} es
+\cod{NOT NULL}, de modo que el esquema prohíbe un candidato sin donante en lugar
+de limitarse a registrar que nadie escribió uno.}
+
+\term{Arm}{Una configuración completa, ejecutada de principio a fin, que produce
+un conjunto de predicciones evaluable. Es la unidad que se compara con otra. Dos
+arms difieren en al menos un parámetro, y nombrar cuál es precisamente el
+problema que resuelve la noción de \emph{nivel} (D\ref{def:nivel}).}
+
+\term{Prediction set}{El producto de un arm: el conjunto de candidatos con su
+procedencia. Lleva en \cod{meta} los parámetros con los que se generó.}
+
+\term{Evaluation set}{Un par de annotation sets que define una ventana temporal:
+el de la cota inferior, del que pueden venir los donantes, y el de la cota
+superior, que aporta la verdad de referencia. Nada más es una ventana.}
+
+\term{Evaluation result}{Una fila con las métricas de un prediction set contra un
+evaluation set. Es el único sitio donde vive un número publicable.}
+
+\subsection{El marco}
+
+\term[def:marco]{Frame}{El conjunto de condiciones bajo las que un número se
+lee, y que por tanto deben coincidir para que dos números sean comparables. Hoy
+son seis campos: el evaluation set, el pivot snapshot, el conjunto de
+information accretion, la etiqueta de ventana temporal, el número máximo de
+términos y la distancia máxima. La sección~\ref{sec:marco} argumenta que dos de
+ellos están mal elegidos y que faltan dos.}
+
+\term{Window}{El intervalo temporal de un evaluation set, escrito como
+\emph{inferior} $\rightarrow$ \emph{superior}. La campaña selecciona sobre
+$220 \rightarrow 227$. La cota inferior es la única release de la que un donante
+puede venir sin leer el futuro, y de ahí que el frame fije el banco.}
+
+\term{Pivot snapshot}{El ontology snapshot bajo el que se resuelven los términos
+al comparar predicción y verdad. Importa porque la ontología cambia entre
+releases: un término obsoleto o reubicado cambia de posición en el grafo, y con
+ella cambia la propagación a ancestros.}
+
+\term{Information accretion}{El peso por término que usa CAFA para que acertar
+un término raro valga más que acertar uno trivialmente frecuente. Se calcula
+sobre el corpus de la cota inferior y se congela en un
+\cod{information\_accretion\_set}. Es el \emph{w} de \cod{fmax\_w}.}
+
+\term{Frame seal, o frame digest}{El resumen criptográfico de los campos del
+frame, almacenado en cada evaluation result. Es el único sello real: dos
+resultados son comparables si y solo si su digest coincide. La columna llamada
+\cod{frame}, que contiene el texto \cod{internal}, es una etiqueta del arnés de
+ejecución y no puede sostener esa garantía.}
+
+\term{Leak, o fuga}{Que un número use, directa o indirectamente, información
+posterior a la cota superior de su ventana. La campaña la impide de tres
+maneras, en orden de fuerza: por ausencia, no cargando en la base las releases
+que no debe mirar; por guardia, negándose a evaluar una codificación cuyo corte
+de entrenamiento cae dentro de la ventana; y por protocolo, que es la más débil
+y la única que depende de la disciplina de quien opera.}
+
+\subsection{Las diez decisiones}
+\label{sec:diez}
+
+El sistema se describe como una cadena de diez decisiones ordenadas. Cada una
+es un \emph{nodo} (D\ref{def:nodo}) y tiene una pregunta propia. El orden es el
+del flujo de datos: una decisión de etapa $n$ solo tiene sentido si las de etapa
+menor ya están tomadas.
+
+\term[def:substrate]{Substrate (etapa 1). El espacio vectorial en el que se
+define la palabra \emph{vecino}}{Es la configuración de codificación completa, no
+solo el nombre del modelo. Once campos la determinan: \cod{model\_name},
+\cod{model\_backend}, \cod{layer\_indices}, \cod{layer\_agg}, \cod{pooling},
+\cod{normalize}, \cod{normalize\_residues}, \cod{max\_length},
+\cod{use\_chunking}, \cod{chunk\_size} y \cod{chunk\_overlap}. Cambiar cualquiera
+cambia las distancias, y con ellas cambia quién es vecino de quién, qué donantes
+se recuperan y qué se predice. Por eso el substrate es la primera decisión
+sustantiva y no un detalle de implementación.
+
+Es útil decir qué \emph{no} es. No es un clasificador: nada se entrena aquí. Es
+solo la función que convierte una secuencia en un vector. Todo lo que el método
+base hace después consiste en medir distancias en ese espacio y copiar
+anotaciones de los más cercanos.
+
+Nada en el frame nombra una representación, de modo que el substrate nunca está
+fijado por la ventana: si solo hay un nivel instanciado, es un valor que nadie
+eligió y no uno que el marco impuso.}
+
+\term[def:bank]{Bank (etapa 2). Quien tiene derecho a donar, y qué se le permite
+decir}{Es la decisión que el resto del documento llama \emph{banco}. Se compone
+de dos mitades que no pueden decidirse por separado, y por eso forman un solo
+nodo:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.2em]
+  \item El \textbf{corpus}: de qué annotation set salen los donantes. Lo fija el
+        frame, porque la cota inferior de la ventana es la única release de la
+        que se puede donar sin leer el futuro.
+  \item La \textbf{política de donantes}: qué subconjunto de ese corpus puede
+        donar de hecho. Son \cod{donor\_reviewed\_only}, la lista
+        \cod{donor\_evidence\_codes} y la lista \cod{donor\_exclusions} de
+        prefijos de referencia excluidos.
+\end{itemize}
+
+\begin{aviso}{Tres interruptores que la prosa atribuye al banco y el código al retriever}
+\cod{exclude\_self\_neighbour}, \cod{expand\_votes\_to\_ancestors} y
+\cod{aspect\_separated\_knn} modifican el acto de donar y es natural leerlos como
+política de banco. En el árbol no lo son: \cod{\_BANK\_FIELDS} contiene solo
+\cod{bank\_source}, \cod{bank\_version}, \cod{donor\_reviewed\_only},
+\cod{donor\_evidence\_codes} y \cod{donor\_exclusions}, mientras los tres booleanos
+están en \cod{\_RETRIEVER\_FIELDS} bajo un comentario que dice literalmente
+\emph{quién puede ser vecino, que es este nodo y no el banco}.
+
+\textbf{La consecuencia hay que decirla entera.} El eje que la campaña declaró
+cerrado como \emph{banco y donante} se midió sobre esos tres booleanos más la
+política de donantes. Los tres booleanos cierran, en el código, el nodo
+\cod{retriever}; el nodo \cod{bank} sigue en \cod{unpowered} porque su único
+nivel puntuado es el corpus 220. Un lector no puede saber hoy si lo cerrado fue
+el banco o el retriever, y el nodo \cod{bank} solo sale de \cod{unpowered}
+cargando un segundo corpus, que es exactamente la escalera de recencia. Reconciliar
+la agrupación en prosa con la agrupación implementada es una decisión pendiente,
+no una errata.
+\end{aviso}
+
+Son un nodo porque un corpus y el filtro que se le aplica definen un banco entre
+los dos, y porque un grupo de campos inseparables se sostiene con la firmeza de
+su miembro más flojo: si el corpus está fijado por el marco pero la política está
+vacía, el nodo entero es un valor heredado.
+
+La distinción con el substrate, que es la confusión más fácil de cometer, se dice
+en una frase: \textbf{el substrate decide quién está cerca; el bank decide a
+quién de los que están cerca se le hace caso}. Un banco más permisivo admite
+donantes cuya anotación se apoya en inferencia computacional, lo que aumenta la
+cobertura y baja la fiabilidad por donante. Un banco restringido a evidencia
+experimental hace lo contrario. Cuál de los dos gana no es evidente a priori y
+es precisamente lo que la campaña mide.
+
+Una propiedad del banco que conviene tener presente porque contamina varias
+lecturas: bajo el protocolo temporal, la query se recupera a sí misma desde el
+banco de la release anterior si ya estaba anotada entonces. Ese \emph{self hit}
+está a distancia cero y es el donante más cercano de casi todas las proteínas
+con anotación previa. \cod{exclude\_self\_neighbour} es el interruptor que lo
+retira, y varias definiciones de la sección~\ref{sec:unidad} se resuelven
+explícitamente sobre donantes de secuencia distinta a la query por esta razón.}
+
+\term[def:retriever]{Retriever (etapa 3). Cómo se extraen candidatos del banco, y
+a qué profundidad}{Dos parámetros y un cuidado. La \textbf{métrica} de distancia
+(\cod{cosine}) y la \textbf{profundidad} de recuperación
+(\cod{limit\_per\_entry}), que es cuántos vecinos se traen por query. El cuidado
+es que la profundidad son en realidad dos cantidades distintas que el sistema no
+debe mezclar: el número de vecinos que se \emph{recuperan}, que cambia qué
+candidatos existen y exige volver a ejecutar la recuperación, y el
+\emph{corte de evaluación} (\cod{max\_k\_position}), que trunca una lista ya
+recuperada y no exige volver a calcular nada. Un guardia específico se niega a
+comparar dos resultados cuyas profundidades sean cantidades distintas.}
+
+\term{Generator (etapa 4). Si algún candidato llega sin donante}{Mide si existe
+una vía de generación de candidatos que no sea la transferencia por vecindad,
+típicamente anotación por dominios de InterPro. Hoy la respuesta es que no
+existe, y el esquema lo garantiza en lugar de constatarlo.}
+
+\term{Scoring (etapa 5). Qué ponderación convierte un candidato en una
+puntuación}{La fórmula que asigna el número. En el estado actual todos los
+números del registro los produjo la vía de respaldo,
+$1 - \text{distancia coseno}/2$, que no está registrada como configuración. El
+nodo existe para que una ponderación alternativa sea comparable con esa.}
+
+\term{Features (etapa 6). Qué rasgos por candidato entran en un modelo}{El
+conjunto de columnas que describe un candidato: identidad de secuencia con el
+donante, relación taxonómica, information accretion del término, estadísticos de
+la votación de vecinos, y demás. El esquema de rasgos está versionado y agrupa
+21 familias sobre 20 conjuntos de columnas independientes. La ablación correcta
+retira \emph{columnas}, nunca familias, porque una de las familias (\cod{knn}) es
+la unión disjunta de otras dos (\cod{knn\_distance} y \cod{knn\_vote}); las otras
+dieciocho son disjuntas dos a dos, y de ahí que 21 familias den 20 conjuntos.}
+
+\term{Reranking (etapa 7). Si un modelo reordena los candidatos}{El paso que
+convierte el sistema de un método de recuperación en un método aprendido. Toma
+los rasgos de la etapa 6 y reordena. Es el objeto de la segunda pregunta de
+investigación del proyecto y hoy no tiene ninguna instancia.}
+
+\term{Combination (etapa 8). Cómo se fusionan dos o más flujos en una respuesta}{
+Relevante solo cuando existe más de una vía de generación, es decir, cuando el
+nodo generator deja de estar bloqueado.}
+
+\term[def:routing]{Routing (etapa 9). Qué flujo responde a qué panel}{La decisión
+de encaminar configuraciones distintas a regiones distintas de la población, en
+lugar de elegir una sola configuración para todo. Es lo que el proyecto llama
+\emph{canalización por estratificación masiva}, y la sección~\ref{sec:estadistico}
+explica por qué es la decisión con más riesgo estadístico de las diez.}
+
+\subsection{Nodo, nivel, arista y firmeza}
+
+\term[def:nodo]{Node}{Una decisión sobre un campo, o sobre un grupo de campos que
+no pueden decidirse por separado. Las diez de la sección~\ref{sec:diez} son todas
+las que el sistema reconoce, y la lista es fija en el código: una prueba recorre
+la especificación, resuelve el constructor de cada nodo por su nombre, comprueba
+que hay diez y comprueba que a los diez se les entrega el umbral declarado.}
+
+\term[def:nivel]{Level}{\textbf{Un valor junto con todos los campos que varían
+entre las filas con las que se compara.} Esta es la definición más importante del
+documento y la fuente del defecto que más veces ha reaparecido en el proyecto.
+
+El motivo es que un nombre corto es casi siempre insuficiente. Si se comparan dos
+arms que difieren en el modelo y \emph{también} en la profundidad de
+recuperación, entonces \cod{ankh\_large} no nombra un nivel: nombra dos arms
+distintos que comparten el nombre del modelo. La comparación parece de un solo
+campo y no lo es.
+
+De aquí se sigue una propiedad incómoda pero real: \textbf{la aridad de un nivel
+se decide en el momento de la lectura, no en el momento de la declaración}. Sobre
+el registro completo hacen falta cinco campos para nombrar un nivel; restringido
+a un solo frame seal, \cod{donor\_policy} pasa a ser constante y bastan cuatro.
+La consecuencia práctica es que \emph{ninguna cadena de texto almacenada puede
+nombrar un nivel}, y por tanto un umbral debe declararse como una tupla de campos
+más valores, nunca como un nombre ya compuesto.}
+
+\term{Edge}{Lo que el sistema sabe sobre un nodo: si el artefacto que hace falta
+existe, cuántos niveles se han instanciado, cuántos están disponibles, cuántos se
+han puntuado, cuántos resultados hay, si el marco fuerza el valor, cuál es el
+umbral declarado y si la comparación lo superó.}
+
+\term[def:firmeza]{Strength}{La palabra que dice con qué firmeza se sostiene una
+decisión. Hay cinco y se prueban en un orden fijo, que es el argumento del
+diseño:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}c L{3.2cm} X@{}}
+\toprule
+\# & palabra & se devuelve cuando\\
+\midrule
+1 & \cod{blocked}    & el artefacto no existe, o no hay ningún nivel instanciado\\
+2 & \cod{chosen} o \cod{inherited} & hay un solo nivel. \cod{chosen} si el marco lo fuerza, \cod{inherited} si nadie lo eligió\\
+3 & \cod{unpowered}  & hay dos niveles o más, pero menos de dos puntuados\\
+4 & \cod{chosen}     & hay poder, pero no hay umbral declarado, o el umbral no pudo responder\\
+5 & \cod{measured}   & hay poder, hay umbral, y la comparación lo superó. Si no lo supera, \cod{chosen}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Dos propiedades del orden importan aguas abajo. \textbf{El poder se prueba antes
+que la evidencia}: ninguna diferencia, por grande que sea, puede convencer a un
+nodo de que hubo una medida si la comparación no tenía forma de resolver nada.
+Y \textbf{\cod{chosen} es un sumidero}: cuatro situaciones distintas caen en esa
+palabra, de modo que un lector que solo vea la palabra no puede distinguir una
+decisión sin umbral de una que tenía umbral y no lo superó. Publicar el umbral y
+el resultado de la comparación junto al nodo es un cambio pequeño y resuelve eso.}
+
+\term[def:suelo]{Floor}{El nivel incumbente contra el que se compara, declarado
+\emph{antes} de medir. Es lo único que hace falta desde fuera de las tablas de
+resultados para que un nodo pase de \cod{chosen} a \cod{measured}, y por eso es
+el punto donde una campaña se vuelve falsable o deja de serlo.}
+
+\term[def:haz]{Survivor set, o haz}{El conjunto de niveles que ninguna celda con
+poder llegó a batir. Es el resultado correcto cuando un eje no sella: no un
+ganador, ni un empate, sino los que siguen en pie. Un eje de esta campaña ya
+produjo exactamente eso, un haz de tres, y la instrumentación actual no sabe
+transportarlo porque solo puede leer un umbral de un solo nombre.}
+
+\subsection{La unidad de reporte}
+\label{sec:unidad}
+
+\term[def:category]{Category}{La partición por conocimiento previo de la query,
+en el momento de la cota inferior de la ventana. Son tres:
+\cod{NK} (\emph{no knowledge}), proteínas sin ninguna anotación previa en el
+aspecto; \cod{LK} (\emph{limited knowledge}), con anotación en otro aspecto pero
+no en este; y \cod{PK} (\emph{prior knowledge}), con anotación previa en este
+mismo aspecto. Es la partición que usa CAFA y separa tres problemas distintos:
+predecir desde cero, transferir entre aspectos y completar.}
+
+\term[def:aspect]{Aspect}{La sub-ontología: \cod{BPO} (proceso biológico),
+\cod{MFO} (función molecular) y \cod{CCO} (componente celular). Son tres grafos
+separados con estadística distinta, y promediar entre ellos mezcla tres
+problemas.}
+
+\term[def:panel]{Panel}{El producto de category por aspect: nueve celdas.
+\textbf{Es la partición obligatoria y nunca se agrega.} Ni la campaña, ni la
+superficie que la publica, ni la operación que compara dos arms suman o promedian
+los nueve paneles. La operación de comparación se niega explícitamente y nombra
+su propio párrafo al negarse.
+
+La razón no es de estilo. Un promedio sin pesos entre poblaciones que difieren en
+más de un orden de magnitud es en sí mismo un repesado, y va en la dirección
+favorable, porque los estratos más pequeños son los más fáciles. Los nueve
+paneles se emiten siempre, con resultado o sin él, para que una corrida parcial no
+pueda leerse como completa.
+
+La consecuencia para el reporte es que \textbf{un veredicto es un vector de
+nueve componentes y nunca un número}. Cada celda lleva su clave de panel, su
+población contada sobre la verdad de la propia ventana y nunca inferida, los
+niveles puntuados en orden, y la firmeza del veredicto en esa celda.}
+
+\term[def:estrato]{Stratum}{Un punto en siete ejes, y la unidad por la que se
+reporta cuando se quiere más resolución que el panel. Los siete son
+\cod{category}, \cod{aspect}, \cod{length}, \cod{homology},
+\cod{donor\_evidence}, \cod{taxonomy} y \cod{propagation}.
+
+Los siete no son intercambiables, y la división que importa está escrita en el
+código: \cod{category}, \cod{aspect} y \cod{length} son propiedades \emph{de la
+query} y se pueden leer siempre; los otros cuatro son propiedades \emph{de una
+recuperación} y necesitan un donante efectivamente alineado antes de poder
+leerse. Pedir un eje de vecindario sin alineamientos calculados descarta
+silenciosamente a la mayoría de las queries y reporta a los supervivientes como
+si fuesen la población, que es un error que ya ocurrió.}
+
+\term{Length band}{Banda de longitud de secuencia:
+\cod{<=512}, \cod{512-1024}, \cod{1024-2048} y \cod{>2048}. Los cortes son los
+límites de contexto de los modelos, no cuantiles del corpus. Una proteína más
+larga que el contexto se trunca antes de codificarse, de modo que las bandas
+separan secuencias que la representación vio enteras de secuencias que vio en
+parte, que es una pregunta distinta de si una proteína es larga. Bandas por
+cuantiles mezclarían las dos y se moverían cada vez que se moviese el corpus.}
+
+\term[def:homologia]{Homology band}{Lo cerca que está el donante anotado más
+próximo, por identidad de secuencia:
+\cod{none}, \cod{<=30}, \cod{30-60}, \cod{60-90} y \cod{>90}.
+Los cortes marcan donde la transferencia por similitud cambia de carácter: por
+debajo del 30\,\% está la zona de penumbra, donde el alineamiento por sí solo
+deja de implicar función compartida; por encima del 90\,\% la transferencia es
+casi una copia y dice poco sobre si un método generaliza. \cod{none} es una banda
+y no un valor ausente: una query sin ningún donante es una población real y
+reportable, y plegarla en la banda más baja escondería los fallos de recuperación
+dentro de los resultados de modelado.}
+
+\term{Donor evidence}{Si la anotación del donante más cercano se apoya en
+experimento: \cod{exp}, \cod{other} o \cod{none}. Se cruza con la banda de
+homología porque las dos juntas son lo que un umbral de homología significa de
+verdad. Un donante cercano cuya propia anotación fue inferida por cómputo
+transfiere una conjetura, y reportarlo junto a un donante cercano con soporte
+experimental promediaría dos afirmaciones distintas en un número.}
+
+\term{Taxonomy band}{A qué distancia está el donante más cercano en el árbol de la
+vida: \cod{same}, \cod{close}, \cod{intermediate}, \cod{distant},
+\cod{root-only} o \cod{none}. Se resuelve sobre donantes de secuencia distinta a
+la query, que es la única lectura bajo la cual \emph{misma especie} es un hecho
+sobre el vecindario y no un hecho sobre el protocolo.}
+
+\term[def:propagacion]{Propagation band}{Cuánto tuvo que viajar una anotación para
+llegar a la query: \cod{none}, \cod{0}, \cod{0-0.05}, \cod{0.05-0.15} y
+\cod{>0.15}. No es la banda de homología. Esa pregunta cuán cerca está el donante
+más cercano de cualquier tipo; esta pregunta cuánto más lejos hay que ir para
+llegar a un donante cuya propia anotación se apoya en experimento, es decir, la
+diferencia entre dos distancias. Una proteína puede estar en un vecindario denso
+y aun así lejos de cualquier evidencia experimental, y ese hueco es la distancia
+que la anotación recorrió.}
+
+\term[def:floorpop]{Population floor}{El tamaño mínimo que una celda debe
+tener para que se le permita votar, derivado de la desviación típica emparejada y
+del efecto que se quiere poder detectar. Para el encaminamiento vale
+$\lceil (2.8016\,\sigma/0.02)^2 \rceil$. Con un $\sigma$ global de 0.13 da 332,
+que es la cifra que la campaña ha usado; con el $\sigma$ implícito de cada panel va
+de 120 a 1{,}376, y bajo ese criterio tres de los nueve paneles no alcanzan su
+propio suelo. Una celda por debajo del suelo no se reporta como un veredicto débil:
+no se reporta.}
+
+\subsection{Los estadísticos}
+
+\term[def:fmax]{\cod{fmax\_w}}{La medida centrada en proteína que usa CAFA. Se
+barre un umbral $\tau$, se calculan precisión y exhaustividad promediadas sobre
+proteínas y ponderadas por information accretion, y se toma el máximo de la
+$F_1$ sobre la curva. \textbf{No admite un error típico de la forma
+$\sigma/\sqrt{n}$}, porque es un máximo sobre $\tau$ de una combinación no lineal
+de dos medias poblacionales. Cualquier intervalo que se le ponga por esa vía es
+inventado.}
+
+\term{\cod{f\_micro\_w}}{La variante agrupada, que acumula los conteos sobre todos
+los pares antes de calcular la $F_1$. Da más peso a las proteínas con muchas
+anotaciones.}
+
+\term[def:bootstrap]{Bootstrap pareado por proteína}{El estadístico que decide en
+esta campaña. Para cada proteína se calcula su propia mejor $F_1$ bajo cada uno de
+los dos arms que se comparan, se toma la diferencia por proteína, y se remuestrean
+las proteínas con reemplazo para obtener un intervalo de confianza de la media de
+esa diferencia. Es \emph{pareado} porque las dos configuraciones se evalúan sobre
+las mismas proteínas, lo que elimina la varianza entre proteínas, que es la
+dominante.
+
+Este estadístico y \cod{fmax\_w} no son dos formas de medir lo mismo. Premian
+comportamientos distintos: \cod{fmax\_w} maximiza una curva agregada y recompensa
+predecir poco y con confianza, mientras que el pareado da a cada proteína su
+propio óptimo y recompensa cubrir a cada proteína. En los dos ejes que la campaña
+ya cerró, los dos estadísticos eligieron ganadores distintos, y en un caso
+extremos opuestos de la misma rejilla. De ahí la propuesta de que el estadístico
+sea un campo del sello (sección~\ref{sec:marco}).}
+
+\term[def:mde]{MDE, efecto mínimo detectable}{La diferencia más pequeña que una
+celda puede distinguir de cero con su población y su varianza. Se lee de la propia
+distribución bootstrap y es la cifra que decide si una celda tiene voto. Sobre los
+nueve paneles de esta campaña la mediana va de 0.0019 en \cod{PK:BPO} a 0.0256 en
+\cod{LK:CCO}, un factor de 13.3; y dentro de un mismo panel varía por un factor de
+más de veinte según la comparación, que es la razón por la que se publica como
+rango y no como constante.}
+
+\term{Cuantización}{Todo lo almacenado está redondeado a $10^{-4}$. Una diferencia
+que se lee como cero desde la base de datos es una \emph{cota superior} del
+acuerdo, nunca un cero medido. Junto con el hecho de que el MDE de la celda peor
+resuelta es 0.0234, esto significa que una regla basada en estimaciones puntuales
+puede decidir a partir de diferencias doscientas veces más pequeñas que lo que el
+dato resuelve.}

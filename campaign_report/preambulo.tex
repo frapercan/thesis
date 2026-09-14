@@ -1,0 +1,92 @@
+% =============================================================================
+% Preámbulo compartido. Sigue el estilo de project_document/ para que los dos
+% documentos del repositorio se lean como uno.
+% =============================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noquoting]{babel}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+% --- color -------------------------------------------------------------------
+\definecolor{acc}{HTML}{146B57}
+\definecolor{dim}{HTML}{5C6B65}
+\definecolor{rule}{HTML}{D8DEDA}
+\definecolor{aviso}{HTML}{8A6410}
+
+\hypersetup{
+  unicode=true,
+  colorlinks=true,
+  linkcolor=acc,
+  urlcolor=acc,
+  citecolor=acc,
+  pdftitle={PROTEA. Diseño de la campaña de experimentación},
+  pdfauthor={Francisco Miguel Pérez Canales}
+}
+
+% --- títulos -----------------------------------------------------------------
+\titleformat{\section}{\Large\bfseries\color{acc}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.7em}{}
+\titlespacing*{\section}{0pt}{2.2ex plus 1ex minus .2ex}{1.2ex plus .2ex}
+
+% --- cabeceras ---------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\color{dim} PROTEA. Diseño de la campaña}
+\fancyhead[R]{\footnotesize\color{dim}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{rule}\leaders\hrule height \headrulewidth\hfill}}
+
+% --- tablas ------------------------------------------------------------------
+\captionsetup{font=small,labelfont={bf,color=acc},skip=6pt}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% --- el entorno de definiciones ---------------------------------------------
+% Toda la sección 2 pasa por aquí. Un término definido aquí es el único
+% significado que tiene en el resto del documento.
+\newcounter{defn}
+\makeatletter
+% \term{Nombre}{cuerpo}  o  \term[etiqueta]{Nombre}{cuerpo}
+% La etiqueta permite citar una definición con \ref, que imprime su número.
+\newcommand{\term}[3][]{%
+  \refstepcounter{defn}%
+  \edef\pr@tmp{#1}%
+  \ifx\pr@tmp\@empty\else\label{#1}\fi
+  \par\vspace{0.65em}%
+  \noindent\textbf{D\thedefn. #2.}\enspace #3\par\vspace{0.15em}}
+\makeatother
+
+% Un término del código. Se deja en inglés a propósito, véase la sección 2.0.
+\newcommand{\cod}[1]{\texttt{\small #1}}
+
+% Una cifra medida, con su procedencia.
+\newcommand{\medido}[1]{\textcolor{dim}{\footnotesize (medido: #1)}}
+
+% Un aviso que exige decision del investigador.
+\newenvironment{aviso}[1]{%
+  \par\vspace{0.9em}\noindent
+  \begingroup\color{aviso}\rule{\linewidth}{1pt}\endgroup\par\vspace{0.35em}%
+  \noindent\textbf{\color{aviso}#1}\par\vspace{0.25em}\noindent\ignorespaces}%
+ {\par\vspace{0.35em}\noindent
+  \begingroup\color{aviso}\rule{\linewidth}{1pt}\endgroup\par\vspace{0.9em}}

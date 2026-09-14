@@ -1,0 +1,68 @@
+\section{El grafo de decisiones}
+\label{sec:grafo}
+
+\subsection{Forma}
+
+La campaña se representa como un grafo de diez nodos en diez etapas ordenadas,
+cada uno con su pregunta y su palabra de firmeza. No es un diagrama ilustrativo:
+es un objeto que se calcula a partir del registro, y cada nodo publica junto a su
+palabra el valor en el que está parado, campo por campo. Una palabra dice con qué
+firmeza se sostiene una decisión y no dice nada sobre \emph{qué} se decidió; un
+lector que no vea el valor no puede distinguir un valor por omisión heredado de
+una elección deliberada que resulta no estar medida. Las dos leen
+\cod{inherited} y solo una de las dos es una sorpresa.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}r L{2.6cm} X@{}}
+\toprule
+etapa & nodo & pregunta\\
+\midrule
+0 & \cod{frame}       & En qué ventana, pivote y régimen de accretion se lee cada número\\
+1 & \cod{substrate}   & En qué representación se calcula el vecindario\\
+2 & \cod{bank}        & De qué corpus vienen los donantes, y bajo qué política\\
+3 & \cod{retriever}   & Cómo se extraen candidatos del banco, y a qué profundidad\\
+4 & \cod{generator}   & Si algún candidato llega sin donante\\
+5 & \cod{scoring}     & Qué ponderación convierte un candidato en una puntuación\\
+6 & \cod{features}    & Qué rasgos por candidato entran en un modelo\\
+7 & \cod{reranking}   & Si un modelo reordena los candidatos\\
+8 & \cod{combination} & Cómo se fusionan dos o más flujos en una respuesta\\
+9 & \cod{routing}     & Qué flujo responde a qué panel\\
+\bottomrule
+\end{tabularx}
+\captionof{table}{Los diez nodos. El orden es el del flujo de datos.}
+\end{center}
+
+\subsection{Cómo se cierra un nodo}
+
+Las transiciones entre palabras son cuatro, y solo la última necesita algo que no
+esté en las tablas de resultados:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}L{4.6cm} X@{}}
+\toprule
+transición & lo que hace falta\\
+\midrule
+\cod{blocked} $\rightarrow$ cualquiera & producir el artefacto que falta. Cada nodo bloqueado publica su propia precondición como un conteo leído del registro\\
+\cod{inherited} $\rightarrow$ \cod{unpowered} & instanciar un segundo nivel. Se cuenta de las filas, nunca de una declaración\\
+\cod{unpowered} $\rightarrow$ \cod{chosen} & puntuar el segundo nivel\\
+\cod{chosen} $\rightarrow$ \cod{measured} & declarar un umbral que nombre un nivel real, y superarlo\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Por qué el grafo es la estructura y no las fases}
+
+Una organización alternativa, y la que el proyecto usó antes, es por fases
+sucesivas: fase A, fase B, y así. Tiene dos defectos frente al grafo.
+
+El primero es que una fase no tiene tipo. Decir que la fase A está terminada no
+dice si terminó porque se midió algo o porque se dejó de mirar. Un nodo con una
+palabra de firmeza sí lo dice, y además no puede decirlo de más: la palabra se
+calcula del registro y no se escribe a mano.
+
+El segundo es que las fases sugieren un orden total donde solo hay un orden
+parcial. El nodo \cod{routing} depende de que \cod{substrate} y \cod{retriever}
+estén resueltos, pero no depende en absoluto de \cod{generator}. Una fase que
+agrupe los tres obliga a esperar por el que no hace falta. El grafo permite que
+seis nodos estén \cod{blocked} sin que eso impida avanzar en los otros cuatro,
+que es exactamente la situación actual y no es un problema.
