@@ -1,0 +1,118 @@
+\section{La superficie de parámetros}
+\label{sec:parametros}
+
+Esta sección enumera \emph{todos} los parámetros que existen, con el nodo al que
+pertenecen, dónde viven, su tipo y los niveles que se han instanciado de hecho. La
+enumeración se obtuvo de la base de datos y no del código, porque lo que decide
+qué se ha explorado son las filas y no las firmas de las funciones.
+
+Un parámetro que aparece con un solo nivel instanciado no es un parámetro
+explorado: es una constante que nadie eligió, y esa es exactamente la lectura que
+la palabra \cod{inherited} le da.
+
+\subsection{Predicción: quince parámetros}
+
+\begin{center}
+\small
+\begin{longtable}{@{}L{4.9cm} L{1.6cm} L{1.6cm} L{5.6cm}@{}}
+\toprule
+parámetro & nodo & tipo & niveles instanciados\\
+\midrule
+\endfirsthead
+\toprule
+parámetro & nodo & tipo & niveles instanciados\\
+\midrule
+\endhead
+\cod{embedding\_config\_id}      & substrate & uuid    & \textbf{25}. La rejilla completa del sustrato, desglosada en la tabla~\ref{tab:sustrato}\\
+\cod{metric}                     & retriever & enum    & 1: \cod{cosine}\\
+\cod{limit\_per\_entry}          & retriever & entero  & 1: 200, en los 86 prediction sets. El valor 30 aparece en un único trabajo que falló y no produjo ninguno. Es la profundidad de recuperación, no el corte de evaluación\\
+\cod{search\_backend}            & retriever & enum    & 1: \cod{numpy}. El KNN corre siempre en CPU; el valor por omisión \cod{auto} elegía GPU en silencio, que es el único camino que falla\\
+\cod{annotation\_set\_id}        & bank      & uuid    & 1: GOA 220. Lo fija el frame\\
+\cod{donor\_policy}              & bank      & objeto  & 2: la restrictiva y la vacía. La restrictiva admite once códigos experimentales y de alto rendimiento más \cod{IC} y \cod{TAS}, trece en total; la vacía no filtra por código de evidencia y es por tanto \textbf{la más permisiva de las dos}. El filtro solo se aplica \cod{if codes}, de modo que la lista restringe\\
+\cod{exclude\_self\_neighbour}   & retriever & booleano& 2. Retira el auto-acierto a distancia cero\\
+\cod{expand\_votes\_to\_ancestors}& retriever& booleano& 2. Propaga el voto de un donante a los ancestros del término\\
+\cod{aspect\_separated\_knn}     & retriever & booleano& 2. Recupera vecinos por aspecto en lugar de una sola vez\\
+\cod{ontology\_snapshot\_id}     & frame     & uuid    & 1. El grafo bajo el que se resuelven los términos del banco\\
+\cod{query\_set\_id}             & frame     & uuid    & 1. El conjunto de queries de la campaña\\
+\cod{compute\_alignments}        & features  & booleano& 1: \cod{false} en los 86 prediction sets. El nivel \cod{true} solo aparece en trabajos que no produjeron ninguna fila; la identidad disponible viene del backfill de \cod{sequence\_alignment}\\
+\cod{compute\_taxonomy}          & features  & booleano& 1: \cod{false} en los 86 prediction sets, igual que la anterior\\
+\cod{compute\_reranker\_features}& features  & booleano& 1: \cod{false} en los 86 prediction sets, igual que las dos anteriores\\
+\cod{batch\_size}                & ninguno   & entero  & 1: 1024. Parámetro de ejecución, no de método. No debe entrar en la identidad de un nivel\\
+\bottomrule
+\caption{Los quince parámetros de \cod{predict\_go\_terms}, con sus niveles
+instanciados sobre 69 trabajos.}
+\end{longtable}
+\end{center}
+
+\begin{aviso}{Las banderas \cod{compute\_} son precondiciones, no ablaciones}
+Las tres banderas \cod{compute\_} no cambian la predicción: cambian qué se
+\emph{registra} sobre ella. Apagarlas no es una ablación del método, es renunciar
+a poder estratificar después. \cod{compute\_alignments} apagado hace ilegibles
+cuatro de los siete ejes de estrato, porque los ejes de vecindario necesitan un
+donante alineado. La ablación de rasgos, que sí es una decisión de método,
+pertenece al nodo \cod{features} y se hace retirando columnas del esquema de
+rasgos, nunca apagando el cálculo.
+\end{aviso}
+
+\subsection{Evaluación: siete parámetros}
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.2cm} L{1.6cm} X@{}}
+\toprule
+parámetro & nodo & niveles instanciados\\
+\midrule
+\cod{prediction\_set\_id}      & --       & 46. El arm que se evalúa\\
+\cod{evaluation\_set\_id}      & frame    & 2. Las dos variantes de la ventana $220 \rightarrow 227$\\
+\cod{information\_accretion\_set\_id} & frame & 1\\
+\cod{max\_k\_position}         & retriever & \textbf{7}: 1, 2, 3, 5, 10, 20, 30. Es el corte de evaluación, que trunca una lista ya recuperada\\
+\cod{th\_step}                 & frame    & 2: 0.0005 y 0.002, más la ausencia del campo, que toma el valor por omisión 0.01\\
+\cod{temporal\_window}         & frame    & 1: la cadena \cod{SELECT\_220\_227}. Etiqueta del arnés\\
+\cod{frame}                    & --       & 1: la cadena \cod{internal}. Etiqueta del arnés\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{El sustrato, desglosado}
+
+De los once campos que determinan un substrate, solo siete varían de hecho en el
+registro, y de esos siete cuatro solo distinguen la familia de modelos
+preentrenados de las tres codificaciones aprendidas. El eje real lo llevan
+\cod{model\_name} (12 valores), \cod{model\_backend} (7) y \cod{layer\_indices} (12). Es decir: \textbf{el eje del sustrato, tal
+como está instanciado, es modelo por capa}.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.3cm} L{2.8cm} L{2.4cm} X@{}}
+\toprule
+\cod{model\_name} & \cod{backend} & capas & notas\\
+\midrule
+\cod{facebook/esm2\_t6\_8M\_UR50D}   & \cod{esm}    & 0 & el más pequeño, usado como suelo\\
+\cod{facebook/esm2\_t33\_650M\_UR50D}& \cod{esm}    & 0, 11, 22, 33 & rejilla de capas\\
+\cod{facebook/esm2\_t36\_3B\_UR50D}  & \cod{esm}    & 0 & \\
+\cod{esmc\_600m}                     & \cod{esm3c}  & 0, 12, 24, 35 & rejilla de capas\\
+\cod{ElnaggarLab/ankh-base}          & \cod{ankh}   & 0, 10, 16, 32, 48 & las capas 10, 16 y 32 \textbf{no son evaluables}: puntuación constante\\
+\cod{ElnaggarLab/ankh-large}         & \cod{ankh}   & 0 & \\
+\cod{Rostlab/prot\_t5\_xl\_half}     & \cod{t5}     & 0, 8, 16, 24 & rejilla de capas\\
+\cod{Rostlab/ProstT5}                & \cod{t5}     & 0 & \\
+\cod{mila-intel/ProtST-esm1b}        & \cod{protst} & 0 & \\
+\cod{rung2-dense}, \cod{rung2-pooled}& \cod{learned-code} & --- & codificaciones aprendidas. \cod{max\_length} 1022, sin normalizar\\
+\cod{rung2-residue}                  & \cod{residue-sparse} & --- & idem\\
+\bottomrule
+\end{tabularx}
+\captionof{table}{Las 25 configuraciones de sustrato registradas, en siete
+familias de modelo y doce nombres de modelo distintos, nueve preentrenados y tres
+aprendidos. \cod{pooling} es \cod{mean} en las veintidós preentrenadas y
+\cod{learned} o \cod{residue-sparse-mean} en las tres aprendidas;
+\cod{max\_length} es 2048 en las preentrenadas y 1022 en las aprendidas.}
+\label{tab:sustrato}
+\end{center}
+
+\begin{aviso}{Un confundido que invalida el eje del sustrato tal como está hoy}
+Doce de las configuraciones tienen 528{,}294 embeddings almacenados y once tienen
+60{,}797, un factor de \textbf{8.69}. Una comparación entre un arm con el banco
+grande y otro con el banco pequeño mide dos cosas a la vez, la representación y el
+tamaño del banco de donantes, y ninguna cantidad posterior las separa. El eje del
+sustrato no puede producir un veredicto hasta que los bancos se igualen. El coste
+de igualarlos está en la sección~\ref{sec:presupuesto} y es asumible.
+\end{aviso}

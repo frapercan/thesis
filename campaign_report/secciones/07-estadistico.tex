@@ -1,0 +1,176 @@
+\section{El estadístico y la regla de cierre}
+\label{sec:estadistico}
+
+\subsection{Para qué sirve un intervalo de confianza en esta campaña}
+
+La objeción natural al intervalo de confianza es que añade ruido a la lectura. Es
+la objeción correcta y la respuesta es que el intervalo no añade el ruido: lo
+\emph{mide}. Sin él, el ruido sigue ahí y no se ve. Pero conviene ser preciso sobre
+cuál es su función aquí, porque no es la función habitual en un artículo.
+
+\textbf{El intervalo es un instrumento de selección, no de publicación.} Su
+trabajo es decidir cuál de varias configuraciones avanza a la siguiente etapa. No
+hace falta publicarlo para competir en una evaluación externa, donde el árbitro es
+la tabla de resultados del organizador. Su valor está enteramente del lado
+interno, y se concreta en cuatro cosas.
+
+\subsubsection*{Primero: la cuantización hace que una estimación puntual decida
+por debajo de lo que el dato resuelve}
+
+Todo lo almacenado está redondeado a $10^{-4}$. El MDE de la celda peor resuelta es
+0.0234. La razón es \textbf{234}. Una regla que compare dos máximos y se quede con
+el mayor decide, en el caso peor, a partir de diferencias doscientas treinta veces
+más pequeñas que lo que la población de esa celda puede distinguir de cero. Eso no
+es una comparación estricta: es una moneda al aire con cuatro decimales.
+
+\subsubsection*{Segundo: el número de oportunidades de acertar por casualidad es
+grande, y crece con la ambición del diseño}
+
+La canalización (D\ref{def:routing}) es la decisión donde esto muerde. Encaminar
+configuraciones distintas a regiones distintas significa que el arm canalizado
+\emph{elige una vez por región} mientras el arm base elige una sola vez. Con quince
+regiones, el canalizado tiene quince oportunidades de parecer mejor por azar. Con
+nueve paneles y varios arms, el número de contrastes llega al millar sin esfuerzo.
+
+Esto no es una objeción a la canalización: es su condición de validez. El arm
+canalizado gana con afinidad real \emph{cero} si no se le exige nada más. Lo único
+que lo repara es el \textbf{ajuste cruzado}: la política de encaminamiento se ajusta
+sobre unos pliegues y se evalúa sobre otros, de modo que la elección por región no
+se puede premiar a sí misma. El intervalo es lo que permite comprobar que el
+veredicto fuera de pliegue coincide con el veredicto dentro de pliegue; sin él, las
+dos cifras son dos números que difieren y no hay forma de decir si la diferencia
+importa.
+
+\subsubsection*{Tercero: convierte \emph{esta celda no puede decir nada} en un
+resultado escribible}
+
+El vocabulario que la operación de comparación ya emite tiene seis palabras, y dos
+de ellas son las que faltan en cualquier regla de estimación puntual:
+\cod{null\_with\_power}, que es una celda con población suficiente cuyo intervalo
+cubre el cero, y \cod{null\_unread}, que es una celda que no se pudo leer. La
+distinción es la diferencia entre \emph{buscamos y no hay efecto} y \emph{no
+pudimos buscar}, y una campaña que no la puede escribir tiene que convertir las dos
+en un voto, en cualquier dirección, que es peor que abstenerse.
+
+\subsubsection*{Cuarto: los envíos externos son un recurso escaso}
+
+La validación final del proyecto es un despliegue en LAFA, y a futuro una
+participación en CAFA. El número de configuraciones que se pueden enviar es
+limitado y el ciclo de realimentación es de meses. Cada configuración enviada que
+fue elegida sobre ruido es un envío desperdiciado y una espera perdida. La
+validación externa no reduce la necesidad de rigor interno: la aumenta, porque
+encarece el error.
+
+\subsection{Qué estadístico decide}
+
+Los dos candidatos no son dos formas de medir lo mismo:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}L{3.2cm} X X@{}}
+\toprule
+ & \cod{fmax\_w} & bootstrap pareado\\
+\midrule
+qué optimiza & una curva agregada sobre toda la población & el óptimo propio de cada proteína\\
+qué premia   & predecir poco y con confianza & cubrir a cada proteína\\
+admite $\sigma/\sqrt{n}$ & \textbf{no}. Es un máximo sobre $\tau$ de una combinación no lineal de dos medias & sí, por remuestreo de proteínas\\
+comparable con CAFA & sí, es la medida del reto & no directamente\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+La consecuencia medida es que en los dos ejes que la campaña ya cerró los dos
+estadísticos eligieron ganadores distintos, y en uno de los dos eligieron extremos
+opuestos de la misma rejilla monótona. No hay respuesta independiente del
+estadístico, y por tanto \textbf{el estadístico tiene que declararse, y entrar en
+el sello}.
+
+La recomendación es usar los dos con papeles separados y distintos:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.3em]
+  \item \textbf{El bootstrap pareado decide} qué configuración avanza. Es la
+        elección interna, y es la que necesita intervalo.
+  \item \textbf{\cod{fmax\_w} se reporta} porque es la medida del reto y es lo que
+        hace la cifra comparable con la literatura. Se publica como estimación
+        puntual, sin intervalo inventado.
+\end{itemize}
+
+\subsection{La regla de cierre}
+
+\begin{aviso}{La regla propuesta, y la que hay que sustituir}
+La regla en vigor en el código compara el máximo de \cod{f\_micro\_w} del rival
+contra el del incumbente, panel por panel, y exige unanimidad sobre los paneles que
+testifican. Son estimaciones puntuales de una métrica cuantizada a $10^{-4}$, sin
+intervalo. Además conviven tres reglas incompatibles: esa, una mayoría de los nueve
+escrita en un plan, y el bootstrap con IC del 95\,\% escrito en las declaraciones.
+Hay que quedarse con una.
+\end{aviso}
+
+La regla recomendada tiene tres cláusulas:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.35em]
+  \item \textbf{Una celda vota solo si su intervalo del 95\,\% contra el incumbente
+        excluye el cero.} Una celda cuyo intervalo cubre el cero reporta
+        \cod{null\_with\_power} o \cod{null\_unread} y \emph{no vota en ninguna
+        dirección}.
+  \item \textbf{Un eje sella solo si un nivel gana en todas las celdas que votan.}
+  \item \textbf{Si no, el eje transporta el conjunto supervivente}
+        (D\ref{def:haz}): los niveles que ninguna celda con voto llegó a batir.
+\end{enumerate}
+
+\subsection{El caso adverso, y por qué la regla necesita tres cláusulas más}
+
+La regla anterior, tal como se enunció, tiene un agujero lógico y un modo de fallo
+que conviene poner por escrito antes de adoptarla.
+
+\textbf{El agujero.} Si ninguna celda vota, \emph{un nivel gana todas las celdas
+que votan} es vacuamente cierto para todos los niveles a la vez. La regla no define
+cuórum, de modo que en el régimen de efectos pequeños no sella: se rompe.
+
+\textbf{El caso adverso, cuantificado con la tabla del propio documento.} Un efecto
+uniforme de $+0{,}004$ solo es resoluble en \cod{PK:BPO}, cuyo MDE es $0{,}0032$;
+por debajo de $0{,}0126$ ninguna celda \cod{NK} ni \cod{LK} puede votar. Es decir,
+en ese régimen la regla degenera en \emph{decide \cod{PK:BPO}}, que es la categoría
+\textbf{más fácil} y no la que el proyecto quiere titular. Peor: un efecto real y
+pequeño con el mismo signo en 9 de 9 paneles y ningún intervalo excluyendo el cero
+da cero votos y no sella, cuando una prueba de signos sobre nueve paneles da
+$p = 0{,}004$. \textbf{La regla pierde una decisión correcta que la consistencia sí
+sostiene}, y es exactamente la forma de la evidencia que la campaña ya produjo
+(9 de 9 celdas, 36 de 36 contrastes).
+
+\textbf{Y la multiplicidad corta en los dos sentidos.} El argumento a favor del
+intervalo la invoca, y luego no se la aplica a sí mismo: al 95\,\% por celda, la
+probabilidad de que al menos una de nueve vote en falso es del 37\,\%, y con
+diecisiete regiones del 58\,\%. Bajo unanimidad, \emph{una sola celda falsa sella o
+veta ella sola}. El ajuste cruzado arregla la selección, no la tasa de error por
+familia.
+
+Las tres cláusulas que faltan:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.3em]
+  \item \textbf{Cuórum.} Un eje no sella si votan menos de tres celdas. Con menos,
+        el resultado es \emph{no resuelto}, que es distinto de \emph{no separó}.
+  \item \textbf{Segunda vía por consistencia de signo.} Si ninguna celda vota pero
+        las nueve tienen el mismo signo, el eje sella con una marca más débil, y la
+        marca se publica: sellado por consistencia, no por separación.
+  \item \textbf{Nivel por celda corregido.} Con nueve celdas, el nivel por celda
+        sube al 99{,}4\,\% para mantener el 5\,\% por familia. Es conservador y hay
+        que decir que lo es.
+\end{enumerate}
+
+Y el coste que el argumento a favor del intervalo no menciona: \textbf{no sellar
+multiplica la rejilla del eje siguiente por el tamaño del haz}, hoy tres, y sin
+sello no hay campeón que congelar en la etapa final. El argumento de que los envíos
+externos son escasos vale igual en la dirección contraria.
+
+\subsection{Resumen de la regla}
+
+Arregla los dos modos de fallo a la vez: una celda sin poder no puede sostener una
+mayoría ni puede vetarla. Es el estadístico que las declaraciones ya nombran y que
+los 4{,}279 trabajos de comparación ya ejecutaron. Y es la única opción bajo la cual
+\emph{el eje no eligió} es un resultado escribible, que es precisamente lo que uno
+de los ejes de esta campaña produjo.
+
+El coste hay que decirlo sin suavizarlo: esto vuelve las filas emparejadas por
+proteína imprescindibles para cualquier sellado, y hoy viven solo en un registro de
+eventos sin tipar y con borrado en cascada. Promoverlas a una tabla propia deja de
+ser limpieza y se convierte en precondición de cerrar cualquier nodo.

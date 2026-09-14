@@ -1,0 +1,142 @@
+\section{La unidad de reporte}
+\label{sec:unidad-reporte}
+
+\subsection{Dos niveles, no uno}
+
+El reporte tiene dos niveles y conviene no mezclarlos, porque tienen funciones
+distintas.
+
+El \textbf{panel} es la partición obligatoria: category por aspect, nueve celdas,
+siempre las nueve, nunca agregadas. Su función es impedir que un promedio esconda
+que el método funciona en un problema y no en otro. Las nueve celdas son nueve
+problemas distintos, no nueve muestras del mismo.
+
+El \textbf{estrato} es el refinamiento dentro del panel: los siete ejes de
+D\ref{def:estrato}. Su función es distinta, y es la que interesa al proyecto:
+describir a cada proteína \emph{por su posición en el vecindario}, no solo por su
+conocimiento previo. Una proteína corta con un donante casi idéntico y una
+proteína larga sin ningún donante anotado son dos problemas de recuperación
+completamente distintos que el panel por sí solo no separa.
+
+El mecanismo que lo hace posible sin violar la regla de no agregación es que el
+estrato \textbf{viaja dentro de la clave del panel}. Una celda se identifica como
+\cod{NK:MFO@length=512-1024}, de modo que una restricción por estrato produce
+nueve celdas restringidas y nunca un número.
+
+\begin{aviso}{La pertenencia al estrato se toma del brazo base, no del comparado}
+Si cada arm decidiera la banda de sus propias queries, dos arms estarían
+comparándose sobre poblaciones distintas y la diferencia medida incluiría el
+cambio de población. La pertenencia se resuelve una vez, sobre el brazo base, y se
+aplica a los dos lados.
+\end{aviso}
+
+\subsection{El límite real: granularidad contra población}
+
+Aquí está la tensión que el diseño tiene que resolver, y es aritmética.
+
+El cruce completo de los siete ejes tiene
+$3 \times 3 \times 4 \times 5 \times 3 \times 6 \times 5 = 16{,}200$ celdas. La
+campaña dispone de unas 30{,}427 unidades emparejadas en total. Es decir, el cruce
+completo promedia menos de dos proteínas por celda, y el suelo de población para
+que una celda tenga voto es 332 con el $\sigma$ global, y entre 120 y 1{,}376 con el
+de cada panel (D\ref{def:floorpop}). \textbf{El cruce de
+siete ejes está vacío en casi todas partes}, y no por falta de cómputo: por falta
+de proteínas.
+
+Medido sobre la campaña actual, cruzando el panel con una sola banda de longitud,
+sobreviven \textbf{17 celdas} bajo el suelo global de 332, y solo \textbf{11} bajo
+el suelo por panel. Y las once viven en cinco paneles: cuatro en \cod{PK:BPO},
+tres en \cod{PK:MFO}, dos en \cod{PK:CCO}, una en \cod{LK:BPO} y una en
+\cod{NK:BPO}. \textbf{Cuatro paneles no aportan ninguna región}: \cod{NK:MFO},
+\cod{NK:CCO}, \cod{LK:MFO} y \cod{LK:CCO}. Dicho de otro modo, encaminar por
+longitud sobre un suelo defendible solo puede encaminar dentro de \cod{PK} y de
+\cod{BPO}: no puede encaminar \cod{MFO} ni \cod{CCO} fuera de \cod{PK}.
+
+De esto se siguen tres reglas de diseño:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.35em]
+  \item \textbf{El panel es obligatorio; el refinamiento es de un eje a la vez.}
+        Panel por longitud, o panel por homología, pero no panel por longitud por
+        homología, que no tiene población.
+  \item \textbf{El eje del refinamiento se declara antes de la corrida.} Si se
+        prueban varios y se reporta el que separó, eso es seleccionar sobre ruido
+        con otro nombre. La sección~\ref{sec:estadistico} cuantifica cuánto ruido.
+  \item \textbf{El cruce completo es una herramienta de descripción del campeón,
+        no de selección.} Una vez elegida una configuración, describirla sobre los
+        siete ejes es informativo y no decide nada. Usarla para elegir es lo que no
+        se puede hacer.
+\end{enumerate}
+
+\subsection{Los dos ejes que el proyecto quiere, y su estado}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}L{2.3cm} L{3.4cm} X@{}}
+\toprule
+eje & precondición & estado\\
+\midrule
+\cod{length}    & ninguna. Es una propiedad de la query & disponible sobre todas las queries. Cuatro bandas por los límites de contexto\\
+\cod{homology}  & \cod{compute\_alignments} activo y el backfill de identidad completo & disponible. Medido tres veces por panel y solo bajo dos de los sellos, lo que es poco\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+La banda de homología es la que más información aporta sobre el método, porque es
+la que separa el régimen donde la transferencia por similitud es casi una copia del
+régimen donde deja de implicar función compartida. Un resultado ya medido en la
+campaña lo ilustra: la política sin filtro, que es la más permisiva de las dos,
+gana en \textbf{196 de las 197 lecturas que resuelven} (la excepción es
+\cod{LK:MFO} en la banda \cod{>90}), y gana con un efecto entre un 69 y un 78\,\%
+mayor por debajo del 30\,\% de identidad que por encima del 90\,\%, según cómo se
+agregue. La banda \cod{none} \textbf{no está medida}: sus seis comparaciones
+fallaron, de modo que la homología está medida sobre cuatro bandas y no cinco. El mismo veredicto, con una lectura mucho más informativa.
+
+\subsection{Población y poder por panel}
+
+Toda publicación de un veredicto lleva al lado esta tabla, porque el poder de
+resolución de los nueve paneles abarca casi un orden de magnitud y una celda que
+no puede resolver nada no debe leerse como una celda que no encontró nada.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}l R{1.7cm} R{1.9cm} R{2.5cm} R{1.5cm} R{1.5cm} X@{}}
+\toprule
+panel & $n$ & semiamp. IC & MDE, rango & $\sigma$ impl. & suelo & vota\\
+\midrule
+\cod{PK:BPO} & 13{,}876 & 0.00130 & 0.0001 - 0.0041 & 0.0782 &   120 & sí\\
+\cod{PK:MFO} &  4{,}947 & 0.00421 & 0.0005 - 0.0121 & 0.1511 &   448 & sí\\
+\cod{PK:CCO} &  4{,}872 & 0.00466 & 0.0004 - 0.0127 & 0.1659 &   541 & sí\\
+\cod{NK:BPO} &  1{,}509 & 0.00951 & 0.0010 - 0.0222 & 0.1884 &   697 & sí\\
+\cod{LK:BPO} &  1{,}214 & 0.01102 & 0.0011 - 0.0292 & 0.1958 &   753 & sí\\
+\cod{NK:MFO} &  1{,}129 & 0.01544 & 0.0018 - 0.0339 & 0.2647 & 1{,}376 & \textbf{no}\\
+\cod{NK:CCO} &  1{,}116 & 0.01520 & 0.0014 - 0.0413 & 0.2591 & 1{,}317 & \textbf{no}\\
+\cod{LK:MFO} &     943  & 0.01375 & 0.0016 - 0.0348 & 0.2154 &   911 & sí\\
+\cod{LK:CCO} &     821  & 0.01735 & 0.0016 - 0.0431 & 0.2536 & 1{,}263 & \textbf{no}\\
+\bottomrule
+\end{tabularx}
+\captionof{table}{Poder de resolución por panel, sobre la variante
+\cod{b7cfed9a}. Todas las columnas salen del registro: $n$ y la semiamplitud del
+intervalo bootstrap de los eventos \cod{pairing} y \cod{panel}, el rango del MDE
+del propio campo \cod{minimum\_detectable\_effect} sobre las lecturas que
+resuelven, y $\sigma$ implícita despejada de la semiamplitud. El MDE se da como
+rango porque no es una constante del panel: hay uno por comparación.}
+\end{center}
+
+\begin{aviso}{Tres de los nueve paneles no alcanzan su propio suelo}
+La columna de suelo aplica la misma regla que el suelo global,
+$\lceil (2.8016\,\sigma/0.02)^2 \rceil$, pero con el $\sigma$ implícito de cada
+panel en vez de un 0.13 único. Bajo ese criterio \cod{NK:MFO}, \cod{NK:CCO} y
+\cod{LK:CCO} \textbf{no pueden votar}: su población está por debajo del mínimo que
+su propia dispersión exige. Dos de los tres son \cod{NK}, que es la categoría que
+el proyecto quiere titular.
+
+No es un defecto de la tabla, es lo que la tabla mide. Un suelo global de 332
+dejaba votar a las nueve porque suponía una dispersión que ocho de los nueve
+paneles no tienen.
+\end{aviso}
+
+La consecuencia que gobierna la regla de cierre está en esta tabla. Las cinco
+celdas más pequeñas son \emph{mayoría de las nueve} y sostienen solo el 17.2\,\%
+de la evidencia. La razón entre el error típico mayor y el menor es 13.4. Una regla
+que sellase por mayoría simple de los nueve paneles podría cerrar un eje, convertirse
+en el umbral del siguiente y propagarse aguas abajo con el voto de la sexta parte
+peor resuelta del registro.

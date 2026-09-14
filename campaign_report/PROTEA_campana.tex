@@ -1,0 +1,73 @@
+\input{preambulo}
+
+\title{\textbf{PROTEA}\\[0.35em]
+  \large Diseño de la campaña de experimentación\\
+  \normalsize Dimensiones, ejes, parámetros y regla de cierre\\[0.7em]
+  \small Informe para el centro de investigación}
+
+\author{Francisco Miguel Pérez Canales\\
+  \small Universidad de Sevilla\\
+  \small \texttt{frapercan1@alum.us.es}}
+
+\date{Septiembre de 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+\noindent
+Este documento define la campaña de experimentación de PROTEA: qué se decide,
+sobre qué dimensiones, con qué parámetros, y bajo qué regla una diferencia
+medida cuenta como una decisión tomada. No presenta resultados. Su objeto es la
+estructura, y el criterio de éxito es que ningún término quede sin definir y
+ningún parámetro sin declarar.
+
+El diseño está pensado para ser invariante a la escala. La campaña que se
+ejecuta hoy está limitada por la potencia disponible en una máquina de cómputo,
+y la campaña que el centro podría ejecutar sobre cinco máquinas es la misma
+campaña con una rejilla más ancha. La sección~\ref{sec:escalas} separa
+explícitamente lo que cambia con la escala, que es el tamaño de la rejilla y el
+número de niveles que se pueden comparar a la vez, de lo que no cambia, que son
+los diez nodos de decisión, las definiciones, la unidad de reporte y la regla
+de cierre. Ese reparto es el resultado principal del documento: más cómputo
+compra anchura de rejilla, no un método distinto.
+
+Las cifras que aparecen son medidas sobre el registro actual y llevan su
+procedencia. Donde una propiedad no se ha establecido, se dice.
+\end{abstract}
+
+\vspace{1em}
+\begin{center}
+\begin{tabularx}{0.86\linewidth}{@{}lX@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Resumen de la estructura}}\\
+\midrule
+Decisiones      & 10 nodos tipados, en 10 etapas ordenadas\\
+Firmeza         & 5 palabras, en un orden de pruebas fijo\\
+Unidad de reporte & 9 paneles obligatorios, refinables sobre 7 ejes de estrato\\
+Marco           & 6 campos sellados hoy, 8 propuestos\\
+Parámetros      & 15 en predicción, 7 en evaluación, 11 en el sustrato\\
+Estadístico     & bootstrap pareado por proteína, IC del 95\,\%\\
+Regla de cierre & unanimidad sobre las celdas con poder, o conjunto supervivente\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+\input{secciones/01-proposito}
+\input{secciones/02-definiciones}
+\input{secciones/03-grafo}
+\input{secciones/04-marco}
+\input{secciones/05-parametros}
+\input{secciones/06-unidad-reporte}
+\input{secciones/07-estadistico}
+\input{secciones/08-escalas}
+\input{secciones/09-presupuesto}
+\input{secciones/10-procedimiento}
+\input{secciones/11-limites}
+
+\end{document}

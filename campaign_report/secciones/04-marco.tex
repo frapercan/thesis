@@ -1,0 +1,81 @@
+\section{El marco: qué hace comparables dos números}
+\label{sec:marco}
+
+\subsection{El sello}
+
+Dos números son comparables si y solo si se leyeron bajo las mismas condiciones.
+Esas condiciones se resumen en un digest criptográfico que se almacena en cada
+resultado, y el material que lo produjo se guarda al lado del digest, de modo que
+un sello se puede reconstruir y auditar en lugar de solo verificar.
+
+Hoy el sello cubre seis campos. El diseño propone ocho, y la diferencia está
+razonada campo por campo:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}L{5.1cm} c X@{}}
+\toprule
+campo & hoy & razón\\
+\midrule
+\cod{evaluation\_set\_id}            & sí & la ventana. Sin ella no hay nada que comparar\\
+\cod{pivot\_snapshot\_id}            & sí & el grafo bajo el que se resuelve la verdad\\
+\cod{information\_accretion\_set\_id}& sí & los pesos por término\\
+\cod{max\_terms}                     & sí & cuántos candidatos se conservan por query\\
+\cod{max\_distance}                  & sí & el corte de distancia\\
+\cod{temporal\_window}               & sí & \textbf{propuesto retirar.} Es texto libre de un campo del arnés, sin restricción de vocabulario. Dos sellos distintos difieren hoy solo en que uno lo tiene nulo y el otro lleva una cadena, y son por lo demás idénticos\\
+\cod{th\_step}                       & no & \textbf{propuesto añadir.} Es la resolución de la rejilla de umbrales. Refinarla de 0.01 a 0.0005 invirtió el veredicto en una parte sustancial de las comparaciones de un eje. Los cuatro sellos actuales contienen a la vez la rejilla gruesa y la fina\\
+\cod{deciding\_statistic}            & no & \textbf{propuesto añadir.} En los dos ejes ya cerrados el ganador dependió de cuál de los dos estadísticos se leyera, y en un caso los dos eligieron extremos opuestos de la misma rejilla. Si dos números no son comparables cuando difieren en el pivote, tampoco lo son cuando difieren en el estadístico que los decide\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{aviso}{Decisión requerida: re-sellar cambia todos los digests}
+Añadir o retirar un campo del sello cambia el digest de todos los resultados
+existentes. Cualquier digest citado en un documento o en una nota queda obsoleto,
+y las filas antiguas del catálogo de sellos sobreviven junto a las nuevas porque
+la inserción ignora conflictos. Es un cambio sobre un objeto declarado y necesita
+aprobación explícita, no silencio.
+\end{aviso}
+
+\subsection{La ventana de selección y el holdout}
+
+La campaña selecciona sobre $220 \rightarrow 227$ y no lee nada por encima de 227
+del lado nuevo. La regla operativa es más amplia que un intervalo fijo y se
+enuncia así: \textbf{nada en la release 227 o posterior, del lado nuevo, informa
+ninguna elección}.
+
+Conviene separar dos cosas que se confunden con facilidad, porque de la distinción
+depende que el diseño sea más fuerte de lo que parece:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.3em]
+  \item \textbf{Puntuarse a sí mismo sobre datos posteriores} para elegir una
+        configuración es fuga, y está prohibido. Un solo punto de validación
+        interna se designa antes de empezar, y designarlo no autoriza a leerlo
+        hasta el final.
+  \item \textbf{Enviar predicciones a una evaluación externa} no es fuga. En CAFA
+        y en LAFA se predice sobre proteínas cuya anotación \emph{todavía no
+        existe}, y los organizadores puntúan después contra anotaciones que se
+        acumulan tras el cierre de envío. La fuga es imposible por construcción,
+        porque no hay nada que mirar.
+\end{itemize}
+
+De ahí una propiedad del diseño que merece decirse en voz alta: \textbf{si la
+validación final es un despliegue externo, el problema del holdout se resuelve
+solo}. El holdout verdadero es el futuro, y nadie puede espiarlo. Toda la
+disciplina sobre 227 se aplica únicamente a los números \emph{internos} que la
+campaña cita para justificar sus propias elecciones.
+
+La consecuencia práctica es la inversa de lo que suele suponerse: el rigor interno
+no es menos importante porque haya validación externa, es \emph{más} importante.
+El número de envíos externos es limitado, y cada configuración enviada que fue
+elegida sobre ruido es un envío desperdiciado. El trabajo del intervalo de
+confianza es precisamente garantizar que lo que se despliega es lo que de verdad
+ganó.
+
+\subsection{La protección por ausencia}
+
+El mecanismo más fuerte que el proyecto tiene contra la fuga no es un guardia, es
+una ausencia: las releases que no deben mirarse no están cargadas en la base. Si
+el dato no está, no se puede mirar por accidente, ni por una consulta distraída,
+ni por un trabajo mal parametrizado. Reponer la release del holdout exige una
+descarga de 14.4~GB, y esa fricción es lo que convierte el error potencial en un
+acto deliberado.

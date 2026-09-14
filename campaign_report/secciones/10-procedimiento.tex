@@ -1,0 +1,109 @@
+\section{Procedimiento}
+\label{sec:procedimiento}
+
+Cada etapa tiene una puerta que puede fallar, y en cada caso se nombra la entrada
+sobre la que falla. Una puerta que no puede fallar no es una puerta.
+
+\subsection{Cambios de instrumentación, en orden}
+
+Los once cambios siguen todos la plantilla de tres partes de la
+sección~\ref{sec:proposito}: una fila, un guardia que se niega, y dos pruebas.
+
+\begin{center}
+\small
+\begin{xltabular}{\linewidth}{@{}c L{5.4cm} L{2.2cm} X@{}}
+\toprule
+\# & cambio & coste & se niega a\\
+\midrule
+\endfirsthead
+\toprule
+\# & cambio & coste & se niega a\\
+\midrule
+\endhead
+1  & filtrar por estado la lectura de umbrales & 1 línea & que una declaración retirada gobierne algo\\
+2  & publicar el umbral y el resultado de la comparación junto al nodo & pequeño & nada. Hace visible una negativa que hoy se descarta\\
+3  & el marco se \emph{designa}, no es la fila más reciente & pequeño & un marco elegido por orden de inserción\\
+4  & promover el veredicto emparejado a una tabla tipada & migración y backfill de 9{,}138 lecturas & que borrar un trabajo borre la única evidencia\\
+5  & transportar la sexta palabra del vocabulario & pequeño & que un nulo con poder se lea como una pregunta no hecha\\
+6  & la declaración como espina de atribución, con clave foránea desde el resultado & migración y 315 filas & un número publicado sin declaración detrás\\
+7  & materializar \cod{th\_step} y el estadístico, y añadirlos al sello & migración y re-sellado & comparar dos rejillas distintas, o dos estadísticos distintos\\
+8  & retirar o restringir la etiqueta de ventana del sello & re-sellado & que una etiqueta del arnés parta un marco real\\
+9  & negarse a comparar arms con bancos de donantes desiguales & un campo y un guardia & el confundido de la sección~\ref{sec:parametros}\\
+10 & hacer que los bloqueos estructurales no se lean como evidencia & pequeño & reportar un veredicto que ningún experimento puede mover\\
+11 & ligar la ablación de rasgos al esquema versionado & preparado & una ablación que retire familias en lugar de columnas\\
+\bottomrule
+\caption{Los once cambios de instrumentación. Todos se ejecutan en la máquina que
+posee el estado.}
+\end{xltabular}
+\end{center}
+
+\subsection{Etapas y puertas}
+
+\begin{description}[leftmargin=0pt,itemsep=0.5em,font=\normalfont\bfseries]
+  \item[S0. Designar el marco.] Productos: la ventana de selección designada, la
+        variante designada y el punto de validación interna. Puerta \textbf{G0}: la
+        ventana designada resuelve a una release menor o igual que 227, y la
+        comprobación de comparabilidad deja de negarse. \emph{Falla sobre} una
+        designación por encima de 227, una ventana cuyo annotation set no existe, o
+        una designación que nombre dos evaluation sets a la vez.
+
+  \item[S1. Sacar la evidencia del registro de eventos.] Puerta \textbf{G1}: en una
+        transacción que se revierte, intentar borrar un trabajo de comparación debe
+        \emph{levantar} por la restricción de la tabla de veredictos, y el recuento
+        restaurado debe reproducir las cifras medidas. \textbf{Nada más corre antes
+        de G1}, porque toda etapa posterior añade trabajos cuyo borrado se llevaría
+        la evidencia.
+
+  \item[S2. Re-sellar bajo los campos corregidos.] Puerta \textbf{G2}: ningún sello
+        contiene dos rejillas de umbral ni dos estadísticos. \emph{Falla sobre el
+        registro actual}, donde los cuatro sellos contienen las dos rejillas.
+
+  \item[S3. El sustrato, sobre bancos iguales.] Puerta \textbf{G3}: la comparación
+        se niega si los bancos difieren, y la negativa es visible en la respuesta.
+        \emph{Falla sobre} el censo actual de embeddings.
+
+  \item[S4. El corte de evaluación.] Puerta \textbf{G4}: retirar los resultados con
+        corte cambia el número de niveles de algún nodo. \emph{Falla hoy}, porque
+        ningún nodo lee el campo del corte.
+
+  \item[S5. Canalización con ajuste cruzado.] Puerta \textbf{G5}: el veredicto
+        publicado es fuera de pliegue, y la comparación se niega cuando la partición
+        de ajuste y la de evaluación se cortan.
+
+  \item[S6. La medida de validación, una sola vez.] Precondición: todas las puertas
+        anteriores superadas y el campeón congelado. Puerta \textbf{G6}: antes de
+        calcular nada, el guardia de fuga debe \emph{demostrar una negativa} sobre
+        ese marco y después permitir el paso al campeón.
+\end{description}
+
+\begin{aviso}{Por qué G6 es la puerta que sostiene todo el protocolo}
+Sobre la ventana adoptada, $220 \rightarrow 227$, el guardia de fuga \emph{no puede
+levantar}: las tres codificaciones ajustadas que existen declaran corte en la
+release 220, y la condición de negativa exige que el corte caiga estrictamente
+dentro de la ventana. El guardia está vivo, se invoca, y de forma demostrable no dispara
+para ninguna fila de esta base sobre esta ventana. Su única negativa demostrada está
+en una prueba sobre otra ventana. La mitad \emph{actúa} de ese guardia queda sin
+evidenciar hasta S6, y ahí es donde tiene que demostrarse.
+\end{aviso}
+
+\subsection{Reparto entre máquinas}
+
+Una máquina posee el estado: base de datos, cola de trabajos, almacén de objetos, la
+interfaz y todo artefacto que la campaña produce. Las demás son nodos de cómputo sin
+estado: se suman a la cola, calculan y publican de vuelta. Un nodo de cómputo puede
+reiniciarse sin aviso y eso es inocuo por diseño, porque el estado y la cola están en
+la otra máquina y una corrida continúa a menor rendimiento hasta que el nodo vuelve.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}X l@{}}
+\toprule
+trabajo & máquina\\
+\midrule
+codificación (GPU) & nodo de cómputo\\
+predicción y recuperación KNN (CPU) & nodo de cómputo\\
+evaluación y estratificación & cualquiera\\
+comparación emparejada & la que posee el estado\\
+ingesta de GOA y ontologías, migraciones, sellado & la que posee el estado, en serie\\
+\bottomrule
+\end{tabularx}
+\end{center}

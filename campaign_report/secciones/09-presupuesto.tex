@@ -1,0 +1,104 @@
+\section{Presupuesto de cómputo}
+\label{sec:presupuesto}
+
+\subsection{Costes unitarios medidos}
+
+Todas las cifras salen del registro de trabajos de la campaña actual, sobre
+trabajos terminados con éxito. La mediana es la cifra útil; el máximo está para que
+nadie planifique con la mediana sola.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.0cm} r r r r@{}}
+\toprule
+operación & $n$ & mediana & máximo & total\\
+\midrule
+\cod{predict\_go\_terms}       &    51 & 68.3 min & 377.8 min & 79.6 h\\
+\cod{compare\_paired\_panels}  & 4{,}279 &  0.6 min &   8.3 min & 52.1 h\\
+\cod{run\_cafa\_evaluation}    &   315 &  2.9 min &  48.1 min & 29.2 h\\
+\cod{compute\_embeddings}      &    12 & 84.3 min & 154.6 min & 18.3 h\\
+\cod{stratify\_evaluation}     &   309 &  2.9 min &  15.2 min & 18.2 h\\
+\cod{load\_goa\_annotations}   &     2 & 128.8 min & 165.6 min &  4.3 h\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{total medido de la campaña hasta hoy}} & \textbf{202 h}\\
+\bottomrule
+\end{tabularx}
+\captionof{table}{Coste unitario por operación. \cod{compute\_embeddings} es el
+único paso que usa GPU; el KNN corre siempre en CPU.}
+\end{center}
+
+Dos observaciones sobre estas cifras antes de proyectarlas. La primera es que
+\cod{predict\_go\_terms} tiene una cola larga, de 6.7 a 377.8 minutos, porque el
+coste depende del tamaño del banco y de si se calculan alineamientos. La segunda es
+que \cod{load\_goa\_annotations} tarda más de dos horas y es I/O contra la base:
+\textbf{no se paraleliza entre máquinas}, porque una sola máquina posee el estado.
+
+\subsection{Proyección de la rejilla cruzada}
+
+La rejilla cruzada de sustrato por política de banco son $22 \times 16 = 352$ arms:
+las 25 configuraciones menos las tres capas de \cod{ankh-base} que no son evaluables.
+Con la comparación en cascada y no todos contra todos:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}X r r@{}}
+\toprule
+partida & unidades & coste\\
+\midrule
+codificación pendiente                   & 11 configuraciones & 120 h GPU\\
+predicción                               & 352 arms          & 401 h CPU\\
+evaluación, 7 cortes por 2 variantes     & 4{,}928 corridas    & 238 h CPU\\
+comparación en cascada                   & unas 4{,}300        & 52 h CPU\\
+\midrule
+\textbf{total}                           &                   & \textbf{811 h}\\
+\midrule
+la misma rejilla con todos contra todos  & 61{,}776 comparaciones & +618 h, y no válida\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Traducido a plazos, suponiendo cuatro trabajos concurrentes por máquina:
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}X r r@{}}
+\toprule
+configuración & concurrencia & plazo\\
+\midrule
+un trabajador en serie            &  1 & 34 días\\
+una máquina, cuatro trabajadores  &  4 & 8.5 días\\
+cinco máquinas                    & 20 & \textbf{1.7 días}\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Lo que cinco máquinas desbloquean, en orden de valor}
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.4em]
+  \item \textbf{Igualar los bancos de donantes.} Es el bloqueo que hoy impide
+        cualquier veredicto de sustrato. Once configuraciones tienen 60{,}797
+        embeddings frente a 528{,}294, de modo que hay que calcular unos 467{,}500
+        embeddings por configuración, y son \emph{once} configuraciones. Al ritmo
+        medido, entre 41{,}350 y 43{,}272 embeddings por hora, son unas 11 h de GPU
+        por configuración y unas \textbf{120 h en total}, o unas \textbf{24 h sobre
+        cinco GPU}. \textbf{Sigue siendo el mejor retorno del informe: desbloquea un
+        eje entero por un día de cómputo sobre cinco GPU.}
+  \item \textbf{La rejilla cruzada.} 1.7 días frente a 8.5. Es lo que permite
+        observar interacciones entre nodos.
+  \item \textbf{El encaminamiento con ajuste cruzado.} Multiplica el coste de
+        puntuación por el número de pliegues. Con cinco máquinas es rutina; con una
+        es el paso que se queda sin hacer, y sin él la canalización no es publicable.
+  \item \textbf{La escalera de recencia del banco.} Trece releases de GOA desde la
+        160 hasta la 220, de las que hay dos. \textbf{Esta no se beneficia de las
+        cinco máquinas}: son unos 20.3~GB de datos y once cargas de más de dos horas
+        contra la única base que posee el estado, necesariamente en serie. Son unas
+        24 h de reloj y hay que planificarlas como tales.
+\end{enumerate}
+
+\begin{aviso}{Un límite que el cómputo no levanta}
+Una máquina posee todo el estado: base de datos, cola y almacén de objetos. Las
+otras calculan y publican de vuelta. Todo lo que sea ingesta, sellado o migración
+es serie por construcción y no mejora con más nodos. Las cinco máquinas aceleran
+codificación, predicción, evaluación y comparación, que son el 98\,\% del coste, y
+no aceleran el 2\,\% restante. También hay una condición: los dos árboles de código
+tienen que estar en la misma revisión, porque código desparejado etiqueta mal los
+resultados y reporta éxito.
+\end{aviso}

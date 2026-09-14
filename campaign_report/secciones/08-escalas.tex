@@ -1,0 +1,105 @@
+\section{La misma campaña a dos escalas}
+\label{sec:escalas}
+
+Esta sección es el objeto del informe. La campaña que se ejecuta hoy está acotada
+por la potencia de una máquina de cómputo; la que el centro podría ejecutar sobre
+cinco máquinas es la misma campaña con una rejilla más ancha. Lo que sigue separa
+lo que cambia de lo que no.
+
+\subsection{Lo que no cambia con la escala}
+
+Nada de lo definido en las secciones 2 a 7. En concreto:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=0.25em]
+  \item \textbf{Los diez nodos} y su orden. Son propiedades del método, no del
+        presupuesto.
+  \item \textbf{Las definiciones}, incluida la de nivel, que es la que impide que
+        una comparación parezca de un campo cuando varían dos.
+  \item \textbf{El marco y su sello.} Un sello no es más barato ni más caro.
+  \item \textbf{La unidad de reporte.} Nueve paneles, nunca agregados. Más cómputo
+        no produce más proteínas, de modo que el suelo de población por celda es
+        exactamente el mismo en las dos escalas.
+  \item \textbf{La regla de cierre} y el estadístico que decide.
+\end{itemize}
+
+El punto sobre la población merece énfasis porque es contraintuitivo:
+\textbf{la escala de cómputo no compra resolución estadística}. El MDE de
+\cod{LK:CCO} es 0.0234 porque esa celda tiene 821 proteínas emparejadas, y tendrá
+821 con una máquina y con cincuenta. Solo una ventana distinta, o más queries,
+cambian eso.
+
+\subsection{Lo que sí cambia}
+
+Dos cosas, y solo dos.
+
+\subsubsection*{La anchura de la rejilla}
+
+Con poco cómputo la rejilla se explora en \textbf{cascada}: se decide un nodo, se
+fija su ganador o su haz, y se pasa al siguiente con los demás campos quietos. Con
+mucho cómputo se puede explorar \textbf{cruzada}: el producto cartesiano de varios
+nodos a la vez.
+
+La diferencia importa porque la cascada supone que las decisiones no interactúan, y
+esa suposición es falsa en general. Si el mejor sustrato bajo una política de
+donantes permisiva no es el mejor bajo una restrictiva, la cascada lo pierde y el
+cruce lo encuentra. \textbf{Lo que el centro compraría con cinco máquinas es
+precisamente la capacidad de detectar interacciones entre nodos}, que es la única
+cosa que la versión acotada no puede ver por construcción.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}L{3.4cm} X X@{}}
+\toprule
+ & cascada (hoy) & cruce (a escala)\\
+\midrule
+arms de predicción & 25 del sustrato, luego 4 de política: \textbf{29}. Los cortes no añaden arms, truncan una lista ya recuperada & $22 \times 16 = \mathbf{352}$\\
+supuesto           & los nodos no interactúan & ninguno\\
+lo que se pierde   & interacciones entre nodos & nada de la rejilla\\
+lo que se gana     & tres órdenes de magnitud menos de comparaciones & la interacción, si existe\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection*{El número de niveles que se pueden comparar a la vez}
+
+Y aquí está el resultado que más conviene que el centro lea, porque va en contra de
+la intuición de que más máquinas permiten comparar todo con todo.
+
+Comparar todos los pares de 352 arms son $\binom{352}{2} = 61{,}776$ comparaciones.
+Al coste medido de 0.6 minutos cada una son \textbf{798 horas}, que es más que el
+coste de producir los 352 arms. Pero el problema no es el tiempo: es que 61{,}776
+contrastes sobre nueve paneles son más de setecientas mil pruebas, y con esa
+multiplicidad el máximo de una colección de diferencias ruidosas es grande aunque
+todas las diferencias verdaderas sean cero.
+
+\begin{aviso}{La cascada no es una concesión al presupuesto, es una necesidad estadística}
+Con cómputo infinito se seguiría comparando contra un incumbente declarado y no
+todos contra todos, porque el problema de la comparación múltiple no lo resuelve el
+cómputo. Lo que cambia con la escala es \emph{cuántos arms se producen} y por tanto
+cuántos candidatos entran en la cascada, no la forma de la comparación. El diseño
+es el mismo a las dos escalas; a escala grande simplemente entra más gente al
+torneo.
+\end{aviso}
+
+\subsection{Resumen del reparto}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}X c c@{}}
+\toprule
+ & acotada & a escala\\
+\midrule
+Nodos de decisión                & 10 & 10\\
+Definiciones y marco             & idénticos & idénticos\\
+Paneles                          & 9, sin agregar & 9, sin agregar\\
+Suelo de población por celda     & 332 & 332\\
+Estadístico y regla de cierre    & idénticos & idénticos\\
+\midrule
+Arms de predicción               & 29 & 352\\
+Exploración                      & cascada & cruce\\
+Interacciones entre nodos        & no observables & observables\\
+Forma de la comparación          & contra incumbente & contra incumbente\\
+Bancos de donantes igualados     & pendiente & sí\\
+Escalera de recencia del banco   & 2 de 13 releases & 13 de 13\\
+Encaminamiento con ajuste cruzado& pendiente & sí\\
+\bottomrule
+\end{tabularx}
+\end{center}
