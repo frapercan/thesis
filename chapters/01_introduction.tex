@@ -218,65 +218,148 @@ rewrite of the pipeline. The versioned data model ensures that embeddings comput
 with the old backend are preserved alongside those computed with the new one, enabling
 controlled comparisons rather than overwrites.
 
-\textbf{Thesis statement.} PROTEA demonstrates that a contracts-first, plugin-driven
-platform for protein function annotation can simultaneously deliver a reproducible,
-leakage-free evaluation methodology, quantifiable gains from feature-engineered
-re-ranking over PLM-embedding baselines, and independently verifiable deployment as a
-public benchmark submission, together constituting a reusable infrastructure for the
-next generation of annotation research.
+\textbf{Thesis statement.} Protein function prediction can be studied the way an
+instrument studies a phenomenon: with the corpus of every date fixed as a photo, every
+method run and measured under the benchmark's own rules at every cut, and every result
+stratified and traceable to its sources. PROTEA is that instrument. Within it, one
+research line places every component explored in this work (representations of the
+protein, sources of evidence, signals and learners) in a single frame, compares a world
+model of protein knowledge against decision trees on equal terms, and routes their best
+combination stratum by stratum.
+
+\section{The Research Line}
+\label{sec:research-line}
+
+Everything this thesis explores sits in one line of research, built by stages. Each
+component is defined, run and validated in the platform at every cut, documented, and
+the line ends in a combination of the best components, routed per stratum during the
+stratified evaluation.
+
+\begin{enumerate}[label=\textbf{Stage \arabic*.}, start=0]
+  \item \textbf{The frame.} A cut is a date. The corpus of each cut is a photo built
+        only from sources published on or before it (\cref{fig:corpus-members}).
+        Methods are scored on windows that follow the rules of the LAFA benchmark
+        exactly (160~$\to$~194, 177~$\to$~205, 194~$\to$~211 and 211~$\to$~227), in
+        nine cells (three knowledge categories by three GO branches), by sequence
+        identity to the closest annotated protein and by length. Nothing is learned
+        after the cut: every component that sees function is fitted on transitions that
+        end on or before the cut it is applied at.
+  \item \textbf{Representations of the protein.} Eight frozen protein language models
+        (ESM-2 in three sizes, ESM~C, ProtT5-XL, ProstT5, Ankh base and Ankh large);
+        vectors learned on top of them, supervised with GO and refitted at every cut;
+        a lexicon of sequence segments that never sees function; and, optionally, a
+        self-supervised perception trained by predicting masked regions in
+        representation space.
+  \item \textbf{Sources of candidates.} Five mechanisms by which a term can be
+        proposed: what the protein already says about itself (its non-experimental
+        annotations at the cut), transfer from its neighbours (by each representation
+        and by sequence homology), association between terms, the dynamics of knowledge,
+        and what is frequent.
+  \item \textbf{Signals.} One dated context per candidate and per cut, readable by any
+        learner: seventy-eight engineered features in nineteen families, and the
+        project's own encodings of the ontology (each term from its text and its usage
+        up to the cut), of the annotations and of the neighbourhood, which replace a
+        pretrained ontology embedding from 2020.
+  \item \textbf{Learners.} Gradient-boosted decision trees that score each (protein,
+        candidate term) pair, against a world model: a joint-embedding predictive
+        architecture that predicts, in a learned representation, what will be known
+        about the protein some time after the cut, trained on real past transitions and
+        read term by term. Both score the same candidates, so that a gain can be told
+        apart from seeing more of them. A fork is measured directly: whether future
+        non-experimental annotation, which arrives earlier and in far greater quantity,
+        is a useful training target when only experimental annotation is scored.
+  \item \textbf{Stratified evaluation.} Every arm at every cut, compared in pairs
+        within each stratum by a paired bootstrap; a difference counts when it is at
+        least 0.01 with enough power to see it.
+  \item \textbf{Routing.} A weighted mix of the arms per stratum, shrunk towards its
+        cell and towards the global weights when the stratum has little evidence,
+        fitted in validation and frozen.
+  \item \textbf{Closure.} The method is frozen in a record that names every file it
+        reads by its digest, and read once on the held-out test window 227~$\to$~230.
+\end{enumerate}
+
+\begin{figure}[t]
+  \centering
+  % Written by PROTEA's scripts/docs/corpus_figures.py --pdf from the cut photo
+  % manifests; the counts and the manifests' sha256 digests are kept in PROTEA's
+  % docs/source/_data/corpus-by-cut.json.
+  \includegraphics[width=\linewidth]{fig_corpus_members}
+  \caption{The corpus of each cut, from 1.13 million proteins in 2016 to 1.85 million
+    in 2025. Swiss-Prot at the cut is the set to annotate and the only one that can
+    hold an evaluation target; the unreviewed proteins with experimental or curated
+    rows and the annotated UniRef50 neighbours are evidence and donors.}
+  \label{fig:corpus-members}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{fig_corpus_rows}
+  \caption{The GOA rows of each corpus photo, by evidence channel. Electronic
+    annotation from signatures and family models, the largest channel, is stored as a
+    mirror and never read by the methods; rows without data (\texttt{ND}, under
+    0.3\,\% of every photo) are not drawn.}
+  \label{fig:corpus-rows}
+\end{figure}
+
+Two measurements on the validation window 211~$\to$~227 set the starting point
+(weighted micro $F$, mean of the nine cells). Transfer from the nearest neighbour moves
+by less than a hundredth across the eight language models, from 0.3149 (ESM~C 600M) to
+0.3241 (ProtT5-XL). The protein's own non-experimental annotations, ordered by a model
+fitted on the earlier window 194~$\to$~211 that reads co-annotation, reach 0.3543: what
+a protein already says about itself is, so far, the strongest single source of
+evidence. \Cref{fig:corpus-rows} shows how much of that evidence each cut holds.
 
 \section{Research Questions}
 \label{sec:research-questions}
 
 The thesis addresses the following questions, each of which corresponds to a distinct
-dimension of the problem. The questions are deliberately ordered from the most
-scientific (what does embedding-based transfer achieve?) to the most architectural
-(how should a platform that supports this science be built?). This ordering reflects
-the view that the engineering decisions are not independent of the scientific ones:
-the choice to plug PLM backends rather than hard-code them is not aesthetic but
-empirical, motivated by the expectation that the answer to RQ1 will change as PLMs
-evolve. Similarly, the choice to implement leakage-free evaluation as an integral
-part of the platform rather than as a post-hoc script is motivated by the expectation
-that RQ2 cannot be answered reliably unless the evaluation methodology is correct.
+dimension of the problem and to stages of the research line. They are ordered from the
+frame, through the science, to the platform. The ordering reflects the view that the
+engineering decisions are not independent of the scientific ones: the choice to plug
+language-model backends rather than hard-code them is motivated by the expectation that
+the answer to RQ2 will change as models evolve, and the choice to build the evaluation
+into the platform is motivated by the expectation that none of the other questions can
+be answered reliably unless RQ1 is.
 
 \begin{enumerate}[label=\textbf{RQ\arabic*.}]
-  \item Can embedding-based \gls{knn} annotation transfer match or exceed
-        alignment-based methods for \gls{go} term prediction, particularly at low
-        sequence identity, and how does the answer change as new PLMs replace
-        older ones?
+  \item What corpus and which rules make a temporal evaluation of function prediction
+        fair, and how must they be fixed per cut so that every method is measured on
+        the same ground?
 
-        This question drives the choice to treat the PLM backend as a plugin rather
-        than a fixed dependency: the answer must be re-evaluable without changing the
-        platform.
+        This question motivates the corpus photo of each cut and an evaluator that
+        follows the benchmark's rules exactly, stratum by stratum
+        (\cref{sec:research-line}, stage~0).
 
-  \item Do pairwise alignment statistics, taxonomic distance, ontology-graph
-        ancestry features, and per-PLM PCA projections provide complementary signal
-        that improves the ranking of candidate annotations once the embedding
-        baseline is already strong?
+  \item Where is the signal? How much do protein language models differ when used for
+        transfer, and how much does what a protein already says about itself predict
+        what experiments will later confirm?
 
-        This question motivates the feature-engineering layer and the learning-to-rank
-        reranker. The relevant evidence is whether the 56-feature schema adds
-        measurable lift on top of the embedding-only baseline under a leakage-free
-        evaluation, and whether that lift is robust across ontology aspects and
-        knowledge categories.
+        This question motivates the comparison of eight language models under the
+        same exclusion rule, and the sources of candidates as separate, measurable
+        mechanisms (stages~1 and~2).
 
-  \item How can a reproducible, scalable annotation pipeline be designed so that
-        researchers can re-run analyses as ontologies and databases are updated, and
-        so that the pipeline itself can be deployed in development, cloud, on-premise
-        HPC, and airgapped environments without code branching?
+  \item Given the same evidence, does a world model that predicts the future knowledge
+        state of a protein read it better than decision trees that score each
+        candidate, and is future non-experimental annotation a useful training target
+        when only experimental annotation is scored?
+
+        This is the central comparison of the line (stages~3 and~4).
+
+  \item Can the best combination be chosen per stratum from validation evidence alone,
+        without overfitting small strata, and does it hold on a single clean read?
+
+        This question motivates the stratified evaluation, the routing per stratum
+        and the frozen record of the method (stages~5 to~7).
+
+  \item How should a platform be built so that all of the above is reproducible,
+        auditable and extensible, with every component defined, run and validated in
+        the platform at every cut, and with the journey of the research, its dead ends
+        included, kept as an auditable trace?
 
         This question is architectural. The answer involves the operation abstraction,
-        the plugin contract system, the versioned data model, and the container
-        deployment matrix, all of which are developed in \cref{chap:design} and
+        the plugin contract system, the versioned data model, the decision records and
+        the container deployment matrix, developed in \cref{chap:design} and
         \cref{chap:implementation}.
-
-  \item How can the journey of a research platform, with its dead ends and pivots,
-        be captured operationally so that the canonical pipeline is justified by an
-        auditable trace rather than by post-hoc rationalisation?
-
-        This question motivates the \texttt{Job.findings} narrative model and the
-        Architecture Decision Record (ADR) index, which record the why of every
-        non-obvious choice alongside the what of every computed result.
 \end{enumerate}
 
 \section{Scope and Limitations}
@@ -291,14 +374,15 @@ analysis. The thesis does not propose new protein language models, new graph neu
 network architectures, or new GO terms. It proposes a platform within which such
 contributions can be developed, evaluated, and deployed.
 
-The evaluation is conducted on a single hardware configuration (one workstation with a
-16\,GB GPU). Large-scale multi-GPU experiments, distributed training of the reranker,
-and evaluation at full UniProt scale are out of scope. The reference set of
-approximately 527,000 Swiss-Prot sequences covers the reviewed, experimentally
-curated portion of UniProt. Extending PROTEA to TrEMBL-scale (hundreds of millions of
-sequences) would require replacing the NumPy-based exact nearest-neighbour search with
-a distributed approximate search backend; \gls{faiss} provides the first step in that
-direction, and the platform is designed to accommodate it.
+The platform runs on one workstation with a single consumer GPU, and the heaviest
+training runs on the Picasso supercomputer of the University of M\'{a}laga, entering the
+platform with their provenance. The corpus of each cut holds the Swiss-Prot entries of
+that date (from 552,259 in 2016 to 573,661 in 2025), the proteins with experimental or
+curated annotation, and the annotated UniRef50 neighbours of Swiss-Prot proteins, up to
+1.85 million proteins. The rest of TrEMBL, hundreds of millions of sequences, is out of
+scope as a source of donors; reaching it would require a distributed approximate
+search backend, for which \gls{faiss} is the first step and which the platform is
+designed to accommodate.
 
 The thesis covers three LAFA benchmark submissions, which establish the deployability
 of the platform and provide an independently verifiable performance reference.
@@ -323,71 +407,70 @@ in neural network architecture research, and the system design reflects this hon
 The main contributions of this work are:
 
 \begin{itemize}
-  \item \textbf{PROTEA}: an open-source distributed platform implementing the full
-        annotation pipeline, from FASTA upload to structured \gls{go} predictions
-        with optional feature engineering and selective learning-to-rank re-ranking.
-        PROTEA is designed, implemented, and maintained solely by the author of this
-        thesis, and is available under an open-source licence at the address given
-        in \cref{chap:implementation}.
+  \item \textbf{PROTEA as an instrument}: an open-source platform implementing the full
+        annotation pipeline, from sequence to structured \gls{go} predictions with the
+        evidence for each term, designed, implemented and maintained solely by the
+        author of this thesis, and available under an open-source licence at the
+        address given in \cref{chap:implementation}.
+
+  \item \textbf{The corpus at a cut as a photo}: for every cut, the Swiss-Prot entries
+        of that date, the proteins with experimental or curated annotation and the
+        annotated UniRef50 neighbours of Swiss-Prot proteins, with every \gls{goa} row
+        kept and classed by its evidence channel, and a manifest named by its digest.
+        The photos grow from 1.13 million proteins in 2016 to 1.85 million in 2025.
+
+  \item \textbf{An evaluator faithful to the benchmark}: windows that follow the rules
+        of the \gls{lafa} benchmark exactly, one evaluator for every method, and
+        results stratified by knowledge category, \gls{go} branch, sequence identity
+        and length, always with the number of proteins in each stratum.
+
+  \item \textbf{One research line by stages} that places every component explored
+        (representations, sources of evidence, signals, learners and routing) in a
+        single frame, with a temporal rule per stage, and the project's own encodings
+        of the ontology, the annotations and the neighbourhood.
+
+  \item \textbf{A fair comparison of eight protein language models} for
+        nearest-neighbour transfer, with the query excluded from its own neighbours by
+        accession, on the validation window 211~$\to$~227.
+
+  \item \textbf{A world model of protein knowledge against decision trees}: two
+        learners that read the same evidence and score the same candidates, so that the
+        comparison isolates how the evidence is read; and a direct measurement of
+        whether future non-experimental annotation is a useful training target.
 
   \item A \textbf{plugin architecture} based on Python \texttt{entry\_points},
         organised across seven code repositories (core, contracts, method, sources,
         backends, runners, and the offline reranker lab), that lets new annotation
-        sources, runners, and PLM backends be added without modifying the core
+        sources, runners, and embedding backends be added without modifying the core
         platform. The contracts package (\texttt{protea-contracts}) defines the
         extension surface as a SemVer-versioned public artefact independent of the
         platform stack.
 
-  \item A \textbf{versioned data model} for ontology snapshots, annotation sets,
-        embedding configurations, datasets, re-ranker models, and experiment runs,
-        with provenance complete enough to exactly replay any past prediction. The
-        model is encoded as a sequence of Alembic migrations under version control.
-
-  \item A \textbf{benchmark of eight PLM backends} (ESM-2 in three sizes, ESM-C,
-        ProstT5, ProtT5, Ankh, ESM-3 component encoder) on a common evaluation
-        surface, with per-aspect, per-category, and per-backend numbers obtained
-        under a leakage-free temporal holdout covering twelve consecutive GOA
-        releases.
-
-  \item A \textbf{feature engineering layer} that augments embedding similarity with
-        Needleman--Wunsch / Smith--Waterman alignment scores,
-        NCBI-taxonomy-based distance metrics, GO-graph ancestry embeddings
-        (anc2vec), and per-PLM PCA projections, organised as a registry of
-        approximately 56 features. The feature schema fingerprint ensures that
-        any stored re-ranker model is automatically invalidated if the feature
-        definition changes.
-
-  \item A \textbf{selective learning-to-rank re-ranker} (LightGBM, trained per
-        category and per aspect) that falls back to the embedding-only baseline
-        whenever re-ranking would degrade performance for the current cell. Under
-        the leakage-free protocol, the re-ranker raises NK-BPO $F_{\max}$ from
-        0.431 to 0.599, a gain of 0.168 absolute that disappears almost entirely
-        when temporal leakage is introduced, underscoring the importance of the
-        evaluation methodology.
+  \item A \textbf{versioned data model} for ontology snapshots, annotation sets, corpus
+        photos, embedding configurations, methods, prediction sets and evaluations,
+        with provenance complete enough to replay any past prediction, encoded as a
+        sequence of Alembic migrations under version control.
 
   \item A \textbf{multi-target deployment story} (development \texttt{docker
-        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering
-        the same canonical pipeline without code branching. The deployment matrix
-        was validated by submitting three pre-built containers to the LAFA public
-        benchmark.
+        compose}, cloud Helm/Compose, HPC Apptainer, airgapped bundle) covering the
+        same canonical pipeline without code branching, validated by submitting three
+        pre-built containers to the \gls{lafa} public benchmark.
 
   \item An \textbf{operational narrative model} (\texttt{Job.findings},
-        \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why
-        of every run and provides the audit trace from which the evaluation chapter
-        is distilled. Complementing this, an index of Architecture Decision
-        Records (the D-series, D01 through D41) in \texttt{protea-core/docs/source/adr/} provides a
-        curated history of non-obvious design choices.
+        \texttt{ExperimentRun}, \texttt{JobEvent} comments) that captures the why of
+        every run, complemented by an index of Architecture Decision Records (the
+        D-series) in the platform's documentation that records every non-obvious design
+        choice.
 
-  \item An \textbf{empirical evaluation} comparing PROTEA predictions against
-        baseline methods on held-out \gls{goa} splits under a leakage-free temporal
-        holdout (GOA~220 $\to$~229), demonstrating that the 56-feature LightGBM
-        re-ranker raises NK-BPO $F_{\max}$ from 0.431 to 0.599 relative to the
-        embedding-only baseline.
+  \item An \textbf{earlier empirical campaign}, reported in \cref{chap:evaluation}, in
+        which a 56-feature LightGBM re-ranker raised NK-BPO $F_{\max}$ from 0.431 to
+        0.599 over the embedding-only baseline under a leakage-free temporal holdout
+        (GOA~220~$\to$~229), a gain that disappears almost entirely when temporal
+        leakage is introduced.
 
-  \item A \textbf{contribution to CAFA~6} as part of a research team, achieving a
-        final team ranking of \#19 in the international challenge, and three pre-built
-        container submissions to the LAFA public benchmark as independently verifiable
-        performance references.
+  \item A \textbf{contribution to CAFA~6} as part of a research team, with a final team
+        ranking of \#19, and a first place on the \gls{lafa} continuous public
+        benchmark for the offline research champion of the earlier campaign.
 \end{itemize}
 
 \section{Thesis Structure}
@@ -441,7 +524,7 @@ against eggNOG-mapper. The chapter also documents the impact of temporal leakage
 reported performance and quantifies the gap between leakage-corrupted and
 leakage-free numbers, motivating the evaluation design choices made throughout.
 
-\Cref{chap:conclusion} summarises the findings, answers the four research questions,
+\Cref{chap:conclusion} summarises the findings, answers the research questions,
 discusses limitations (single workstation evaluation, GO ontology drift, PLM version
 churn), and outlines future directions including post-defense platform extensions, the
 possibility of integrating R-GCN graph convolution over the GO-DAG, and the open

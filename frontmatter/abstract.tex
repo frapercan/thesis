@@ -2,71 +2,60 @@
 \addcontentsline{toc}{chapter}{Abstract}
 
 Fewer than 0.02\,\% of the proteins deposited in UniProt carry experimentally
-validated functional annotations. Computational methods attempt to close this gap by
-transferring Gene Ontology (GO) knowledge from characterised proteins to unknown ones,
-yet the ecosystem of tools for doing so is fragmented across notebooks and one-off
-scripts, and most published benchmarks conflate training and test annotations through
-temporal leakage, inflating reported performance.
+validated functional annotations. Computational methods try to close this gap by
+transferring Gene Ontology (GO) terms from characterised proteins to the rest, but how
+well they do it depends on how they are measured: most published benchmarks let the
+answer leak into the question, and most tools are research artefacts that cannot be
+re-run when the databases move on.
 
-This doctoral thesis presents \textbf{PROTEA} (\textit{PROtein funcTional Embedding-based
-Annotation}), designed and maintained as author and sole maintainer by Francisco Miguel
-P\'{e}rez Canales, an open-source distributed platform that automates the full pipeline
-from raw protein sequence to structured GO predictions. PROTEA couples protein language
-model (PLM) embeddings from eight backends (including ESM-2, ESM-C, ProstT5, ProtT5,
-Ankh and ESM-3) with approximate $k$-nearest-neighbour search over 527,000 reviewed
-UniProt sequences. A contracts-first plugin architecture spans seven satellite
-repositories (\texttt{protea-contracts}, \texttt{protea-method}, \texttt{protea-sources},
-\texttt{protea-runners}, \texttt{protea-backends}, \texttt{cafaeval-protea}, and
-\texttt{protea-reranker-lab}) wired to the core via Python \texttt{entry\_points}, so
-that new backends, annotation sources and ranking methods can be added without
-modifying the core platform. The platform ships five deployment modes covering
-Docker\,Compose development, Docker\,Compose bundle, Docker Swarm, Helm/Kubernetes, and
-SLURM, and exposes OpenTelemetry-instrumented observability across FastAPI, SQLAlchemy
-and pika.
+This doctoral thesis presents \textbf{PROTEA} (\textit{PROtein funcTional
+Embedding-based Annotation}), designed and maintained as author and sole maintainer by
+Francisco Miguel P\'{e}rez Canales, and the research line it serves. PROTEA is an
+open-source platform built as an \emph{instrument}. For every cut, a date, it keeps a
+photo of the corpus of that date: the Swiss-Prot entries of the cut, the proteins with
+experimental or curated annotation, and the annotated UniRef50 neighbours of Swiss-Prot
+proteins, from 1.13 million proteins in 2016 to 1.85 million in 2025, with every GOA
+row classed by its evidence channel. It runs every method under one contract, with the
+provenance of every result, and it evaluates them on windows that follow the rules of
+the LAFA benchmark exactly, by knowledge category, GO branch, sequence identity and
+sequence length. A contracts-first plugin architecture spans seven repositories, so
+that new embedding backends, annotation sources and methods can be added without
+modifying the core.
 
-Prediction quality is improved by a LightGBM re-ranker trained on a 56-feature schema
-combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment statistics,
-NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings (anc2vec).
-Training follows a leakage-free temporal holdout over twelve consecutive GOA releases.
-Under this protocol a $3^{3}$ hyperparameter grid search on the NK-BPO task yields
-$F_{\max}$ in the range 0.4386--0.4669, and cafaeval re-validation of the 56-feature
-re-ranker (three-seed replication, average lab $F_{\max}$ 0.2881) returns 0.5427,
-exceeding the
-historical hybrid-picker ceiling of 0.4400. Feature-ablation experiments identify
-\texttt{anc2vec\_query} as the dominant contributor, with a leave-one-family-out mean
-$\Delta F_{\max}$ of $+0.1449$. Bootstrap confidence intervals against the KNN baseline
-show $p < 0.0001$ across all nine ablation cells, with per-cell deltas ranging from
-$+0.03$ to $+0.43$. The binary-label per-category LightGBM champion, replicated across
-three seeds on \texttt{bench-v1-K5-v226-lineage-prostt5}, achieves NK+LK combined
-cafaeval $F_{\max} = \mathbf{0.7291 \pm 0.0028}$ (LB.3 paired bootstrap, 6/6 NK+LK
-cells strictly positive at 95\,\% confidence), the primary publishable result for
-NK and LK categories. These gains collapse almost entirely when temporal leakage is
-introduced, underscoring the importance of rigorous evaluation methodology.
+The research line asks how protein function is best predicted, and answers by stages.
+Eight protein language models give the representations of the protein; used for
+nearest-neighbour transfer on the validation window GOA~211~$\to$~227, they differ by
+less than a hundredth (weighted micro $F$ from 0.3149 to 0.3241, mean of the nine
+cells). Candidate terms come from five mechanisms: what the protein already says about
+itself, transfer from its neighbours, association between terms, the dynamics of
+knowledge, and what is frequent. The strongest source measured so far is the protein's
+own: its non-experimental annotations, ordered by a model fitted on the earlier window
+194~$\to$~211, reach 0.3543. The signals combine engineered features with the project's
+own encodings of the ontology, of the annotations and of the neighbourhood. At the
+centre of the line stands one comparison between two learners that read the same
+evidence: decision trees that score each candidate term, and a world model, a
+joint-embedding predictive architecture that predicts the future knowledge state of a
+protein and reads every term from it. The line closes with an evaluation by strata, a
+routing of the best combination per stratum learned in validation, and a single clean
+read of the frozen method on the held-out test window 227~$\to$~230.
 
-The experimental work was a component of a team ranking of \#19 in CAFA~6,
-validating the approach in a blinded international benchmark; PROTEA is the
-post-CAFA productisation, not the submission entrant. Three pre-built containers were
-submitted to the LAFA public benchmark, demonstrating deployment across development,
-cloud, HPC (Apptainer) and airgapped environments. On the LAFA continuously updated
-public benchmark, measured once on the sealed September~2025 to March~2026 target frame
-and scored with the benchmark's own harness, the offline research champion reaches
-\textbf{first place} overall (IA-weighted micro-$F$ of 0.391, against 0.381 for the
-previous leader), and the same method reproduced natively on the platform and served
-live from the \texttt{/benchmark} surface reaches a productized mean of 0.3745. It
-combines the homology backbone with a learned combiner that adds a direct full-catalogue
-predictor and, for partly characterised proteins, the cross-aspect functions that
-habitually accompany what is already known; every ingredient is chosen on an earlier
-window and confirmed on a held-out split that the sealed measurement never sees.
+The experimental work was a component of a team ranking of \#19 in CAFA~6. On the LAFA
+continuously updated public benchmark, measured once on the sealed September~2025 to
+March~2026 target frame and scored with the benchmark's own harness, the offline
+research champion of an earlier campaign reached \textbf{first place} overall
+(IA-weighted micro-$F$ of 0.391, against 0.381 for the previous leader).
 
-The doctoral contribution is threefold: (1) PROTEA as a reproducible, operationally
-auditable platform with a seven-repository plugin ecosystem and five deployment modes;
-(2) a leakage-free reranker pipeline that quantifies the true lift of feature
-engineering over PLM embeddings; (3) a first-place offline research result on the
-LAFA continuous benchmark (0.391), with a natively reproduced, live-served
-productized figure (0.3745) as an independently verifiable performance reference.
+The doctoral contribution is threefold: (1) PROTEA as an instrument for protein
+function prediction over time, with a corpus photo per cut, an evaluator faithful to
+the benchmark's rules, stratified and traceable results, and a seven-repository plugin
+ecosystem; (2) a research line that places every component explored (representations,
+sources of evidence, signals, learners and routing) in one frame, and compares a world
+model of protein knowledge against decision trees on equal terms; (3) the measurements
+themselves, reproducible from the platform, with an independently verified first place
+on the LAFA continuous benchmark.
 
 \bigskip
-\noindent\textbf{Keywords:} protein function prediction, gene ontology, protein
-language models, sequence embeddings, nearest-neighbour search, learning-to-rank,
-LightGBM, distributed systems, reproducibility, container deployment, bioinformatics
-infrastructure, OpenTelemetry.
+\noindent\textbf{Keywords:} protein function prediction, gene ontology, temporal
+evaluation, protein language models, nearest-neighbour transfer, learning to rank,
+decision trees, joint-embedding predictive architecture, world models, reproducibility,
+research infrastructure, bioinformatics.
