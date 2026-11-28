@@ -411,8 +411,36 @@ weighting derived from the CAFA6 IA file (\texttt{IA\_cafa6.tsv}).
   \item[$F_{\max}$] The maximum $F_1$ score over all prediction confidence
     thresholds $\tau \in [0, 1]$, computed per GO aspect. Precision and recall
     are defined over the full GO hierarchy using the true path rule.
-    $F_{\max}$ is the primary comparison metric throughout this chapter.
+  \item[Averaging] $F_1$ at a threshold can be formed in two ways, and they are
+    not two renderings of one quantity. The \emph{protein-centric} average takes
+    precision and recall per protein and averages them across proteins before
+    combining them, so every protein counts once. The \emph{pooled} average sums
+    true positives, false positives and false negatives across the whole
+    population first, so a protein that gained fifty terms weighs fifty times one
+    that gained a single term. This work stores both for every cell, as
+    \texttt{fmax\_w} and \texttt{f\_micro\_w} respectively, each weighted by
+    information accretion.
 \end{description}
+
+The distinction matters because the two public boards do not use the same one.
+CAFA scores protein-centric $F_{\max}$; \texttt{cafaeval} computes it under its
+\texttt{normalization=\textquotesingle cafa\textquotesingle} mode, which is the
+default this work runs under, so \texttt{fmax\_w} in every stored row is already
+the CAFA quantity. The LAFA live board scores the pooled IA-weighted variant,
+read from its own \texttt{evaluation\_best\_f\_micro\_w.tsv} output. A single
+number is therefore comparable to one board or to the other, never to both at
+once, and which one depends on the average it carries.
+
+\textbf{This chapter reports \texttt{f\_micro\_w}}, the pooled variant, because
+LAFA is the board this work submits to. That is a choice and not a convention,
+and on this work's own measurements it is not an innocuous one: across the
+seventy-two panel-by-configuration series of the depth sweep, the two averages
+name a different best neighbourhood depth in twenty-seven of them, and the
+metric declines monotonically with depth in sixty of the seventy-two series
+under the pooled average against thirty-eight under the protein-centric one.
+Any statement about an optimum in this chapter is therefore a statement under
+the pooled average, and a reader comparing against a CAFA leaderboard should
+read \texttt{fmax\_w} instead.
 
 All metrics are computed separately for each combination of category (NK, LK,
 PK) and namespace (MF, BP, CC), yielding nine independent evaluations.
@@ -1444,6 +1472,7 @@ from 287 to 928.
 
 % ────────────────────────────────────────────────────────────
 \input{chapters/06_experiment15_residue_sparse}
+\input{chapters/06_experiment16_curated_denials}
 
 \section{Discussion}
 \label{sec:discussion}
