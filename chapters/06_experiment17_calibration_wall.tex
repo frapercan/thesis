@@ -1,0 +1,192 @@
+\subsection{Experiment~17: One Threshold for Every Protein}
+\label{sec:exp17-calibration-wall}
+
+Every arm of this system emits the same way. Scores are produced per candidate,
+a single threshold is chosen to maximise the measure over the whole panel, and
+every protein is cut at that threshold. The threshold is fitted; the fact that
+one threshold serves all of them is not fitted at all. It is a structural
+choice that no experiment in this thesis has examined.
+
+This experiment asks what that choice costs. The answer is larger than any
+other margin measured here, and most of it is still unclaimed.
+
+\subsubsection{The Ceiling}
+
+Hold the ordering inside each protein completely fixed and let each protein
+choose its own threshold. Nothing about the scores changes and no candidate is
+added: the only thing that varies is where each protein's list is cut. The
+oracle reads the answer to make that choice, so what follows is a ceiling and
+not an opportunity, and it is reported as one throughout.
+
+\begin{table}[htbp]
+\centering
+\caption{What a per-protein threshold would gain, no-knowledge cells, additions
+only, scored over the whole term field.}
+\label{tab:exp17-ceiling}
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & & \multicolumn{3}{c}{pooled, IA-weighted} & \multicolumn{3}{c}{per-protein mean} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+Panel & $n$ & base & oracle & gain & base & oracle & gain \\
+\midrule
+BPO & 1509 & 0.1489 & 0.3631 & +0.2142 & 0.2682 & 0.4867 & +0.2185 \\
+MFO & 1129 & 0.3004 & 0.5653 & +0.2649 & 0.4902 & 0.7317 & +0.2415 \\
+CCO & 1116 & 0.2855 & 0.5581 & +0.2726 & 0.5228 & 0.7246 & +0.2018 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two properties of this table matter more than its size.
+
+It is present in both statistics and at the same magnitude. The two disagree by
+at most 0.07 on any panel, and neither is a rounding of the other: one pools a
+confusion matrix weighted by information accretion, the other averages an
+$F$-measure over proteins. Almost every promising signal examined in this work
+has separated well and then failed to convert between those two. This one does
+not.
+
+And the base reproduces the deployed system. Against the deployed arm measured
+independently, the per-protein-mean bases here differ by $+0.017$, $+0.004$ and
+$+0.003$. Two of the three panels agree to within four thousandths, which is
+what establishes that this is the same object and not a favourable
+reconstruction of it.
+
+\subsubsection{Where the Margin Lives}
+
+The margin is not spread across the population. At the optimal global
+threshold, the tenth of proteins that receive the most predictions receive an
+order of magnitude more than the median:
+
+\begin{table}[htbp]
+\centering
+\caption{The median protein and the top decile by emission, at one global
+threshold.}
+\label{tab:exp17-tail}
+\begin{tabular}{lrrrrr}
+\toprule
+Panel and group & $n$ & emitted & precision & recall & true terms \\
+\midrule
+BPO, below p90 & 1357 & 10 & 0.1643 & 0.2859 & 14 \\
+BPO, top decile & 152 & 182 & 0.0648 & 0.7464 & 13 \\
+CCO, below p90 & 993 & 8 & 0.4012 & 0.5153 & 8 \\
+CCO, top decile & 123 & 41 & 0.1713 & 0.8486 & 7 \\
+MFO, below p90 & 1015 & 4 & 0.3808 & 0.4740 & 5 \\
+MFO, top decile & 114 & 31 & 0.2520 & 0.8570 & 7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The last column is the one to read first. The tail proteins do not have more
+true annotations than the median ones: thirteen against fourteen, seven against
+eight, seven against five. They are not proteins that do more. They are
+proteins to which the system emits eighteen times more.
+
+And their recall is two to three times higher, at a third of the precision. So
+the tail is not noise to be swept away. It is where the method finds most of
+the answer and buries it. Cutting it back does not remove rubbish; it trades
+recall the protein has in abundance for precision it lacks.
+
+That reframes what a per-protein threshold does. It does not calibrate volume
+to what each protein deserves. It rescues the proteins that one global
+threshold serves worst, and those proteins are identifiable by how much they
+emit rather than by anything about their truth.
+
+\subsubsection{A Realisable Rule, and What It Is Not}
+
+The rule tested is the crudest one that can express a per-protein cut: keep the
+terms scoring within a fixed fraction $q$ of the protein's own best score. One
+scalar, fitted on half the proteins and scored on the other half, in both
+directions.
+
+\paragraph{It works, and not by its own name.} Against a global threshold it
+gains $+0.022$ to $+0.069$ on the per-protein mean, positive in nine of nine
+panel-by-artefact combinations with intervals excluding zero. Giving a protein
+some \emph{other} protein's peak and refitting $q$ kills it: negative in
+eighteen of eighteen.
+
+But the peak does not predict how many terms are true. The rank correlation
+between the two runs from $+0.03$ to $+0.11$ and changes sign between
+artefacts, so it is zero and not even stably signed. The rule is therefore not
+calibrating volume to evidence, whatever its description suggests. What it
+does is keep the terms within a relative band of the top, which is an operation
+on the shape of a protein's score distribution and not on its level. A protein
+whose scores fall away sharply keeps few; one with a flat summit keeps many.
+
+\paragraph{And it is not abstention.} By construction the rule cannot silence
+anyone: the cut always lands where the protein is still emitting, at every $q$
+including one. It is a trimming rule. The oracle's silence, which reaches a
+third of the panel, is a separate lever and remains without a key.
+
+\paragraph{The gain is where the mechanism says it should be.} Fitting on the
+whole population and evaluating the difference separately, the tail gains four
+to six times what the median does, $+0.105$ to $+0.235$ against $+0.022$ to
+$+0.078$, with eight of nine tail cells excluding zero. So $+0.03$ over the
+whole panel is a large improvement to a tenth of it, not a small improvement to
+everyone.
+
+\subsubsection{The Two Measures Disagree About What to Deploy}
+
+Against a global threshold the rule wins on both statistics. Against a fixed
+top-$k$, a baseline that emits the same number of terms for every protein and
+costs nothing to implement, they part company.
+
+\begin{table}[htbp]
+\centering
+\caption{Per-protein rescaling against a fixed top-$k$, cross-fitted, over
+three artefacts.}
+\label{tab:exp17-metrics}
+\begin{tabular}{lll}
+\toprule
+Statistic & Rule applied to all & Rule applied to the top quintile \\
+\midrule
+Per-protein mean & wins, median $+0.0136$ & falls to a third \\
+Pooled IA-weighted & \textbf{loses} to fixed top-$k$ & wins, $+0.015$ to $+0.047$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under the pooled weighted measure the unrestricted rule actively harms the
+median protein, which is what makes it unstable there, and restricting it to
+the highest-emitting fifth removes the harm and turns eight of nine panels
+positive. Under the per-protein mean the median also gains, so restricting the
+rule throws that gain away.
+
+The targeting is not merely doing less. Applying the rule to a randomly drawn
+decile of the same size, over twenty draws per cell, is beaten by volume-based
+targeting in nine of nine panels under the pooled measure, by a factor of three
+to four. Under the per-protein mean the random decile matches it in six of
+nine, so there the restriction really is buying by doing less, and the criterion
+is decoration.
+
+\textbf{The finding is that pair of rows, not either rule.} A per-protein mean
+rewards repairing the few proteins served worst, because each protein counts
+once. A pooled sum weighted by information accretion penalises disturbing the
+many that were already fine, because what is trimmed carries mass. The two
+answers are not reconcilable by fitting, and the system reports to the
+community benchmark under one measure while its own surfaces read the other.
+Which rule to deploy therefore has no metric-free answer, and choosing is a
+decision to be taken openly rather than settled inside a hyperparameter.
+
+\subsubsection{What Bounds It}
+
+The gains are small in absolute terms and not small against the bases they
+improve: $+0.032$ on $0.1452$ is twenty-two per cent, $+0.032$ on $0.1625$ is
+twenty, $+0.026$ on $0.1438$ is eighteen. Both readings are true and they
+persuade different readers, so both are given.
+
+The oracle reads the answer. The ceiling of $+0.20$ to $+0.27$ sizes the
+question and not the opportunity, and the realisable rule recovers between a
+ninth and a third of it. What claims the rest is unknown.
+
+Two panels cannot be measured. The per-protein artefact refuses to write the
+prior-knowledge cells for two of three aspects, because the evaluation kernel
+pools its confusion matrix over rows it excludes from the population it
+normalises by. That refusal is correct and the defect it names is real, but it
+leaves the largest cells of the frame outside this experiment.
+
+The directed rule carries two fitted parameters, not one, and the threshold it
+uses is discretised: a protein's peak takes sixty distinct values on a grid of
+ninety-nine, so a continuous $q$ is in practice sixty steps. And every number
+here is one temporal window and one reference bank, so the stationarity of the
+annotation process, which is not established anywhere in this work, bounds how
+far any of it carries forward.

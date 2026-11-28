@@ -28,6 +28,11 @@ Prediction quality is improved by a LightGBM re-ranker trained on a 56-feature s
 combining embedding distance, Needleman-Wunsch and Smith-Waterman alignment statistics,
 NCBI-taxonomy-based distance metrics, and GO-graph ancestry embeddings (anc2vec).
 Training follows a leakage-free temporal holdout over twelve consecutive GOA releases.
+All $F_{\max}$ figures reported here are information-accretion weighted, and the
+averaging axis is stated explicitly in the metrics section: the protein-centric
+average that CAFA scores and the pooled average that the LAFA live board scores
+are both computed and stored, they are not interchangeable, and this work reports
+the pooled one.
 Under this protocol a $3^{3}$ hyperparameter grid search on the NK-BPO task yields
 $F_{\max}$ in the range 0.4386--0.4669, and cafaeval re-validation of the 56-feature
 re-ranker (three-seed replication, average lab $F_{\max}$ 0.2881) returns 0.5427,
